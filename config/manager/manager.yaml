@@ -1,0 +1,39 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  labels:
+    control-plane: curve-operator
+  name: curvebs
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: curve-operator
+  namespace: curvebs
+  labels:
+    control-plane: curve-operator
+spec:
+  selector:
+    matchLabels:
+      control-plane: curve-operator
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        control-plane: curve-operator
+    spec:
+      containers:
+      - command:
+        - /curve-operator
+        args:
+        - --enable-leader-election
+        image: harbor.cloud.netease.com/curve/curve-operator:latest
+        name: manager
+        resources:
+          limits:
+            cpu: 2000m
+            memory: 2Gi
+          requests:
+            cpu: 100m
+            memory: 100Mi
+      terminationGracePeriodSeconds: 10
