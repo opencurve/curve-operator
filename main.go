@@ -21,12 +21,14 @@ import (
 	"os"
 
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/kubernetes"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
 	operatorv1 "github.com/opencurve/curve-operator/api/v1"
+	"github.com/opencurve/curve-operator/pkg/clusterd"
 	"github.com/opencurve/curve-operator/pkg/controllers"
 	"github.com/spf13/pflag"
 	// +kubebuilder:scaffold:imports
@@ -89,7 +91,22 @@ func main() {
 
 	ctrl.SetLogger(zap.New(zap.UseDevMode(true)))
 
-	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
+	// get config file and create clientSet that pass to context
+
+	config := ctrl.GetConfigOrDie()
+
+	clientSet, err := kubernetes.NewForConfig(config)
+	if err != nil {
+		setupLog.Error(err, "create clientset failed")
+		os.Exit(1)
+	}
+
+	// Create context
+	context := clusterd.Context{
+		Clientset: clientSet,
+	}
+
+	mgr, err := ctrl.NewManager(config, ctrl.Options{
 		Scheme:             scheme,
 		MetricsBindAddress: metricsAddr,
 		Port:               9443,
@@ -101,11 +118,12 @@ func main() {
 		os.Exit(1)
 	}
 
-	if err = (&controllers.CurveClusterReconciler{
-		Client: mgr.GetClient(),
-		Log:    ctrl.Log.WithName("controllers").WithName("CurveCluster"),
-		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr); err != nil {
+	if err = (controllers.NewCurveClusterReconciler(
+		mgr.GetClient(),
+		ctrl.Log.WithName("controllers").WithName("CurveCluster"),
+		mgr.GetScheme(),
+		context,
+	)).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "CurveCluster")
 		os.Exit(1)
 	}
