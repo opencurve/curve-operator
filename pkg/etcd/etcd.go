@@ -10,7 +10,9 @@ import (
 	"github.com/opencurve/curve-operator/pkg/config"
 	"github.com/opencurve/curve-operator/pkg/k8sutil"
 	"github.com/pkg/errors"
+	v1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 )
 
@@ -55,8 +57,37 @@ func (c *Cluster) Start() error {
 	}
 	etcd_endpoints = strings.TrimRight(etcd_endpoints, ",")
 
-	// Create configmap template for etcd server
+	// create etcd endpoints configmap for mds use.
+	etcdConfigMapData := map[string]string{
+		config.OvverideCMDataKey: etcd_endpoints,
+	}
 
+	// create configMap override to record the endpoints of etcd
+	// etcd-endpoints-override configmap only has one "etcdEndpoints" key that the value is etcd cluster endpoints
+	overrideCM := &v1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      config.OverrideCM,
+			Namespace: c.namespacedName.Namespace,
+		},
+		Data: etcdConfigMapData,
+	}
+
+	_, err = c.context.Clientset.CoreV1().ConfigMaps(c.namespacedName.Namespace).Create(overrideCM)
+	if err != nil {
+		if !kerrors.IsAlreadyExists(err) {
+			return errors.Wrapf(err, "failed to create override configmap %s", c.namespacedName.Namespace)
+		}
+		log.Infof("ConfigMap for override etcd endpoints %s already exists. updating if needed", config.OverrideCM)
+
+		// TODO:Update the daemon Deployment
+		// if err := updateDeploymentAndWait(c.context, c.clusterInfo, d, config.MgrType, mgrConfig.DaemonID, c.spec.SkipUpgradeChecks, false); err != nil {
+		// 	logger.Errorf("failed to update mgr deployment %q. %v", resourceName, err)
+		// }
+	} else {
+		log.Infof("ConfigMap for override etcd endpoints", config.OverrideCM)
+	}
+
+	// create ConfigMap and referred Deployment by travel all nodes that have been labeled - "app=etcd"
 	daemonID := 0
 	var daemonIDString string
 	for nodeName, ipAddr := range nodeNameIP {
@@ -68,12 +99,13 @@ func (c *Cluster) Start() error {
 			DaemonID:     daemonIDString,
 			ResourceName: resourceName,
 			DataPathMap: config.NewDaemonDataPathMap(
-				c.spec.DataDirHostPath,
-				c.spec.LogDirHostPath,
+				fmt.Sprint(c.spec.DataDirHostPath, "/etcd"),
+				fmt.Sprint(c.spec.LogDirHostPath, "/etcd"),
 				ContainerDataDir,
 				ContainerLogDir,
 			),
 		}
+
 		// for debug
 		// log.Infof("current node is %v", nodeName)
 
