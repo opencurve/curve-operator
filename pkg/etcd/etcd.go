@@ -44,13 +44,7 @@ func New(context clusterd.Context, namespacedName types.NamespacedName, spec cur
 }
 
 // Start begins the process of running a cluster of curve etcds.
-func (c *Cluster) Start() error {
-	// get node name and internal ip map
-	nodeNameIP, err := c.getNodeInfoMap()
-	if err != nil {
-		return errors.Wrap(err, "failed get node with app=etcd label")
-	}
-
+func (c *Cluster) Start(nodeNameIP map[string]string) error {
 	var etcd_endpoints string
 	for nodeName, ipAddr := range nodeNameIP {
 		etcd_endpoints = fmt.Sprint(etcd_endpoints, nodeName, "=", `http://`, ipAddr, ":", c.spec.Etcd.Port, ",")
@@ -72,7 +66,7 @@ func (c *Cluster) Start() error {
 		Data: etcdConfigMapData,
 	}
 
-	_, err = c.context.Clientset.CoreV1().ConfigMaps(c.namespacedName.Namespace).Create(overrideCM)
+	_, err := c.context.Clientset.CoreV1().ConfigMaps(c.namespacedName.Namespace).Create(overrideCM)
 	if err != nil {
 		if !kerrors.IsAlreadyExists(err) {
 			return errors.Wrapf(err, "failed to create override configmap %s", c.namespacedName.Namespace)
