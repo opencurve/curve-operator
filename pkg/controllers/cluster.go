@@ -4,6 +4,7 @@ import (
 	curvev1 "github.com/opencurve/curve-operator/api/v1"
 	"github.com/opencurve/curve-operator/pkg/clusterd"
 	"github.com/opencurve/curve-operator/pkg/etcd"
+	"github.com/opencurve/curve-operator/pkg/mds"
 	"github.com/pkg/errors"
 	"k8s.io/apimachinery/pkg/types"
 )
@@ -42,7 +43,14 @@ func (c *cluster) reconcileCurveDaemons() error {
 	if err != nil {
 		return errors.Wrap(err, "failed to start curve etcd")
 	}
+
 	// 2. Start Mds cluster
+	mds := mds.New(c.context, c.NamespacedName, *c.Spec)
+	err = mds.Start()
+	if err != nil {
+		return errors.Wrap(err, "failed to start curve mds")
+	}
+
 	// 3. Start ChunkServer cluster
 	return nil
 }
