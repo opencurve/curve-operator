@@ -16,3 +16,6 @@ spec:
   etcd:
     port: 23820
     listenPort: 23830
+  mds:
+    port: 23990
+    dummyPort: 23980
