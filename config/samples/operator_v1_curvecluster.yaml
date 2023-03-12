@@ -1,7 +1,18 @@
 apiVersion: operator.curve.io/v1
 kind: CurveCluster
 metadata:
-  name: cluster
+  name: cluster-test1
+  namespace: curvebs
 spec:
   # Add fields here
-  foo: bar
+  curveVersion:
+    image: opencurvedocker/curvebs:v1.2
+  nodes:
+  - 10.219.196.145
+  - 10.219.196.150
+  - 10.219.192.90
+  dataDirHostPath: "/curvebs/data"
+  logDirHostPath: "/curvebs/log"
+  etcd:
+    port: 23900
+    listenPort: 23910

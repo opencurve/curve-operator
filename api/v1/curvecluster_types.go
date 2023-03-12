@@ -120,6 +120,7 @@ type CurveClusterSpec struct {
 	// +optional
 	CurveVersion CurveVersionSpec `json:"curveVersion,omitempty"`
 
+	// +optional
 	Nodes []string `json:"nodes,omitempty"`
 
 	// +optional
