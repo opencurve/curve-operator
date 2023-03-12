@@ -9,10 +9,10 @@ spec:
     image: opencurvedocker/curvebs:v1.2
   nodes:
   - 10.219.196.145
-  - 10.219.196.150
   - 10.219.192.90
+  - 10.219.196.150
   dataDirHostPath: "/curvebs/data"
   logDirHostPath: "/curvebs/log"
   etcd:
-    port: 23900
-    listenPort: 23910
+    port: 23820
+    listenPort: 23830

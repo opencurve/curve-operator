@@ -84,13 +84,32 @@ func (c *Cluster) Start() error {
 		// 	logger.Errorf("failed to update mgr deployment %q. %v", resourceName, err)
 		// }
 	} else {
-		log.Infof("ConfigMap for override etcd endpoints", config.OverrideCM)
+		log.Infof("ConfigMap %s for override etcd endpoints has been created", config.OverrideCM)
+	}
+
+	// reorder the nodeNameIP according to the order of nodes spec defined by the user
+	// nodes:
+	// - 10.219.196.145 - curve-etcd-a
+	// - 10.219.196.90  - curve-etcd-b
+	// - 10.219.196.150 - curve-etcd-c
+	nodeNamesOrdered := make([]string, 0)
+	for _, nodeIP := range c.spec.Nodes {
+		for nodeName, ipAddr := range nodeNameIP {
+			if nodeIP == ipAddr {
+				nodeNamesOrdered = append(nodeNamesOrdered, nodeName)
+			}
+		}
+	}
+
+	if len(nodeNamesOrdered) != 3 {
+		log.Errorf("Nodes spec field is not 3, current nodes is %d", len(nodeNamesOrdered))
+		return errors.New("Nodes spec field is not 3")
 	}
 
 	// create ConfigMap and referred Deployment by travel all nodes that have been labeled - "app=etcd"
 	daemonID := 0
 	var daemonIDString string
-	for nodeName, ipAddr := range nodeNameIP {
+	for _, nodeName := range nodeNamesOrdered {
 		daemonIDString = k8sutil.IndexToName(daemonID)
 		daemonID++
 		// Construct etcd config to pass to make deployment
@@ -110,7 +129,7 @@ func (c *Cluster) Start() error {
 		// log.Infof("current node is %v", nodeName)
 
 		// determine the etcd_points that pass to ConfigMap field "initial-cluster" by nodeNameIP
-		curConfigMapName, err := c.createConfigMap(daemonIDString, nodeName, ipAddr, etcd_endpoints)
+		curConfigMapName, err := c.createConfigMap(daemonIDString, nodeName, nodeNameIP[nodeName], etcd_endpoints)
 		if err != nil {
 			return errors.Wrapf(err, "failed to create etcd configmap for %v", nodeName)
 		}
