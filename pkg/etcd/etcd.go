@@ -46,8 +46,8 @@ func New(context clusterd.Context, namespacedName types.NamespacedName, spec cur
 // Start begins the process of running a cluster of curve etcds.
 func (c *Cluster) Start(nodeNameIP map[string]string) error {
 	var etcd_endpoints string
-	for nodeName, ipAddr := range nodeNameIP {
-		etcd_endpoints = fmt.Sprint(etcd_endpoints, nodeName, "=", `http://`, ipAddr, ":", c.spec.Etcd.Port, ",")
+	for _, ipAddr := range nodeNameIP {
+		etcd_endpoints = fmt.Sprint(etcd_endpoints, ipAddr, ":", c.spec.Etcd.Port, ",")
 	}
 	etcd_endpoints = strings.TrimRight(etcd_endpoints, ",")
 
@@ -139,7 +139,7 @@ func (c *Cluster) Start(nodeNameIP map[string]string) error {
 			if !kerrors.IsAlreadyExists(err) {
 				return errors.Wrapf(err, "failed to create etcd deployment %s", resourceName)
 			}
-			log.Infof("deployment for mgr %s already exists. updating if needed", resourceName)
+			log.Infof("deployment for etcd %s already exists. updating if needed", resourceName)
 
 			// TODO:Update the daemon Deployment
 			// if err := updateDeploymentAndWait(c.context, c.clusterInfo, d, config.MgrType, mgrConfig.DaemonID, c.spec.SkipUpgradeChecks, false); err != nil {

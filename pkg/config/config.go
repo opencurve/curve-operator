@@ -8,5 +8,8 @@ const (
 	// etcd
 	EtcdConfigMapDataKey      = "etcd.conf"
 	EtcdConfigMapMountPathDir = "/curvebs/etcd/conf"
+
 	// mds
+	MdsConfigMapDataKey      = "mds.conf"
+	MdsConfigMapMountPathDir = "/curvebs/mds/conf"
 )

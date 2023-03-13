@@ -56,7 +56,7 @@ func (c *cluster) reconcileCurveDaemons() error {
 
 	// 2. Start Mds cluster
 	mds := mds.New(c.context, c.NamespacedName, *c.Spec)
-	err = mds.Start()
+	err = mds.Start(nodeNameIP)
 	if err != nil {
 		return errors.Wrap(err, "failed to start curve mds")
 	}

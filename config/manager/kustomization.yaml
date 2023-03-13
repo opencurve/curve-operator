@@ -5,4 +5,4 @@ kind: Kustomization
 images:
 - name: harbor.cloud.netease.com/curve/curve-operator
   newName: harbor.cloud.netease.com/curve/curve-operator
-  newTag: 5bffc71
+  newTag: 44f6211
