@@ -49,6 +49,7 @@ func (c *Cluster) Start(nodeNameIP map[string]string) error {
 		return errors.Wrap(err, "failed to get etcd override endoints configmap")
 	}
 
+	// get etcdEndpoints data key of "etcdEndpoints" from etcd-endpoints-override
 	etcdEndpoints := overrideCM.Data[config.OvverideCMDataKey]
 
 	// determine the etcd_points that pass to ConfigMap field "initial-cluster" by nodeNameIP
@@ -60,7 +61,7 @@ func (c *Cluster) Start(nodeNameIP map[string]string) error {
 	// reorder the nodeNameIP according to the order of nodes spec defined by the user
 	// nodes:
 	// - 10.219.196.145 - curve-mds-a
-	// - 10.219.196.90  - curve-mds-b
+	// - 10.219.192.90  - curve-mds-b
 	// - 10.219.196.150 - curve-mds-c
 	nodeNamesOrdered := make([]string, 0)
 	for _, nodeIP := range c.spec.Nodes {
@@ -98,7 +99,7 @@ func (c *Cluster) Start(nodeNameIP map[string]string) error {
 		// log.Infof("current node is %v", nodeName)
 
 		// make mds deployment
-		d, err := c.makeDeployment(config.MdsConfigMapDataKey, config.MdsConfigMapMountPathDir, nodeName, mdsConfig, curConfigMapName)
+		d, err := c.makeDeployment(config.MdsConfigMapDataKey, config.MdsConfigMapMountPathDir, nodeName, mdsConfig, curConfigMapName, nodeNameIP[nodeName])
 		if err != nil {
 			return errors.Wrap(err, "failed to create mds Deployment")
 		}

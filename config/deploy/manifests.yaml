@@ -355,7 +355,7 @@ spec:
         - --enable-leader-election
         command:
         - /curve-operator
-        image: harbor.cloud.netease.com/curve/curve-operator:49f4f26
+        image: harbor.cloud.netease.com/curve/curve-operator:44f6211
         name: manager
         resources:
           limits:

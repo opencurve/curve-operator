@@ -23,7 +23,7 @@ func (c *Cluster) createConfigMap(etcd_endpoints string) (string, error) {
 	}
 
 	// modify part field config
-	configMapData["mds.listen.addr"] = "127.0.0.1" + ":" + strconv.Itoa(c.spec.Mds.Port)
+	// configMapData["mds.listen.addr"] = "127.0.0.1" + ":" + strconv.Itoa(c.spec.Mds.Port)
 	configMapData["mds.dummy.listen.port"] = strconv.Itoa(c.spec.Mds.DummyPort)
 	configMapData["global.port"] = strconv.Itoa(c.spec.Mds.Port)
 	configMapData["mds.etcd.endpoint"] = etcd_endpoints
@@ -63,7 +63,7 @@ func (c *Cluster) createConfigMap(etcd_endpoints string) (string, error) {
 }
 
 // makeDeployment make etcd deployment to run etcd server
-func (c *Cluster) makeDeployment(configMapDataKey string, configMapMountPathDir string, nodeName string, mdsConfig *mdsConfig, curConfigMapName string) (*apps.Deployment, error) {
+func (c *Cluster) makeDeployment(configMapDataKey string, configMapMountPathDir string, nodeName string, mdsConfig *mdsConfig, curConfigMapName string, nodeIP string) (*apps.Deployment, error) {
 	// TODO:
 	volumes := daemon.DaemonVolumes(configMapDataKey, configMapMountPathDir, mdsConfig.DataPathMap, curConfigMapName)
 
@@ -80,7 +80,7 @@ func (c *Cluster) makeDeployment(configMapDataKey string, configMapMountPathDir 
 			// 	c.makeChmodDirInitContainer(configMapDataKey, configMapMountPathDir, mdsConfig, curConfigMapName),
 			// },
 			Containers: []v1.Container{
-				c.makeMdsDaemonContainer(configMapDataKey, configMapMountPathDir, mdsConfig, curConfigMapName),
+				c.makeMdsDaemonContainer(configMapDataKey, configMapMountPathDir, mdsConfig, curConfigMapName, nodeIP),
 			},
 			NodeName:      nodeName,
 			RestartPolicy: v1.RestartPolicyAlways,
@@ -114,8 +114,11 @@ func (c *Cluster) makeDeployment(configMapDataKey string, configMapMountPathDir 
 }
 
 // makeMdsDaemonContainer create mds container
-func (c *Cluster) makeMdsDaemonContainer(configMapDataKey string, configMapMountPathDir string, mdsConfig *mdsConfig, curConfigMapName string) v1.Container {
-	configFileMountPath := path.Join(config.MdsConfigMapMountPathDir, "mds.conf")
+func (c *Cluster) makeMdsDaemonContainer(configMapDataKey string, configMapMountPathDir string, mdsConfig *mdsConfig, curConfigMapName string, nodeIP string) v1.Container {
+	configFileMountPath := path.Join(configMapMountPathDir, configMapDataKey)
+
+	// define two args(--mdsAddr and --confPath) to startup 'curvebs-mds'
+	argsMdsAddr := fmt.Sprintf("--mdsAddr=%s:%s ", nodeIP, strconv.Itoa(c.spec.Mds.Port))
 	argsConfigFileDir := fmt.Sprintf("--confPath=%s", configFileMountPath)
 
 	container := v1.Container{
@@ -123,7 +126,7 @@ func (c *Cluster) makeMdsDaemonContainer(configMapDataKey string, configMapMount
 		Command: []string{
 			"/curvebs/mds/sbin/curvebs-mds",
 		},
-		Args:            []string{argsConfigFileDir},
+		Args:            []string{argsMdsAddr, argsConfigFileDir},
 		Image:           c.spec.CurveVersion.Image,
 		ImagePullPolicy: c.spec.CurveVersion.ImagePullPolicy,
 		VolumeMounts:    daemon.DaemonVolumeMounts(configMapDataKey, configMapMountPathDir, mdsConfig.DataPathMap, curConfigMapName),
