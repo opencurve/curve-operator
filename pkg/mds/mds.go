@@ -50,7 +50,7 @@ func (c *Cluster) Start(nodeNameIP map[string]string) error {
 	}
 
 	// get etcdEndpoints data key of "etcdEndpoints" from etcd-endpoints-override
-	etcdEndpoints := overrideCM.Data[config.OvverideCMDataKey]
+	etcdEndpoints := overrideCM.Data[config.OverrideCMDataKey]
 
 	// determine the etcd_points that pass to ConfigMap field "initial-cluster" by nodeNameIP
 	curConfigMapName, err := c.createConfigMap(etcdEndpoints)

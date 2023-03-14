@@ -159,8 +159,9 @@ func preClusterStartValidation(cluster *cluster) error {
 	// Assert the node num is 3
 	nodesNum := len(cluster.Spec.Nodes)
 	if nodesNum < 3 {
-		return errors.Errorf("nodes count shoule at least 3, cannot start cluster %d", len(cluster.Spec.Nodes))
-	} else if nodesNum > 3 {
+		return errors.Errorf("nodes count should at least 3, cannot start cluster %d", len(cluster.Spec.Nodes))
+	}
+	if nodesNum > 3 {
 		return errors.Errorf("nodes count more than 3, cannot start cluster temporary %d", len(cluster.Spec.Nodes))
 	}
 
