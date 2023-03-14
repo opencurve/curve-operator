@@ -120,7 +120,7 @@ func (r *CurveClusterReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error
 		return reconcile.Result{}, errors.Wrapf(err, "failed to reconcile cluster %q", curveCluster.Name)
 	}
 
-	k8sutil.UpdateCondition(context.TODO(), &r.ClusterController.context, r.ClusterController.namespacedName, curvev1.ConditionTypeClusterReady, curvev1.ConditionTrue, curvev1.ConditionReconcileSucceeded, "Reconcile curvecluster successed")
+	k8sutil.UpdateCondition(context.TODO(), &r.ClusterController.context, r.ClusterController.namespacedName, curvev1.ConditionTypeClusterReady, curvev1.ConditionTrue, curvev1.ConditionReconcileSucceeded, "Reconcile curvecluster succeeded")
 
 	return ctrl.Result{}, nil
 }
@@ -214,7 +214,7 @@ func preClusterStartValidation(cluster *daemon.Cluster) error {
 	// Assert the node num is 3
 	nodesNum := len(cluster.Nodes)
 	if nodesNum < 3 {
-		return errors.Errorf("nodes count shoule at least 3, cannot start cluster %d", len(cluster.Nodes))
+		return errors.Errorf("nodes count should at least 3, cannot start cluster %d", len(cluster.Nodes))
 	} else if nodesNum > 3 {
 		return errors.Errorf("nodes count more than 3, cannot start cluster temporary %d", len(cluster.Nodes))
 	}

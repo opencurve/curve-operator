@@ -12,12 +12,12 @@ const (
 const (
 	// configmap to record the endpoints of etcd
 	EtcdOverrideConfigMapName    = "etcd-endpoints-override"
-	EtcdOvverideConfigMapDataKey = "etcdEndpoints"
+	EtcdOverrideConfigMapDataKey = "etcdEndpoints"
 	ClusterEtcdAddr              = "clusterEtcdAddr"
 
 	// configmap to record the endpoints of mds
 	MdsOverrideConfigMapName    = "mds-endpoints-override"
-	MdsOvverideConfigMapDataKey = "mdsEndpoints"
+	MdsOverrideConfigMapDataKey = "mdsEndpoints"
 	ClusterMdsDummyAddr         = "clusterMdsDummyAddr"
 
 	// configuration

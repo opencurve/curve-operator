@@ -27,7 +27,7 @@ func (c *Cluster) createOverrideMdsCM(nodeNameIP map[string]string) error {
 	clusterMdsDummyAddr = strings.TrimRight(clusterMdsDummyAddr, ",")
 
 	mdsConfigMapData := map[string]string{
-		config.MdsOvverideConfigMapDataKey: mds_endpoints,
+		config.MdsOverrideConfigMapDataKey: mds_endpoints,
 		config.ClusterMdsDummyAddr:         clusterMdsDummyAddr,
 	}
 

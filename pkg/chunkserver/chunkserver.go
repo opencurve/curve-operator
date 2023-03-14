@@ -65,14 +65,14 @@ func (c *Cluster) Start(nodeNameIP map[string]string) error {
 	defer canf()
 	go c.checkJobStatus(ctx, oneMinuteTicker, chn)
 
-	// block here unitl timeout(24 hours) or all jobs has been successed.
+	// block here until timeout(24 hours) or all jobs has been succeeded.
 	flag := <-chn
 	if !flag {
 		// TODO: delete all jobs that has created.
 		logger.Error("Format job is not completed in 24 hours and exit with -1")
 		return errors.New("Format job is not completed in 24 hours and exit with -1")
 	}
-	k8sutil.UpdateStatusCondition(c.Kind, context.TODO(), &c.Context, c.NamespacedName, curvev1.ConditionTypeFormatedReady, curvev1.ConditionTrue, curvev1.ConditionFormatChunkfilePoolReason, "Formating chunkfilepool successed")
+	k8sutil.UpdateStatusCondition(c.Kind, context.TODO(), &c.Context, c.NamespacedName, curvev1.ConditionTypeFormatedReady, curvev1.ConditionTrue, curvev1.ConditionFormatChunkfilePoolReason, "Formating chunkfilepool succeeded")
 
 	logger.Info("all jobs run completed in 24 hours")
 
@@ -87,11 +87,11 @@ func (c *Cluster) Start(nodeNameIP map[string]string) error {
 	}
 
 	// create physical pool
-	_, err = topology.RunCreatePoolJob(c.Cluster, dcs, topology.PYHSICAL_POOL)
+	_, err = topology.RunCreatePoolJob(c.Cluster, dcs, topology.PHYSICAL_POOL)
 	if err != nil {
 		return err
 	}
-	logger.Info("create physical pool successed")
+	logger.Info("create physical pool succeeded")
 
 	// start all chunkservers for each device of every node
 	err = c.startChunkServers()
@@ -109,6 +109,6 @@ func (c *Cluster) Start(nodeNameIP map[string]string) error {
 	if err != nil {
 		return err
 	}
-	logger.Info("create logical pool successed")
+	logger.Info("create logical pool succeeded")
 	return nil
 }

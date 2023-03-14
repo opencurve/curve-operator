@@ -105,9 +105,9 @@ func GetValidChunkserverHosts(c clusterd.Context, curveCluster *curvev1.CurveClu
 	for _, s := range curveCluster.Spec.Storage.SelectedNodes {
 		chunkserverHosts = append(chunkserverHosts, s.Node)
 	}
-	valiedChunkHosts, err := GetValidNodes(c, chunkserverHosts)
+	validChunkHosts, err := GetValidNodes(c, chunkserverHosts)
 
-	return valiedChunkHosts, err
+	return validChunkHosts, err
 }
 
 func MergeNodesOfDaemonAndChunk(daemonHosts []v1.Node, chunkserverHosts []v1.Node) []v1.Node {

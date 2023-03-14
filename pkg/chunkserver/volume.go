@@ -91,7 +91,7 @@ func CSDaemonVolumes(csConfig *chunkserverConfig) []v1.Volume {
 	return vols
 }
 
-// CSDaemonVolumeMounts returns the pod container volume mounth used only by chunkserver
+// CSDaemonVolumeMounts returns the pod container volume mounts used only by chunkserver
 func CSDaemonVolumeMounts(csConfig *chunkserverConfig) []v1.VolumeMount {
 	mounts := []v1.VolumeMount{}
 

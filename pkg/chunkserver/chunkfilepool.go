@@ -82,7 +82,7 @@ func (c *Cluster) startProvisioningOverNodes(nodeNameIP map[string]string) ([]*t
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to get mds override endoints configmap")
 		}
-		clusterMdsAddr := mdsOverrideCM.Data[config.MdsOvverideConfigMapDataKey]
+		clusterMdsAddr := mdsOverrideCM.Data[config.MdsOverrideConfigMapDataKey]
 
 		// get clusterMdsDummyPort
 		dummyPort := strconv.Itoa(c.Mds.DummyPort)

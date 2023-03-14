@@ -19,7 +19,7 @@ func truncateConfigName(configName string) string {
 	return configMapName
 }
 
-// ParseConfigByDelimiter pase a config file according to different delimiter
+// ParseConfigByDelimiter parses a config file according to different delimiter
 func parseConfigByDelimiter(content string, delimiter string) (map[string]string, error) {
 	lines := strings.Split(content, "\n")
 	config := make(map[string]string)

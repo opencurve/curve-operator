@@ -15,9 +15,9 @@ import (
 )
 
 const (
-	PYHSICAL_POOL     = "physical_pool"
+	PHYSICAL_POOL     = "physical_pool"
 	LOGICAL_POOL      = "logical_pool"
-	JOB_PYHSICAL_POOL = "provision-physical-pool"
+	JOB_PHYSICAL_POOL = "provision-physical-pool"
 	JOB_LOGICAL_POOL  = "provision-logical-pool"
 )
 
@@ -26,7 +26,7 @@ var logger = capnslog.NewPackageLogger("github.com/opencurve/curve-operator", "t
 // RunCreatePoolJob create Job to register topology.json
 func RunCreatePoolJob(c *daemon.Cluster, dcs []*DeployConfig, poolType string) (*batch.Job, error) {
 	job := &batch.Job{}
-	if poolType == PYHSICAL_POOL {
+	if poolType == PHYSICAL_POOL {
 		job, _ = makeGenPoolJob(c, poolType, "provision-physical-pool")
 	} else if poolType == LOGICAL_POOL {
 		job, _ = makeGenPoolJob(c, poolType, "provision-logical-pool")
@@ -98,7 +98,7 @@ func makeCreatePoolContainer(c *daemon.Cluster, poolType string, mounts []v1.Vol
 	if c.Kind == config.KIND_CURVEBS {
 		toolsBinaryPath = "/curvebs/tools/sbin/curvebs-tool"
 		argsOp := ""
-		if poolType == PYHSICAL_POOL {
+		if poolType == PHYSICAL_POOL {
 			argsOp = fmt.Sprintf("-op=%s", "create_physicalpool")
 		} else if poolType == LOGICAL_POOL {
 			argsOp = fmt.Sprintf("-op=%s", "create_logicalpool")

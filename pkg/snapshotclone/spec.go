@@ -27,14 +27,14 @@ func (c *Cluster) prepareConfigMap(snapConfig *snapConfig) error {
 	if err != nil {
 		return errors.Wrapf(err, "failed to get %s configmap from cluster", config.SnapShotCloneConfigMapName)
 	}
-	logger.Infof("creat ConfigMap '%s' successed", config.SnapClientConfigMapName)
+	logger.Infof("creat ConfigMap '%s' succeeded", config.SnapClientConfigMapName)
 
 	// 3. create snapshotclone.conf configmap
 	err = c.createSnapShotCloneConfigMap(snapConfig)
 	if err != nil {
 		return errors.Wrapf(err, "failed to get %s configmap from cluster", config.SnapShotCloneConfigMapName)
 	}
-	logger.Infof("creat ConfigMap '%s' successed", config.SnapShotCloneConfigMapName)
+	logger.Infof("creat ConfigMap '%s' succeeded", config.SnapShotCloneConfigMapName)
 
 	// 4. create nginx.conf configmap
 	err = c.createNginxConfigMap(snapConfig)

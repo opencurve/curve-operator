@@ -108,7 +108,7 @@ func (r *CurvefsReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 		return reconcile.Result{}, errors.Wrapf(err, "failed to reconcile cluster %q", curvefsCluster.Name)
 	}
 
-	k8sutil.UpdateFSCondition(context.TODO(), &r.ClusterController.context, r.ClusterController.namespacedName, curvev1.ConditionTypeClusterReady, curvev1.ConditionTrue, curvev1.ConditionReconcileSucceeded, "Reconcile curvecluster successed")
+	k8sutil.UpdateFSCondition(context.TODO(), &r.ClusterController.context, r.ClusterController.namespacedName, curvev1.ConditionTypeClusterReady, curvev1.ConditionTrue, curvev1.ConditionReconcileSucceeded, "Reconcile curvecluster succeeded")
 
 	return ctrl.Result{}, nil
 }

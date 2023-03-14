@@ -161,7 +161,7 @@ func (c *ClusterController) waitForCurveDaemonCleanUp(context context.Context, n
 
 // getCurveNodes get all the node names where curve daemons are running
 func (c *ClusterController) getCurveNodes(namespace string) ([]string, error) {
-	curveAppNames := []string{etcd.AppName, mds.AppName, chunkserver.AppName, chunkserver.PrepareJobName, topology.JOB_PYHSICAL_POOL, topology.JOB_LOGICAL_POOL, SyncConfigDeployment}
+	curveAppNames := []string{etcd.AppName, mds.AppName, chunkserver.AppName, chunkserver.PrepareJobName, topology.JOB_PHYSICAL_POOL, topology.JOB_LOGICAL_POOL, SyncConfigDeployment}
 	nodeNameList := sets.NewString()
 	hostNameList := []string{}
 	var b strings.Builder

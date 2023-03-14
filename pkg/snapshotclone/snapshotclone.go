@@ -54,7 +54,7 @@ func (c *Cluster) Start(nodeNameIP map[string]string) error {
 	if err != nil {
 		return errors.Wrap(err, "failed to get mds override endoints configmap")
 	}
-	clusterMdsAddr := mdsOverrideCM.Data[config.MdsOvverideConfigMapDataKey]
+	clusterMdsAddr := mdsOverrideCM.Data[config.MdsOverrideConfigMapDataKey]
 
 	if err := c.createStartSnapConfigMap(); err != nil {
 		return err
@@ -74,7 +74,7 @@ func (c *Cluster) Start(nodeNameIP map[string]string) error {
 		}
 	}
 
-	// never happend
+	// never happen
 	if len(nodeNamesOrdered) != 3 {
 		return errors.New("Nodes spec field is not 3")
 	}

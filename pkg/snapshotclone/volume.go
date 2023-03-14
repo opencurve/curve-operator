@@ -27,7 +27,7 @@ func SnapDaemonVolumes(snapConfig *snapConfig) []v1.Volume {
 	return vols
 }
 
-// DaemonVolumeMounts returns the pod container volume mounth used only by chunkserver
+// DaemonVolumeMounts returns the pod container volume mounts used only by chunkserver
 func SnapDaemonVolumeMounts(snapConfig *snapConfig) []v1.VolumeMount {
 	mounts := []v1.VolumeMount{}
 

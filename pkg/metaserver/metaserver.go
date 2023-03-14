@@ -111,7 +111,7 @@ func (c *Cluster) buildConfigs(nodeNameIP map[string]string) ([]*metaserverConfi
 	if err != nil {
 		return nil, nil, errors.Wrap(err, "failed to get mds override endoints configmap")
 	}
-	clusterMdsAddr := mdsOverrideCM.Data[config.MdsOvverideConfigMapDataKey]
+	clusterMdsAddr := mdsOverrideCM.Data[config.MdsOverrideConfigMapDataKey]
 	clusterMdsDummyAddr := mdsOverrideCM.Data[config.ClusterMdsDummyAddr]
 
 	// reorder the nodeNameIP according to the order of nodes spec defined by the user
