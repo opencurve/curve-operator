@@ -53,7 +53,7 @@ func (c *Cluster) Start(nodeNameIP map[string]string) error {
 
 	// create etcd endpoints configmap for mds use.
 	etcdConfigMapData := map[string]string{
-		config.OvverideCMDataKey: etcd_endpoints,
+		config.OverrideCMDataKey: etcd_endpoints,
 	}
 
 	// create configMap override to record the endpoints of etcd

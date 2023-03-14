@@ -51,7 +51,7 @@ const (
 	ConditionSnapShotCloneReady ConditionType = "SnapShotCloneReady"
 	// ConditionChunkServerReady
 	ConditionChunkServerReady ConditionType = "ChunkServerReady"
-	// ConditionReady represents Ready state of an object when cluster is created successed.
+	// ConditionReady represents Ready state of an object when cluster is created successfully.
 	ConditionReady ConditionType = "Ready"
 	// ConditionFailure represents Failure state of an object
 	ConditionFailure ConditionType = "Failed"
