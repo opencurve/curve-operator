@@ -1,6 +1,6 @@
 module github.com/opencurve/curve-operator
 
-go 1.17
+go 1.19
 
 require (
 	github.com/coreos/pkg v0.0.0-20180108230652-97fdf19511ea
