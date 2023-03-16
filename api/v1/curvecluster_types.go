@@ -259,6 +259,9 @@ type StorageScopeSpec struct {
 	Nodes []string `json:"nodes,omitempty"`
 
 	// +optional
+	Port int `json:"port,omitempty"`
+
+	// +optional
 	Devices []DevicesSpec `json:"devices,omitempty"`
 
 	// +optional

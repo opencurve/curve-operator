@@ -9,14 +9,11 @@ import (
 )
 
 const (
-	AppName       = "curve-chunkserver"
-	configMapName = "curve-chunkserver-config"
+	AppName = "curve-chunkserver"
 
 	// ContainerPath is the mount path of data and log
-	ContainerDataDir = "/curvebs/chunkserver/data"
-	ContainerLogDir  = "/curvebs/chunkserver/logs"
-
-	DefaultMdsCount = 3
+	ChunkserverContainerDataDir = "/curvebs/chunkserver/data"
+	ChunkserverContainerLogDir  = "/curvebs/chunkserver/logs"
 )
 
 type Cluster struct {
@@ -51,10 +48,19 @@ func (c *Cluster) Start(nodeNameIP map[string]string) error {
 
 	log.Info("starting provisioning the chunkfilepool")
 
+	// 1. startProvisioningOverNodes format device and provision chunk files
 	err := c.startProvisioningOverNodes()
 	if err != nil {
 		log.Error("failed to provision chunkfilepool")
 		return errors.Wrap(err, "failed to provision chunkfilepool")
 	}
+
+	// 2. startChunkServers start all chunkservers for each device of every node
+	err = c.startChunkServers()
+	if err != nil {
+		log.Error("failed to start chunkserver")
+		return errors.Wrap(err, "failed to start chunkserver")
+	}
+
 	return nil
 }

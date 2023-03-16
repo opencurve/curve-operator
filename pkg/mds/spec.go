@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"path"
 	"strconv"
+	"strings"
 
 	"github.com/opencurve/curve-operator/pkg/config"
 	"github.com/opencurve/curve-operator/pkg/daemon"
@@ -14,6 +15,45 @@ import (
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
+
+// createOverrideMdsCM create mds-endpoints-override configmap to record mds endpoints
+func (c *Cluster) createOverrideMdsCM(nodeNameIP map[string]string) error {
+	var mds_endpoints string
+	for _, ipAddr := range nodeNameIP {
+		mds_endpoints = fmt.Sprint(mds_endpoints, ipAddr, ":", c.spec.Mds.Port, ",")
+	}
+	mds_endpoints = strings.TrimRight(mds_endpoints, ",")
+
+	mdsConfigMapData := map[string]string{
+		config.MdsOvverideCMDataKey: mds_endpoints,
+	}
+
+	// create configMap override to record the endpoints of etcd
+	// etcd-endpoints-override configmap only has one "etcdEndpoints" key that the value is etcd cluster endpoints
+	mdsOverrideCM := &v1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      config.MdsOverrideCM,
+			Namespace: c.namespacedName.Namespace,
+		},
+		Data: mdsConfigMapData,
+	}
+
+	_, err := c.context.Clientset.CoreV1().ConfigMaps(c.namespacedName.Namespace).Create(mdsOverrideCM)
+	if err != nil {
+		if !kerrors.IsAlreadyExists(err) {
+			return errors.Wrapf(err, "failed to create override configmap %s", c.namespacedName.Namespace)
+		}
+		log.Infof("ConfigMap for override mds endpoints %s already exists. updating if needed", config.OverrideCM)
+
+		// TODO:Update the daemon Deployment
+		// if err := updateDeploymentAndWait(c.context, c.clusterInfo, d, config.MgrType, mgrConfig.DaemonID, c.spec.SkipUpgradeChecks, false); err != nil {
+		// 	logger.Errorf("failed to update mgr deployment %q. %v", resourceName, err)
+		// }
+	} else {
+		log.Infof("ConfigMap %s for override mds endpoints has been created", config.OverrideCM)
+	}
+	return nil
+}
 
 // createConfigMap create mds configmap for mds server
 func (c *Cluster) createConfigMap(etcd_endpoints string) (string, error) {

@@ -43,7 +43,7 @@ func New(context clusterd.Context, namespacedName types.NamespacedName, spec cur
 
 // Start begins the process of running a cluster of curve mds.
 func (c *Cluster) Start(nodeNameIP map[string]string) error {
-	// judge the etcd override configmap if exist
+	// 1. judge the etcd override configmap if exist
 	overrideCM, err := c.context.Clientset.CoreV1().ConfigMaps(c.namespacedName.Namespace).Get(config.OverrideCM, metav1.GetOptions{})
 	if err != nil {
 		return errors.Wrap(err, "failed to get etcd override endoints configmap")
@@ -56,6 +56,12 @@ func (c *Cluster) Start(nodeNameIP map[string]string) error {
 	curConfigMapName, err := c.createConfigMap(etcdEndpoints)
 	if err != nil {
 		return errors.Wrapf(err, "failed to create mds configmap for %v", configMapName)
+	}
+
+	// 2. create mds configmap override to record mds endpoints
+	err = c.createOverrideMdsCM(nodeNameIP)
+	if err != nil {
+		return err
 	}
 
 	// reorder the nodeNameIP according to the order of nodes spec defined by the user

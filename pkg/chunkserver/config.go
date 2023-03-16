@@ -1,24 +1,31 @@
 package chunkserver
 
-// etcdConfig for a single etcd
+// chunkserverConfig for a single chunkserver
 type chunkserverConfig struct {
-	// the name that operator gives to etcd resources in k8s metadata
+	// the name that operator gives to chunkserver resources in k8s metadata
 	ResourceName string
 
-	// the ID of etcd daemon ("a", "b", ...)
-	DaemonID string
-
 	// location to store data in container and local host
-	DataPathMap *DataPathMap
+	DataPathMap *chunkserverDataPathMap
+
+	// node name
+	NodeName string
+
+	// device name
+	DeviceName string
+
+	// port
+	Port int
 }
 
-// A DataPathMap is a struct which contains information about where Curve daemon data is stored in
-// containers and it used by chunkserver only
-type DataPathMap struct {
-	// HostDataDir should be set to the path on the host where the specific daemon's data is stored.
-	HostDataDir string
+// chunkserverDataPathMap represents the device on host and referred Mount Path in container
+type chunkserverDataPathMap struct {
+	// HostDevice is the device name such as '/dev/sdb'
+	HostDevice string
 
-	// ContainerDataDir should be set to the path in the container
-	// where the specific daemon's data is stored.
+	// ContainerDataDir is the data dir of chunkserver such as '/curvebs/chunkserver/data/'
 	ContainerDataDir string
+
+	// ContainerLogDir is the log dir of chunkserver such as '/curvebs/chunkserver/logs'
+	ContainerLogDir string
 }
