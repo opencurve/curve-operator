@@ -3,9 +3,8 @@ package controllers
 import (
 	"github.com/coreos/pkg/capnslog"
 	curvev1 "github.com/opencurve/curve-operator/api/v1"
+	"github.com/opencurve/curve-operator/pkg/chunkserver"
 	"github.com/opencurve/curve-operator/pkg/clusterd"
-	"github.com/opencurve/curve-operator/pkg/etcd"
-	"github.com/opencurve/curve-operator/pkg/mds"
 	"github.com/pkg/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -48,20 +47,27 @@ func (c *cluster) reconcileCurveDaemons() error {
 	}
 
 	// 1. Start Etcd cluster
-	etcds := etcd.New(c.context, c.NamespacedName, *c.Spec)
-	err = etcds.Start(nodeNameIP)
-	if err != nil {
-		return errors.Wrap(err, "failed to start curve etcd")
-	}
+	// etcds := etcd.New(c.context, c.NamespacedName, *c.Spec)
+	// err = etcds.Start(nodeNameIP)
+	// if err != nil {
+	// 	return errors.Wrap(err, "failed to start curve etcd")
+	// }
 
-	// 2. Start Mds cluster
-	mds := mds.New(c.context, c.NamespacedName, *c.Spec)
-	err = mds.Start(nodeNameIP)
-	if err != nil {
-		return errors.Wrap(err, "failed to start curve mds")
-	}
+	// // 2. Start Mds cluster
+	// mds := mds.New(c.context, c.NamespacedName, *c.Spec)
+	// err = mds.Start(nodeNameIP)
+	// if err != nil {
+	// 	return errors.Wrap(err, "failed to start curve mds")
+	// }
 
-	// 3. Start ChunkServer cluster
+	// 3. Create Job to format disk and prepare chunkfilepool
+
+	chunkservers := chunkserver.New(c.context, c.NamespacedName, *c.Spec)
+	err = chunkservers.Start(nodeNameIP)
+	if err != nil {
+		return errors.Wrap(err, "failed to start curve chunkserver")
+	}
+	// 4. Start ChunkServer cluster
 	return nil
 }
 

@@ -253,7 +253,7 @@ type S3ConfigSpec struct {
 // StorageScopeSpec
 type StorageScopeSpec struct {
 	// +optional
-	UseAllNodes bool `json:"useAllNodes,omitempty"`
+	UseSelectedNodes bool `json:"useSelectedNodes,omitempty"`
 
 	// +optional
 	Nodes []string `json:"nodes,omitempty"`

@@ -12,9 +12,12 @@ kubectl delete deploy curve-etcd-b -n curvebs
 kubectl delete deploy curve-etcd-c -n curvebs
 
 # mds configmap
-kubectl delete cm curve-mds-config-a -n curvebs
-kubectl delete cm curve-mds-config-b -n curvebs
-kubectl delete cm curve-mds-config-c -n curvebs
+# kubectl delete cm curve-mds-config-a -n curvebs
+# kubectl delete cm curve-mds-config-b -n curvebs
+# kubectl delete cm curve-mds-config-c -n curvebs
+
+# mds configmap
+kubectl delete cm curve-mds-config -n curvebs
 
 # mds deployment
 kubectl delete deploy curve-mds-a -n curvebs
@@ -24,5 +27,9 @@ kubectl delete deploy curve-mds-c -n curvebs
 # all po in curvebs cluster
 kubectl delete --all pods -n curvebs
 
+# all job in curvebs cluster
+kubectl delete --all job -n curvebs
+
+kubectl delete cm format-chunkfilepool-conf -n curvebs
 # curvecluster cr
 kubectl delete -f config/samples/

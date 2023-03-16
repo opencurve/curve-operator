@@ -19,3 +19,13 @@ spec:
   mds:
     port: 23990
     dummyPort: 23980
+  storage:
+    useSelectedNodes: false
+    nodes:
+    - node1
+    - node2
+    # - node3
+    devices:
+    - name: "/dev/sdb"
+      mountPath: "/data/chunkserver0"
+      percentage: 90

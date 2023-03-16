@@ -159,7 +159,7 @@ spec:
                         type: string
                     type: object
                   type: array
-                useAllNodes:
+                useSelectedNodes:
                   type: boolean
               type: object
           type: object
