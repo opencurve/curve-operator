@@ -29,3 +29,7 @@ type chunkserverDataPathMap struct {
 	// ContainerLogDir is the log dir of chunkserver such as '/curvebs/chunkserver/logs'
 	ContainerLogDir string
 }
+
+type configData struct {
+	data map[string]string
+}

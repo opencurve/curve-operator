@@ -13,6 +13,7 @@ kubectl delete cm format-chunkfilepool-conf -n curvebs
 kubectl delete cm curve-chunkserver-conf -n curvebs
 kubectl delete cm cs-client-conf -n curvebs
 kubectl delete cm s3-conf -n curvebs
+kubectl delete cm start-chunkserver-conf -n curvebs
 
 # etcd deployment 
 kubectl delete deploy curve-etcd-a -n curvebs
@@ -27,11 +28,20 @@ kubectl delete deploy curve-mds-a -n curvebs
 kubectl delete deploy curve-mds-b -n curvebs
 kubectl delete deploy curve-mds-c -n curvebs
 
-# all po in curvebs cluster
-kubectl delete --all pods -n curvebs
+# chunkserver deployment
+kubectl delete deploy curve-chunkserver-node1-sdb -n curvebs
+kubectl delete deploy curve-chunkserver-node2-sdb -n curvebs
+
 
 # all job in curvebs cluster
 kubectl delete --all job -n curvebs
+
+# all po in curvebs cluster
+kubectl delete --all pods -n curvebs
+
+
+# all deploy in curvebs cluster
+kubectl delete --all deployment -n curvebs
 
 # curvecluster cr
 kubectl delete -f config/samples/

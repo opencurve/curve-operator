@@ -23,6 +23,7 @@ const (
 	formatScriptMountPath   = "/curvebs/tools/sbin/format.sh"
 )
 
+// global variables
 var jobsArr []string
 var chunkserverConfigs []chunkserverConfig
 
@@ -79,7 +80,7 @@ func (c *Cluster) startProvisioningOverNodes() error {
 				jobsArr = append(jobsArr, job.Name)
 
 				// create chunkserver config for each device of every node
-				chunkserverConfig := &chunkserverConfig{
+				chunkserverConfig := chunkserverConfig{
 					ResourceName: resourceName,
 					DataPathMap: &chunkserverDataPathMap{
 						HostDevice:       device.Name,
@@ -90,7 +91,7 @@ func (c *Cluster) startProvisioningOverNodes() error {
 					DeviceName: device.Name,
 					Port:       portBase,
 				}
-				chunkserverConfigs = append(chunkserverConfigs, *chunkserverConfig)
+				chunkserverConfigs = append(chunkserverConfigs, chunkserverConfig)
 				portBase++
 			}
 		}
@@ -102,7 +103,7 @@ func (c *Cluster) startProvisioningOverNodes() error {
 // createConfigMap create configmap to mount format.sh script
 func (c *Cluster) createFormatConfigMap() error {
 	// generate configmap data with only one key of "format.sh"
-	etcdConfigMap := map[string]string{
+	formatConfigMap := map[string]string{
 		formatScriptFileDataKey: FORMAT,
 	}
 
@@ -111,7 +112,7 @@ func (c *Cluster) createFormatConfigMap() error {
 			Name:      formatConfigMapName,
 			Namespace: c.namespacedName.Namespace,
 		},
-		Data: etcdConfigMap,
+		Data: formatConfigMap,
 	}
 
 	// Create format.sh configmap in cluster
@@ -145,7 +146,7 @@ func (c *Cluster) runPrepareJob(nodeName string, device curvev1.DevicesSpec) (*b
 }
 
 func (c *Cluster) makeJob(nodeName string, device curvev1.DevicesSpec) (*batch.Job, error) {
-	volumes, volumeMounts := c.createDevVolumeAndMount()
+	volumes, volumeMounts := c.createDevVolumeAndMount(device)
 
 	name := strings.TrimSpace(device.Name)
 	name = strings.TrimRight(name, "/")
@@ -199,19 +200,16 @@ func (c *Cluster) makeFormatContainer(device curvev1.DevicesSpec, volumeMounts [
 	runAsNonRoot := false
 	readOnlyRootFilesystem := false
 
-	// erase last '/' of mountpath
-	chunkfileDir := strings.TrimRight(device.MountPath, "/")
-
 	argsPercent := strconv.Itoa(device.Percentage)
 	argsFileSize := strconv.Itoa(DEFAULT_CHUNKFILE_SIZE)
-	argsFilePoolDir := chunkfileDir + "/chunkfilepool"
-	argsFilePoolMetaPath := chunkfileDir + "/chunkfilepool.meta"
+	argsFilePoolDir := ChunkserverContainerDataDir + "/chunkfilepool"
+	argsFilePoolMetaPath := ChunkserverContainerDataDir + "/chunkfilepool.meta"
 
 	container := v1.Container{
 		Name: "format",
 		Args: []string{
 			device.Name,
-			device.MountPath,
+			ChunkserverContainerDataDir,
 			argsPercent,
 			argsFileSize,
 			argsFilePoolDir,

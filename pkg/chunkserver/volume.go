@@ -3,54 +3,17 @@ package chunkserver
 import (
 	"strings"
 
+	curvev1 "github.com/opencurve/curve-operator/api/v1"
 	"github.com/opencurve/curve-operator/pkg/config"
 	v1 "k8s.io/api/core/v1"
 )
 
 const (
 	chunkserverVolumeName = "chunkserver-data"
-	devVolumeName         = "devices"
-
-	chunkserverVolumeMountName = "/curvebs/chunkserver/data"
-	devVolumeMountName         = "/dev"
 )
 
-// createMountPathVolume returns the pod volumes and volumemounts
-func (c *Cluster) createVolumeAndMount() ([]v1.Volume, []v1.VolumeMount) {
-	vols := []v1.Volume{}
-	mounts := []v1.VolumeMount{}
-
-	hostPathType := v1.HostPathDirectoryOrCreate
-
-	for _, device := range c.spec.Storage.Devices {
-		volumeName := strings.TrimSpace(device.MountPath)
-		volumeName = strings.TrimRight(volumeName, "/")
-		volumeNameArr := strings.Split(volumeName, "/")
-		volumeName = volumeNameArr[len(volumeNameArr)-1]
-
-		src := v1.VolumeSource{HostPath: &v1.HostPathVolumeSource{Path: device.MountPath, Type: &hostPathType}}
-
-		// chunkserver-data-chunkserver0
-		tmpVolumeName := chunkserverVolumeName + "-" + volumeName
-		// /curvebs/chunkserver/data/chunkserver0
-		tmpVolumeMountName := chunkserverVolumeMountName + "/" + volumeName
-
-		vols = append(vols, v1.Volume{Name: tmpVolumeName, VolumeSource: src})
-		mounts = append(mounts, v1.VolumeMount{Name: tmpVolumeName, MountPath: tmpVolumeMountName})
-
-	}
-
-	// create '/dev' hostpath volume
-	src := v1.VolumeSource{HostPath: &v1.HostPathVolumeSource{Path: "/dev"}}
-	vols = append(vols, v1.Volume{Name: devVolumeName, VolumeSource: src})
-
-	mounts = append(mounts, v1.VolumeMount{Name: devVolumeName, MountPath: devVolumeMountName})
-
-	return vols, mounts
-}
-
 // createDevVolumeAndMount
-func (c *Cluster) createDevVolumeAndMount() ([]v1.Volume, []v1.VolumeMount) {
+func (c *Cluster) createDevVolumeAndMount(device curvev1.DevicesSpec) ([]v1.Volume, []v1.VolumeMount) {
 	vols := []v1.Volume{}
 	mounts := []v1.VolumeMount{}
 
@@ -77,26 +40,22 @@ func (c *Cluster) createDevVolumeAndMount() ([]v1.Volume, []v1.VolumeMount) {
 	// 2. Create hostpath volume and volume mount for device.MountPath
 	hostPathType := v1.HostPathDirectoryOrCreate
 
-	for _, device := range c.spec.Storage.Devices {
-		volumeName := strings.TrimSpace(device.MountPath)
-		volumeName = strings.TrimRight(volumeName, "/")
-		volumeNameArr := strings.Split(volumeName, "/")
-		volumeName = volumeNameArr[len(volumeNameArr)-1]
+	volumeName := strings.TrimSpace(device.MountPath)
+	volumeName = strings.TrimRight(volumeName, "/")
+	volumeNameArr := strings.Split(volumeName, "/")
+	volumeName = volumeNameArr[len(volumeNameArr)-1]
 
-		// volume name : chunkserver-data-chunkserver0
-		tmpVolumeName := chunkserverVolumeName + "-" + volumeName
+	// volume name : chunkserver-data-chunkserver0
+	tmpVolumeName := chunkserverVolumeName + "-" + volumeName
 
-		src := v1.VolumeSource{HostPath: &v1.HostPathVolumeSource{Path: device.MountPath, Type: &hostPathType}}
-
-		vols = append(vols, v1.Volume{Name: tmpVolumeName, VolumeSource: src})
-		mounts = append(mounts, v1.VolumeMount{Name: tmpVolumeName, MountPath: device.MountPath})
-	}
+	src := v1.VolumeSource{HostPath: &v1.HostPathVolumeSource{Path: device.MountPath, Type: &hostPathType}}
+	vols = append(vols, v1.Volume{Name: tmpVolumeName, VolumeSource: src})
+	mounts = append(mounts, v1.VolumeMount{Name: tmpVolumeName, MountPath: ChunkserverContainerDataDir})
 
 	// 3. Create hostpath volume and volume mount for '/dev'
-	src := v1.VolumeSource{HostPath: &v1.HostPathVolumeSource{Path: "/dev"}}
-	vols = append(vols, v1.Volume{Name: devVolumeName, VolumeSource: src})
-
-	mounts = append(mounts, v1.VolumeMount{Name: devVolumeName, MountPath: devVolumeMountName})
+	src = v1.VolumeSource{HostPath: &v1.HostPathVolumeSource{Path: "/dev"}}
+	vols = append(vols, v1.Volume{Name: "devices", VolumeSource: src})
+	mounts = append(mounts, v1.VolumeMount{Name: "devices", MountPath: "/dev"})
 
 	return vols, mounts
 }
@@ -107,40 +66,50 @@ func (c *Cluster) createDevVolumeAndMount() ([]v1.Volume, []v1.VolumeMount) {
 // configMapMountPathDir = config.ChunkserverConfigMapMountPathDir ("/curvebs/chunkserver/conf")
 // curConfigMapName = config.ChunkserverConfigMapName ("curve-chunkserver-conf")
 
-func CSDaemonVolumes(configMapDataKey string, configMapMountPathDir string, curConfigMapName string, dataPaths *chunkserverDataPathMap) []v1.Volume {
+func CSDaemonVolumes(dataPaths *chunkserverDataPathMap) []v1.Volume {
 	vols := []v1.Volume{}
 
 	// create configmap volume
-	configMapVolumes, _ := CSConfigConfigMapVolumeAndMount(configMapDataKey, configMapMountPathDir, curConfigMapName)
+	configMapVolumes, _ := CSConfigConfigMapVolumeAndMount()
 	vols = append(vols, configMapVolumes...)
 
 	// create hostpath volume for '/dev'
 	src := v1.VolumeSource{HostPath: &v1.HostPathVolumeSource{Path: "/dev"}}
-	vols = append(vols, v1.Volume{Name: "data-volume", VolumeSource: src})
+	vols = append(vols, v1.Volume{Name: "dev-volume", VolumeSource: src})
 
 	return vols
 }
 
 // DaemonVolumeMounts returns the pod container volume mounth used only by chunkserver
-func CSDaemonVolumeMounts(configMapDataKey string, configMapMountPathDir string, curConfigMapName string, dataPaths *chunkserverDataPathMap) []v1.VolumeMount {
+func CSDaemonVolumeMounts(dataPaths *chunkserverDataPathMap) []v1.VolumeMount {
 	mounts := []v1.VolumeMount{}
 
 	// create configmap mount path
-	_, configMapMounts := CSConfigConfigMapVolumeAndMount(configMapDataKey, configMapMountPathDir, curConfigMapName)
+	_, configMapMounts := CSConfigConfigMapVolumeAndMount()
 	mounts = append(mounts, configMapMounts...)
 
 	// create data mount path and log mount path on container
-	mounts = append(mounts, v1.VolumeMount{Name: "data-volume", MountPath: "/dev"})
+	mounts = append(mounts, v1.VolumeMount{Name: "dev-volume", MountPath: "/dev"})
 
 	return mounts
 }
 
 // configConfigMapVolumeAndMount Create configmap volume and volume mount for daemon chunkserver pod
-func CSConfigConfigMapVolumeAndMount(configMapDataKey string, configMapMountPathDir string, curConfigMapName string) ([]v1.Volume, []v1.VolumeMount) {
+func CSConfigConfigMapVolumeAndMount() ([]v1.Volume, []v1.VolumeMount) {
 	vols := []v1.Volume{}
 	mounts := []v1.VolumeMount{}
 
+	// start_chunkserver.sh
 	mode := int32(0644)
+	startChunkserverConfigMapVolSource := &v1.ConfigMapVolumeSource{LocalObjectReference: v1.LocalObjectReference{Name: startChunkserverConfigMapName}, Items: []v1.KeyToPath{{Key: startChunkserverScriptFileDataKey, Path: startChunkserverScriptFileDataKey, Mode: &mode}}}
+	startChunkserverConfigVol := v1.Volume{
+		Name: startChunkserverConfigMapName,
+		VolumeSource: v1.VolumeSource{
+			ConfigMap: startChunkserverConfigMapVolSource,
+		},
+	}
+	vols = append(vols, startChunkserverConfigVol)
+
 	// cs_client.conf
 	CSClientConfigMapVolSource := &v1.ConfigMapVolumeSource{LocalObjectReference: v1.LocalObjectReference{Name: config.CSClientConfigMapName}, Items: []v1.KeyToPath{{Key: config.CSClientConfigMapDataKey, Path: config.CSClientConfigMapDataKey, Mode: &mode}}}
 	CSClientConfigVol := v1.Volume{
@@ -151,6 +120,7 @@ func CSConfigConfigMapVolumeAndMount(configMapDataKey string, configMapMountPath
 	}
 	vols = append(vols, CSClientConfigVol)
 
+	// s3.conf
 	S3ConfigMapVolSource := &v1.ConfigMapVolumeSource{LocalObjectReference: v1.LocalObjectReference{Name: config.S3ConfigMapName}, Items: []v1.KeyToPath{{Key: config.S3ConfigMapDataKey, Path: config.S3ConfigMapDataKey, Mode: &mode}}}
 	S3ConfigVol := v1.Volume{
 		Name: config.S3ConfigMapName,
@@ -160,38 +130,48 @@ func CSConfigConfigMapVolumeAndMount(configMapDataKey string, configMapMountPath
 	}
 	vols = append(vols, S3ConfigVol)
 
-	configMapVolSource := &v1.ConfigMapVolumeSource{LocalObjectReference: v1.LocalObjectReference{Name: curConfigMapName}, Items: []v1.KeyToPath{{Key: configMapDataKey, Path: configMapDataKey, Mode: &mode}}}
+	// chunkserver.conf
+	configMapVolSource := &v1.ConfigMapVolumeSource{LocalObjectReference: v1.LocalObjectReference{Name: config.ChunkserverConfigMapName}, Items: []v1.KeyToPath{{Key: config.ChunkserverConfigMapDataKey, Path: config.ChunkserverConfigMapDataKey, Mode: &mode}}}
 	configVol := v1.Volume{
-		Name: curConfigMapName,
+		Name: config.ChunkserverConfigMapName,
 		VolumeSource: v1.VolumeSource{
 			ConfigMap: configMapVolSource,
 		},
 	}
 	vols = append(vols, configVol)
 
-	// 3 volume mount
+	// start_chunkserver.sh volume mount
+	startChunkserverMountPath := v1.VolumeMount{
+		Name:      startChunkserverConfigMapName,
+		ReadOnly:  true, // should be no reason to write to the config in pods, so enforce this
+		MountPath: startChunkserverMountPath,
+		SubPath:   startChunkserverScriptFileDataKey,
+	}
+	mounts = append(mounts, startChunkserverMountPath)
+
+	// cs_client.conf volume mount
 	CSClientMountPath := v1.VolumeMount{
 		Name:      config.CSClientConfigMapName,
 		ReadOnly:  true, // should be no reason to write to the config in pods, so enforce this
-		MountPath: config.CSClientConfigMapMountPathDir + "/cs_client.conf",
-		SubPath:   "cs_client.conf",
+		MountPath: config.CSClientConfigMapMountPathDir + "/" + config.CSClientConfigMapDataKey,
+		SubPath:   config.CSClientConfigMapDataKey,
 	}
 	mounts = append(mounts, CSClientMountPath)
 
 	S3MountPath := v1.VolumeMount{
 		Name:      config.S3ConfigMapName,
 		ReadOnly:  true, // should be no reason to write to the config in pods, so enforce this
-		MountPath: config.S3ConfigMapMountPathDir + "/s3.conf",
-		SubPath:   "s3.conf",
+		MountPath: config.S3ConfigMapMountPathDir + "/" + config.S3ConfigMapDataKey,
+		SubPath:   config.S3ConfigMapDataKey,
 	}
 	mounts = append(mounts, S3MountPath)
 
 	// configmap volume mount path
 	m := v1.VolumeMount{
-		Name:      curConfigMapName,
+		Name:      config.ChunkserverConfigMapName,
 		ReadOnly:  true, // should be no reason to write to the config in pods, so enforce this
-		MountPath: configMapMountPathDir + "/chunkserver.conf",
-		SubPath:   "chunkserver.conf",
+		MountPath: config.ChunkserverConfigMapMountPathDir + "/" + config.ChunkserverConfigMapDataKey,
+		SubPath:   config.ChunkserverConfigMapDataKey,
 	}
 	mounts = append(mounts, m)
 

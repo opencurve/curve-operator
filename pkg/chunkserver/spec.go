@@ -3,7 +3,7 @@ package chunkserver
 import (
 	"context"
 	"fmt"
-	"path"
+	"strconv"
 	"time"
 
 	"github.com/opencurve/curve-operator/pkg/config"
@@ -42,9 +42,12 @@ func (c *Cluster) startChunkServers() error {
 	defer canf()
 	c.checkJobStatus(ctx, halfMinuteTicker, chn)
 
+	// block here unitl timeout(5 mins) or all jobs has been successed.
 	flag := <-chn
+
 	// not all job has completed
 	if !flag {
+		// TODO: delete all jobs that has created.
 		log.Error("All jobs have not been completed for more than 5 minutes")
 		return errors.New("All jobs have not been completed for more than 5 minutes")
 	}
@@ -60,17 +63,19 @@ func (c *Cluster) startChunkServers() error {
 	// get mdsEndpoints data key of "mdsEndpoints" from mds-endpoints-override
 	mdsEndpoints := overrideCM.Data[config.MdsOvverideCMDataKey]
 
+	_ = c.createStartCSConfigMap()
+
 	_ = c.createCSClientConfigMap(mdsEndpoints)
 
 	_ = c.createS3ConfigMap(mdsEndpoints)
 
-	err = c.createConfigMap(mdsEndpoints)
+	cfgData, err := c.createConfigMap(mdsEndpoints)
 	if err != nil {
 		return errors.Wrapf(err, "failed to create chunkserver configmap for %v", config.ChunkserverConfigMapName)
 	}
 
 	for _, csConfig := range chunkserverConfigs {
-		d, err := c.runMakeDeployment(config.ChunkserverConfigMapDataKey, config.ChunkserverConfigMapMountPathDir, &csConfig)
+		d, err := c.makeDeployment(&csConfig, &cfgData)
 		if err != nil {
 			return errors.Wrap(err, "failed to create chunkserver Deployment")
 		}
@@ -165,43 +170,71 @@ func (c *Cluster) createS3ConfigMap(mdsEndpoints string) error {
 	return nil
 }
 
+// createConfigMap create configmap to run start_chunkserver.sh script
+func (c *Cluster) createStartCSConfigMap() error {
+	// generate configmap data with only one key of "format.sh"
+	startCSConfigMap := map[string]string{
+		startChunkserverScriptFileDataKey: START,
+	}
+
+	cm := &v1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      startChunkserverConfigMapName,
+			Namespace: c.namespacedName.Namespace,
+		},
+		Data: startCSConfigMap,
+	}
+
+	// Create format.sh configmap in cluster
+	_, err := c.context.Clientset.CoreV1().ConfigMaps(c.namespacedName.Namespace).Create(cm)
+	if err != nil && !kerrors.IsAlreadyExists(err) {
+		return errors.Wrapf(err, "failed to create override configmap %s", c.namespacedName.Namespace)
+	}
+	return nil
+}
+
 // createConfigMap create chunkserver configmap for chunkserver server
-func (c *Cluster) createConfigMap(mdsEndpoints string) error {
-	configMapData, err := k8sutil.ReadConfFromTemplate("pkg/template/chunkserver.conf")
+func (c *Cluster) createConfigMap(mdsEndpoints string) (configData, error) {
+	cfgData := configData{data: make(map[string]string)}
+	var err error
+	cfgData.data, err = k8sutil.ReadConfFromTemplate("pkg/template/chunkserver.conf")
 	if err != nil {
-		return errors.Wrap(err, "failed to read config file from template/chunkserver.conf")
+		return configData{}, errors.Wrap(err, "failed to read config file from template/chunkserver.conf")
 	}
 
 	localPrefix := fmt.Sprintf("local://%s", ChunkserverContainerDataDir)
 	curvePrefix := fmt.Sprintf("curve://%s", ChunkserverContainerDataDir)
 	// modify part field config
-	configMapData["mds.listen.addr"] = mdsEndpoints
-	configMapData["chunkserver.stor_uri"] = localPrefix
-	configMapData["chunkserver.meta_uri"] = localPrefix + "/chunkserver.dat"
-	configMapData["copyset.chunk_data_uri"] = localPrefix + "/copysets"
-	configMapData["copyset.raft_log_uri"] = curvePrefix + "/copysets"
-	configMapData["copyset.raft_meta_uri"] = localPrefix + "/copysets"
-	configMapData["copyset.raft_snapshot_uri"] = curvePrefix + "/copysets"
-	configMapData["copyset.recycler_uri"] = localPrefix + "/recycler"
+	cfgData.data["mds.listen.addr"] = mdsEndpoints
+	cfgData.data["chunkserver.stor_uri"] = localPrefix
+	cfgData.data["chunkserver.meta_uri"] = localPrefix + "/chunkserver.dat"
+	cfgData.data["copyset.chunk_data_uri"] = localPrefix + "/copysets"
+	cfgData.data["copyset.raft_log_uri"] = curvePrefix + "/copysets"
+	cfgData.data["copyset.raft_meta_uri"] = localPrefix + "/copysets"
+	cfgData.data["copyset.raft_snapshot_uri"] = curvePrefix + "/copysets"
+	cfgData.data["copyset.recycler_uri"] = localPrefix + "/recycler"
 
 	// # client配置文件
 	// curve.config_path=${prefix}/conf/cs_client.conf
-	configMapData["curve.config_path"] = ChunkserverContainerDataDir + "/conf/cs_client.conf"
+	cfgData.data["curve.config_path"] = config.ChunkserverConfigMapMountPathDir + "/cs_client.conf"
 	// # s3配置文件
 	// s3.config_path=${prefix}/conf/s3.conf
-	configMapData["s3.config_path"] = ChunkserverContainerDataDir + "/conf/s3.conf"
+	cfgData.data["s3.config_path"] = config.ChunkserverConfigMapMountPathDir + "/s3.conf"
 
-	configMapData["chunkfilepool.chunk_file_pool_dir"] = ChunkserverContainerDataDir
-	configMapData["chunkfilepool.meta_path"] = ChunkserverContainerDataDir + "/chunkfilepool.meta"
-	configMapData["walfilepool.meta_path"] = ChunkserverContainerDataDir + "/walfilepool.meta"
-	configMapData["walfilepool.file_pool_dir"] = ChunkserverContainerDataDir + "/walfilepool.meta"
-	configMapData["chunkserver.common.logDir"] = ChunkserverContainerLogDir
+	cfgData.data["chunkfilepool.chunk_file_pool_dir"] = ChunkserverContainerDataDir
+	cfgData.data["chunkfilepool.meta_path"] = ChunkserverContainerDataDir + "/chunkfilepool.meta"
+	cfgData.data["walfilepool.meta_path"] = ChunkserverContainerDataDir + "/walfilepool.meta"
+	cfgData.data["walfilepool.file_pool_dir"] = ChunkserverContainerDataDir + "/walfilepool.meta"
+	cfgData.data["chunkserver.common.logDir"] = ChunkserverContainerLogDir
 
 	// generate configmap data with only one key of "chunkserver.conf"
 	var chunkserverConfigVal string
-	for k, v := range configMapData {
+	for k, v := range cfgData.data {
 		chunkserverConfigVal = chunkserverConfigVal + k + "=" + v + "\n"
 	}
+
+	// for debug
+	log.Info(chunkserverConfigVal)
 
 	chunkserverConfigMap := map[string]string{
 		config.ChunkserverConfigMapDataKey: chunkserverConfigVal,
@@ -218,14 +251,14 @@ func (c *Cluster) createConfigMap(mdsEndpoints string) error {
 	// Create chunkserver config in cluster
 	_, err = c.context.Clientset.CoreV1().ConfigMaps(c.namespacedName.Namespace).Create(cm)
 	if err != nil && !kerrors.IsAlreadyExists(err) {
-		return errors.Wrapf(err, "failed to create chunkserver configmap %s", c.namespacedName.Namespace)
+		return configData{}, errors.Wrapf(err, "failed to create chunkserver configmap %s", c.namespacedName.Namespace)
 	}
 
-	return nil
+	return cfgData, nil
 }
 
-func (c *Cluster) runMakeDeployment(configMapDataKey string, configMapMountPathDir string, csConfig *chunkserverConfig) (*apps.Deployment, error) {
-	volumes := CSDaemonVolumes(config.ChunkserverConfigMapDataKey, config.ChunkserverConfigMapMountPathDir, config.ChunkserverConfigMapName, csConfig.DataPathMap)
+func (c *Cluster) makeDeployment(csConfig *chunkserverConfig, cfgData *configData) (*apps.Deployment, error) {
+	volumes := CSDaemonVolumes(csConfig.DataPathMap)
 
 	podSpec := v1.PodTemplateSpec{
 		ObjectMeta: metav1.ObjectMeta{
@@ -237,7 +270,7 @@ func (c *Cluster) runMakeDeployment(configMapDataKey string, configMapMountPathD
 			// 	c.makeChmodDirInitContainer(configMapDataKey, configMapMountPathDir, mdsConfig, curConfigMapName),
 			// },
 			Containers: []v1.Container{
-				c.makeCSDaemonContainer(configMapDataKey, configMapMountPathDir, csConfig, config.ChunkserverConfigMapName),
+				c.makeCSDaemonContainer(csConfig, cfgData),
 			},
 			NodeName:      csConfig.NodeName,
 			RestartPolicy: v1.RestartPolicyAlways,
@@ -271,27 +304,101 @@ func (c *Cluster) runMakeDeployment(configMapDataKey string, configMapMountPathD
 }
 
 // makeCSDaemonContainer create chunkserver container
-func (c *Cluster) makeCSDaemonContainer(configMapDataKey string, configMapMountPathDir string, csConfig *chunkserverConfig, curConfigMapName string) v1.Container {
+func (c *Cluster) makeCSDaemonContainer(csConfig *chunkserverConfig, cfgData *configData) v1.Container {
+
 	privileged := true
 	runAsUser := int64(0)
 	runAsNonRoot := false
 	readOnlyRootFilesystem := false
 
-	configFileMountPath := path.Join(configMapMountPathDir, configMapDataKey)
-
 	// define two args(--chunkServerPort and --confPath) to startup 'curvebs-chunkserver'
-	argsCSAddr := fmt.Sprintf("--chunkServerPort=%v ", csConfig.Port)
-	argsConfigFileDir := fmt.Sprintf("--confPath=%s", configFileMountPath)
+	argsDeviceName := csConfig.DeviceName
+	argsMountPath := ChunkserverContainerDataDir
+
+	// override config parameters of chunkserver.conf, only chunkserver need so many parameters
+	// 1. chunkServerIp
+	argsChunkServerIp := "127.0.0.1"
+	// 2. chunkServerExternalIp
+	argsChunkServerExternalIp := "127.0.0.1"
+	// 3. chunkFilePoolMetaPath
+	argsChunkFilePoolMetaPath := cfgData.data["chunkfilepool.meta_path"]
+	// 4. walFilePoolDir
+	argsWalFilePoolDir := cfgData.data["walfilepool.file_pool_dir"]
+	// 5.
+	argsBthreadConcurrency := strconv.Itoa(18)
+	// 6.
+	argsRaftSyncSegments := "true"
+	// 7.
+	argsChunkserverPort := strconv.Itoa(csConfig.Port)
+	// 8
+	argsChunkFilePoolDir := cfgData.data["chunkfilepool.chunk_file_pool_dir"]
+	// 9
+	argsRecycleUri := cfgData.data["copyset.recycler_uri"]
+	// 10
+	argsChunkServerMetaUri := cfgData.data["chunkserver.meta_uri"]
+	// 11
+	argsWalFilePoolMetaPath := cfgData.data["walfilepool.meta_path"]
+	// 12
+	argsRaftLogUri := cfgData.data["copyset.raft_log_uri"]
+	// 13
+	argsRaftSync := "true"
+	// 14
+	argsRaftSyncMeta := "true"
+	// 15
+	argsRaftMaxSegmentSize := strconv.Itoa(8388608)
+	// 16
+	argsRaftMaxInstallSnapshotTasksNum := strconv.Itoa(1)
+	// 17
+	argsRaftUseFsyncRatherThanFdatasync := "false"
+	// 18
+	argsConf := config.ChunkserverConfigMapMountPathDir + "/" + config.ChunkserverConfigMapDataKey
+	// 19
+	argsEnableExternalServer := "false"
+	// 20
+	argsCopySetUri := cfgData.data["copyset.chunk_data_uri"]
+	// 21
+	argsRaftSnapshotUri := cfgData.data["copyset.raft_snapshot_uri"]
+	// 22
+	argsChunkServerStoreUri := cfgData.data["chunkserver.stor_uri"]
+	// 23
+	argsGracefulQuitOnSigterm := "true"
 
 	container := v1.Container{
 		Name: "chunkserver",
 		Command: []string{
-			"/curvebs/chunkserver/sbin/curvebs-chunkserver",
+			"/bin/bash",
+			startChunkserverMountPath,
 		},
-		Args:            []string{argsCSAddr, argsConfigFileDir},
+		Args: []string{
+			argsDeviceName,
+			argsMountPath,
+			argsChunkServerIp,
+			argsChunkServerExternalIp,
+			argsChunkFilePoolMetaPath,
+			argsWalFilePoolDir,
+			argsBthreadConcurrency,
+			argsRaftSyncSegments,
+			argsChunkserverPort,
+			argsChunkFilePoolDir,
+			argsRecycleUri,
+			argsChunkServerMetaUri,
+			argsWalFilePoolMetaPath,
+			argsRaftLogUri,
+			argsRaftSync,
+			argsRaftSyncMeta,
+			argsRaftMaxSegmentSize,
+			argsRaftMaxInstallSnapshotTasksNum,
+			argsRaftUseFsyncRatherThanFdatasync,
+			argsConf,
+			argsEnableExternalServer,
+			argsCopySetUri,
+			argsRaftSnapshotUri,
+			argsChunkServerStoreUri,
+			argsGracefulQuitOnSigterm,
+		},
 		Image:           c.spec.CurveVersion.Image,
 		ImagePullPolicy: c.spec.CurveVersion.ImagePullPolicy,
-		VolumeMounts:    CSDaemonVolumeMounts(configMapDataKey, configMapMountPathDir, curConfigMapName, csConfig.DataPathMap),
+		VolumeMounts:    CSDaemonVolumeMounts(csConfig.DataPathMap),
 		Ports: []v1.ContainerPort{
 			{
 				Name:          "listen-port",

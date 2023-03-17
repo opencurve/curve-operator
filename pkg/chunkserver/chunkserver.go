@@ -14,6 +14,11 @@ const (
 	// ContainerPath is the mount path of data and log
 	ChunkserverContainerDataDir = "/curvebs/chunkserver/data"
 	ChunkserverContainerLogDir  = "/curvebs/chunkserver/logs"
+
+	// start.sh
+	startChunkserverConfigMapName     = "start-chunkserver-conf"
+	startChunkserverScriptFileDataKey = "start_chunkserver.sh"
+	startChunkserverMountPath         = "/curvebs/tools/sbin/start_chunkserver.sh"
 )
 
 type Cluster struct {
