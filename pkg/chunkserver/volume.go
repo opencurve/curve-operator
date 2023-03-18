@@ -12,8 +12,8 @@ const (
 	chunkserverVolumeName = "chunkserver-data"
 )
 
-// createDevVolumeAndMount
-func (c *Cluster) createDevVolumeAndMount(device curvev1.DevicesSpec) ([]v1.Volume, []v1.VolumeMount) {
+// createFormatVolumeAndMount
+func (c *Cluster) createFormatVolumeAndMount(device curvev1.DevicesSpec) ([]v1.Volume, []v1.VolumeMount) {
 	vols := []v1.Volume{}
 	mounts := []v1.VolumeMount{}
 
@@ -77,6 +77,11 @@ func CSDaemonVolumes(dataPaths *chunkserverDataPathMap) []v1.Volume {
 	src := v1.VolumeSource{HostPath: &v1.HostPathVolumeSource{Path: "/dev"}}
 	vols = append(vols, v1.Volume{Name: "dev-volume", VolumeSource: src})
 
+	// create logs volume for
+	hostPathType := v1.HostPathDirectoryOrCreate
+	src = v1.VolumeSource{HostPath: &v1.HostPathVolumeSource{Path: dataPaths.HostLogDir, Type: &hostPathType}}
+	vols = append(vols, v1.Volume{Name: "log-volume", VolumeSource: src})
+
 	return vols
 }
 
@@ -90,6 +95,7 @@ func CSDaemonVolumeMounts(dataPaths *chunkserverDataPathMap) []v1.VolumeMount {
 
 	// create data mount path and log mount path on container
 	mounts = append(mounts, v1.VolumeMount{Name: "dev-volume", MountPath: "/dev"})
+	mounts = append(mounts, v1.VolumeMount{Name: "log-volume", MountPath: dataPaths.ContainerLogDir})
 
 	return mounts
 }
@@ -174,6 +180,49 @@ func CSConfigConfigMapVolumeAndMount() ([]v1.Volume, []v1.VolumeMount) {
 		SubPath:   config.ChunkserverConfigMapDataKey,
 	}
 	mounts = append(mounts, m)
+
+	return vols, mounts
+}
+
+// createTopoAndToolVolumeAndMount
+func (c *Cluster) createTopoAndToolVolumeAndMount() ([]v1.Volume, []v1.VolumeMount) {
+	vols := []v1.Volume{}
+	mounts := []v1.VolumeMount{}
+
+	// 1. Create topology configmap volume and volume mount path("/curvebs/tools/conf/topology.json")
+	mode := int32(0644)
+	topoConfigMapVolSource := &v1.ConfigMapVolumeSource{LocalObjectReference: v1.LocalObjectReference{Name: config.TopoJsonConfigMapName}, Items: []v1.KeyToPath{{Key: config.TopoJsonConfigmapDataKey, Path: config.TopoJsonConfigmapDataKey, Mode: &mode}}}
+	topoConfigVol := v1.Volume{
+		Name: config.TopoJsonConfigMapName,
+		VolumeSource: v1.VolumeSource{
+			ConfigMap: topoConfigMapVolSource,
+		},
+	}
+	vols = append(vols, topoConfigVol)
+
+	topoMount := v1.VolumeMount{
+		Name:      config.TopoJsonConfigMapName,
+		ReadOnly:  true, // should be no reason to write to the config in pods, so enforce this
+		MountPath: config.TopoJsonConfigmapMountPathDir,
+	}
+	mounts = append(mounts, topoMount)
+
+	// 1. Create tools configmap volume and volume mount path("/etc/curve/tools.conf")
+	toolConfigMapVolSource := &v1.ConfigMapVolumeSource{LocalObjectReference: v1.LocalObjectReference{Name: config.ToolsConfigMapName}, Items: []v1.KeyToPath{{Key: config.ToolsConfigMapDataKey, Path: config.ToolsConfigMapDataKey, Mode: &mode}}}
+	toolConfigVol := v1.Volume{
+		Name: config.ToolsConfigMapName,
+		VolumeSource: v1.VolumeSource{
+			ConfigMap: toolConfigMapVolSource,
+		},
+	}
+	vols = append(vols, toolConfigVol)
+
+	toolMount := v1.VolumeMount{
+		Name:      config.ToolsConfigMapName,
+		ReadOnly:  true, // should be no reason to write to the config in pods, so enforce this
+		MountPath: config.ToolsConfigMapMountPathDir,
+	}
+	mounts = append(mounts, toolMount)
 
 	return vols, mounts
 }

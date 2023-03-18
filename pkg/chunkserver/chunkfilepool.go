@@ -28,7 +28,7 @@ var jobsArr []string
 var chunkserverConfigs []chunkserverConfig
 
 // startProvisioningOverNodes format device and provision chunk files
-func (c *Cluster) startProvisioningOverNodes() error {
+func (c *Cluster) startProvisioningOverNodes(nodeNameIP map[string]string) error {
 	if !c.spec.Storage.UseSelectedNodes {
 
 		jobsArr = []string{}
@@ -59,9 +59,15 @@ func (c *Cluster) startProvisioningOverNodes() error {
 			return err
 		}
 
+		hostSequence := 0
 		// travel all valid nodes to start job to prepare chunkfilepool
 		for _, node := range validNodes {
+			nodeIP := nodeNameIP[node.Name]
 			portBase := c.spec.Storage.Port
+
+			// replicas replicas bymber
+			replicasSequence := 0
+
 			for _, device := range c.spec.Storage.Devices {
 				name := strings.TrimSpace(device.Name)
 				name = strings.TrimRight(name, "/")
@@ -74,7 +80,7 @@ func (c *Cluster) startProvisioningOverNodes() error {
 					log.Errorf("failed to create job for device %s on %s", device.Name, node.Name)
 					continue // do not record the failed job in jobsArr and do not create chunkserverConfig for this device
 				}
-				log.Infof("create job for device %s on %s", device.Name, node.Name)
+				log.Infof("created job for device %s on %s", device.Name, node.Name)
 
 				// jobsArr record all the job that have started, to determine whether the format is completed
 				jobsArr = append(jobsArr, job.Name)
@@ -84,16 +90,23 @@ func (c *Cluster) startProvisioningOverNodes() error {
 					ResourceName: resourceName,
 					DataPathMap: &chunkserverDataPathMap{
 						HostDevice:       device.Name,
+						HostLogDir:       fmt.Sprint(c.spec.LogDirHostPath, "/chunkserver"),
 						ContainerDataDir: ChunkserverContainerDataDir,
 						ContainerLogDir:  ChunkserverContainerLogDir,
 					},
-					NodeName:   node.Name,
-					DeviceName: device.Name,
-					Port:       portBase,
+					NodeName:         node.Name,
+					NodeIP:           nodeIP,
+					DeviceName:       device.Name,
+					Port:             portBase,
+					HostSequence:     hostSequence,
+					ReplicasSequence: replicasSequence,
+					Replicas:         len(c.spec.Storage.Devices),
 				}
 				chunkserverConfigs = append(chunkserverConfigs, chunkserverConfig)
 				portBase++
+				replicasSequence++
 			}
+			hostSequence++
 		}
 	}
 
@@ -120,6 +133,7 @@ func (c *Cluster) createFormatConfigMap() error {
 	if err != nil && !kerrors.IsAlreadyExists(err) {
 		return errors.Wrapf(err, "failed to create override configmap %s", c.namespacedName.Namespace)
 	}
+
 	return nil
 }
 
@@ -146,7 +160,7 @@ func (c *Cluster) runPrepareJob(nodeName string, device curvev1.DevicesSpec) (*b
 }
 
 func (c *Cluster) makeJob(nodeName string, device curvev1.DevicesSpec) (*batch.Job, error) {
-	volumes, volumeMounts := c.createDevVolumeAndMount(device)
+	volumes, volumeMounts := c.createFormatVolumeAndMount(device)
 
 	name := strings.TrimSpace(device.Name)
 	name = strings.TrimRight(name, "/")

@@ -14,6 +14,9 @@ kubectl delete cm curve-chunkserver-conf -n curvebs
 kubectl delete cm cs-client-conf -n curvebs
 kubectl delete cm s3-conf -n curvebs
 kubectl delete cm start-chunkserver-conf -n curvebs
+kubectl delete cm topology-json-conf -n curvebs
+kubectl delete cm tools-conf -n curvebs
+kubectl delete cm mds-endpoints-override -n curvebs
 
 # etcd deployment 
 kubectl delete deploy curve-etcd-a -n curvebs

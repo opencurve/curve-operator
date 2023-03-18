@@ -1,10 +1,8 @@
 package chunkserver
 
 import (
-	"context"
 	"fmt"
 	"strconv"
-	"time"
 
 	"github.com/opencurve/curve-operator/pkg/config"
 	"github.com/opencurve/curve-operator/pkg/k8sutil"
@@ -32,36 +30,14 @@ func (c *Cluster) startChunkServers() error {
 		return errors.New("failed to start chunkserver because of job numbers is not equal with chunkserver config")
 	}
 
-	// wait all job for complete process
-	// create a ticker to check all jobs status
-	halfMinuteTicker := time.NewTicker(10 * time.Second)
-	defer halfMinuteTicker.Stop()
-
-	chn := make(chan bool, 1)
-	ctx, canf := context.WithTimeout(context.Background(), time.Duration(5*60*time.Second))
-	defer canf()
-	c.checkJobStatus(ctx, halfMinuteTicker, chn)
-
-	// block here unitl timeout(5 mins) or all jobs has been successed.
-	flag := <-chn
-
-	// not all job has completed
-	if !flag {
-		// TODO: delete all jobs that has created.
-		log.Error("All jobs have not been completed for more than 5 minutes")
-		return errors.New("All jobs have not been completed for more than 5 minutes")
-	}
-
-	log.Info("all jobs has been completed in 5 mins")
-
 	// 1. judge the mds override configmap if exist
-	overrideCM, err := c.context.Clientset.CoreV1().ConfigMaps(c.namespacedName.Namespace).Get(config.MdsOverrideCM, metav1.GetOptions{})
+	overrideCM, err := c.context.Clientset.CoreV1().ConfigMaps(c.namespacedName.Namespace).Get(config.MdsOverrideConfigMapName, metav1.GetOptions{})
 	if err != nil {
 		return errors.Wrap(err, "failed to get mds override endoints configmap")
 	}
 
 	// get mdsEndpoints data key of "mdsEndpoints" from mds-endpoints-override
-	mdsEndpoints := overrideCM.Data[config.MdsOvverideCMDataKey]
+	mdsEndpoints := overrideCM.Data[config.MdsOvverideConfigMapDataKey]
 
 	_ = c.createStartCSConfigMap()
 
@@ -259,6 +235,8 @@ func (c *Cluster) createConfigMap(mdsEndpoints string) (configData, error) {
 
 func (c *Cluster) makeDeployment(csConfig *chunkserverConfig, cfgData *configData) (*apps.Deployment, error) {
 	volumes := CSDaemonVolumes(csConfig.DataPathMap)
+	vols, _ := c.createTopoAndToolVolumeAndMount()
+	volumes = append(volumes, vols...)
 
 	podSpec := v1.PodTemplateSpec{
 		ObjectMeta: metav1.ObjectMeta{
@@ -311,15 +289,20 @@ func (c *Cluster) makeCSDaemonContainer(csConfig *chunkserverConfig, cfgData *co
 	runAsNonRoot := false
 	readOnlyRootFilesystem := false
 
+	// volumemount
+	volMounts := CSDaemonVolumeMounts(csConfig.DataPathMap)
+	_, mounts := c.createTopoAndToolVolumeAndMount()
+	volMounts = append(volMounts, mounts...)
+
 	// define two args(--chunkServerPort and --confPath) to startup 'curvebs-chunkserver'
 	argsDeviceName := csConfig.DeviceName
 	argsMountPath := ChunkserverContainerDataDir
 
 	// override config parameters of chunkserver.conf, only chunkserver need so many parameters
 	// 1. chunkServerIp
-	argsChunkServerIp := "127.0.0.1"
+	argsChunkServerIp := csConfig.NodeIP
 	// 2. chunkServerExternalIp
-	argsChunkServerExternalIp := "127.0.0.1"
+	argsChunkServerExternalIp := csConfig.NodeIP
 	// 3. chunkFilePoolMetaPath
 	argsChunkFilePoolMetaPath := cfgData.data["chunkfilepool.meta_path"]
 	// 4. walFilePoolDir
@@ -398,7 +381,7 @@ func (c *Cluster) makeCSDaemonContainer(csConfig *chunkserverConfig, cfgData *co
 		},
 		Image:           c.spec.CurveVersion.Image,
 		ImagePullPolicy: c.spec.CurveVersion.ImagePullPolicy,
-		VolumeMounts:    CSDaemonVolumeMounts(csConfig.DataPathMap),
+		VolumeMounts:    volMounts,
 		Ports: []v1.ContainerPort{
 			{
 				Name:          "listen-port",
@@ -417,41 +400,6 @@ func (c *Cluster) makeCSDaemonContainer(csConfig *chunkserverConfig, cfgData *co
 	}
 
 	return container
-}
-
-// checkJobStatus go routine to check all job's status
-func (c *Cluster) checkJobStatus(ctx context.Context, ticker *time.Ticker, chn chan bool) {
-	for {
-		select {
-		case <-ticker.C:
-			log.Info("time is up")
-			completed := 0
-			for _, jobName := range jobsArr {
-				job, err := c.context.Clientset.BatchV1().Jobs(c.namespacedName.Namespace).Get(jobName, metav1.GetOptions{})
-				if err != nil {
-					log.Errorf("failed to get job %s in cluster", jobName)
-					return
-				}
-
-				if job.Status.Succeeded > 0 {
-					completed++
-					log.Infof("job %s has successd", job.Name)
-				} else {
-					log.Infof("job %s is running", job.Name)
-				}
-
-				if completed == len(jobsArr) {
-					log.Info("all job has been successd, exit go routine")
-					chn <- true
-					return
-				}
-			}
-		case <-ctx.Done():
-			chn <- false
-			log.Error("go routinue exit because check time is more than 5 mins")
-			return
-		}
-	}
 }
 
 // getChunkServerPodLabels
