@@ -24,6 +24,7 @@ spec:
     nodes:
     - node1
     - node2
+    port: 8200
     # - node3
     devices:
     - name: "/dev/sdb"

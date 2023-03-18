@@ -46,7 +46,7 @@ func (c *cluster) reconcileCurveDaemons() error {
 		return errors.Wrap(err, "failed get node with app=etcd label")
 	}
 
-	// 1. Start Etcd cluster
+	// // 1. Start Etcd cluster
 	// etcds := etcd.New(c.context, c.NamespacedName, *c.Spec)
 	// err = etcds.Start(nodeNameIP)
 	// if err != nil {

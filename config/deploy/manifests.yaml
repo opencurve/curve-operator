@@ -145,6 +145,8 @@ spec:
                   items:
                     type: string
                   type: array
+                port:
+                  type: integer
                 selectedNodes:
                   items:
                     properties:
@@ -355,7 +357,7 @@ spec:
         - --enable-leader-election
         command:
         - /curve-operator
-        image: harbor.cloud.netease.com/curve/curve-operator:deb2c50
+        image: harbor.cloud.netease.com/curve/curve-operator:9ae161e
         name: manager
         resources:
           limits:

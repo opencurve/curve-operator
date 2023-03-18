@@ -1,6 +1,7 @@
 package chunkserver
 
 import (
+	"fmt"
 	"strconv"
 	"strings"
 
@@ -22,8 +23,17 @@ const (
 	formatScriptMountPath   = "/curvebs/tools/sbin/format.sh"
 )
 
+// global variables
+var jobsArr []string
+var chunkserverConfigs []chunkserverConfig
+
+// startProvisioningOverNodes format device and provision chunk files
 func (c *Cluster) startProvisioningOverNodes() error {
 	if !c.spec.Storage.UseSelectedNodes {
+
+		jobsArr = []string{}
+		chunkserverConfigs = []chunkserverConfig{}
+
 		hostnameMap, err := k8sutil.GetNodeHostNames(c.context.Clientset)
 		if err != nil {
 			return errors.Wrap(err, "failed to get node hostnames")
@@ -35,27 +45,54 @@ func (c *Cluster) startProvisioningOverNodes() error {
 		}
 
 		// get valid nodes that ready status and is schedulable
-		validNodes, err := k8sutil.GetValidNodes(c.context, storageNodes)
-		if err != nil {
-			return errors.Wrap(err, "failed to valid spec filed nodes")
+		validNodes, _ := k8sutil.GetValidNodes(c.context, storageNodes)
+		if len(validNodes) == 0 {
+			log.Warningf("no valid nodes available to run osds on nodes in namespace %q", c.namespacedName.Namespace)
+			return nil
 		}
 
 		log.Infof("%d of the %d storage nodes are valid", len(validNodes), len(c.spec.Storage.Nodes))
 
-		err = c.createConfigMap()
+		err = c.createFormatConfigMap()
 		if err != nil {
+			log.Errorf("failed to create format configmap")
 			return err
 		}
 
 		// travel all valid nodes to start job to prepare chunkfilepool
 		for _, node := range validNodes {
+			portBase := c.spec.Storage.Port
 			for _, device := range c.spec.Storage.Devices {
-				err = c.runPrepareJob(node.Name, device)
+				name := strings.TrimSpace(device.Name)
+				name = strings.TrimRight(name, "/")
+				nameArr := strings.Split(name, "/")
+				name = nameArr[len(nameArr)-1]
+				resourceName := fmt.Sprintf("%s-%s-%s", AppName, node.Name, name)
+
+				job, err := c.runPrepareJob(node.Name, device)
 				if err != nil {
 					log.Errorf("failed to create job for device %s on %s", device.Name, node.Name)
-					return errors.Wrapf(err, "failed to create job for device %s on %s", device.Name, node.Name)
+					continue // do not record the failed job in jobsArr and do not create chunkserverConfig for this device
 				}
 				log.Infof("create job for device %s on %s", device.Name, node.Name)
+
+				// jobsArr record all the job that have started, to determine whether the format is completed
+				jobsArr = append(jobsArr, job.Name)
+
+				// create chunkserver config for each device of every node
+				chunkserverConfig := chunkserverConfig{
+					ResourceName: resourceName,
+					DataPathMap: &chunkserverDataPathMap{
+						HostDevice:       device.Name,
+						ContainerDataDir: ChunkserverContainerDataDir,
+						ContainerLogDir:  ChunkserverContainerLogDir,
+					},
+					NodeName:   node.Name,
+					DeviceName: device.Name,
+					Port:       portBase,
+				}
+				chunkserverConfigs = append(chunkserverConfigs, chunkserverConfig)
+				portBase++
 			}
 		}
 	}
@@ -63,10 +100,10 @@ func (c *Cluster) startProvisioningOverNodes() error {
 	return nil
 }
 
-// createConfigMap create etcd configmap for etcd server
-func (c *Cluster) createConfigMap() error {
+// createConfigMap create configmap to mount format.sh script
+func (c *Cluster) createFormatConfigMap() error {
 	// generate configmap data with only one key of "format.sh"
-	etcdConfigMap := map[string]string{
+	formatConfigMap := map[string]string{
 		formatScriptFileDataKey: FORMAT,
 	}
 
@@ -75,7 +112,7 @@ func (c *Cluster) createConfigMap() error {
 			Name:      formatConfigMapName,
 			Namespace: c.namespacedName.Namespace,
 		},
-		Data: etcdConfigMap,
+		Data: formatConfigMap,
 	}
 
 	// Create format.sh configmap in cluster
@@ -87,12 +124,10 @@ func (c *Cluster) createConfigMap() error {
 }
 
 // runPrepareJob create job and run job
-func (c *Cluster) runPrepareJob(nodeName string, device curvev1.DevicesSpec) error {
-	job, err := c.makeJob(nodeName, device)
-	if err != nil {
-		return errors.Wrapf(err, "failed to create prepare job for %s", nodeName)
-	}
+func (c *Cluster) runPrepareJob(nodeName string, device curvev1.DevicesSpec) (*batch.Job, error) {
+	job, _ := c.makeJob(nodeName, device)
 
+	// judge job whether is exist
 	existingJob, err := c.context.Clientset.BatchV1().Jobs(job.Namespace).Get(job.Name, metav1.GetOptions{})
 	if err != nil && !kerrors.IsNotFound(err) {
 		log.Warningf("failed to detect job %s. %+v", job.Name, err)
@@ -100,15 +135,18 @@ func (c *Cluster) runPrepareJob(nodeName string, device curvev1.DevicesSpec) err
 		// if the job is still running
 		if existingJob.Status.Active > 0 {
 			log.Infof("Found previous job %s. Status=%+v", job.Name, existingJob.Status)
-			return nil
+			return existingJob, nil
 		}
 	}
+
+	// job is not found or job is not active status, so create or recreate it here
 	_, err = c.context.Clientset.BatchV1().Jobs(job.Namespace).Create(job)
-	return err
+
+	return job, err
 }
 
 func (c *Cluster) makeJob(nodeName string, device curvev1.DevicesSpec) (*batch.Job, error) {
-	volumes, volumeMounts := c.createDevVolumeAndMount()
+	volumes, volumeMounts := c.createDevVolumeAndMount(device)
 
 	name := strings.TrimSpace(device.Name)
 	name = strings.TrimRight(name, "/")
@@ -152,6 +190,7 @@ func (c *Cluster) makeJob(nodeName string, device curvev1.DevicesSpec) (*batch.J
 			Template: podSpec,
 		},
 	}
+
 	return job, nil
 }
 
@@ -161,19 +200,16 @@ func (c *Cluster) makeFormatContainer(device curvev1.DevicesSpec, volumeMounts [
 	runAsNonRoot := false
 	readOnlyRootFilesystem := false
 
-	// erase last '/' of mountpath
-	chunkfileDir := strings.TrimRight(device.MountPath, "/")
-
 	argsPercent := strconv.Itoa(device.Percentage)
 	argsFileSize := strconv.Itoa(DEFAULT_CHUNKFILE_SIZE)
-	argsFilePoolDir := chunkfileDir + "/chunkfilepool"
-	argsFilePoolMetaPath := chunkfileDir + "/chunkfilepool.meta"
+	argsFilePoolDir := ChunkserverContainerDataDir + "/chunkfilepool"
+	argsFilePoolMetaPath := ChunkserverContainerDataDir + "/chunkfilepool.meta"
 
 	container := v1.Container{
 		Name: "format",
 		Args: []string{
 			device.Name,
-			device.MountPath,
+			ChunkserverContainerDataDir,
 			argsPercent,
 			argsFileSize,
 			argsFilePoolDir,
@@ -195,4 +231,12 @@ func (c *Cluster) makeFormatContainer(device curvev1.DevicesSpec, volumeMounts [
 	}
 
 	return container
+}
+
+func (c *Cluster) getPodLabels(nodeName string) map[string]string {
+	labels := make(map[string]string)
+	labels["app"] = PrepareJobName
+	labels["chunkserver_name"] = nodeName
+	labels["curve_cluster"] = c.namespacedName.Namespace
+	return labels
 }
