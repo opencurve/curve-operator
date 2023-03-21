@@ -15,8 +15,7 @@ import (
 )
 
 const (
-	AppName       = "curve-etcd"
-	configMapName = "curve-etcd-config"
+	AppName = "curve-etcd"
 
 	// ContainerPath is the mount path of data and log
 	ContainerDataDir = "/curvebs/etcd/data"

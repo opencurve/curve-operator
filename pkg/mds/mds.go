@@ -20,8 +20,6 @@ const (
 	// ContainerPath is the mount path of data and log
 	ContainerDataDir = "/curvebs/mds/data"
 	ContainerLogDir  = "/curvebs/mds/logs"
-
-	DefaultMdsCount = 3
 )
 
 type Cluster struct {
@@ -40,24 +38,25 @@ func New(context clusterd.Context, namespacedName types.NamespacedName, spec cur
 	}
 }
 
-// Start begins the process of running a cluster of curve mds.
+// Start Curve mds daemon
 func (c *Cluster) Start(nodeNameIP map[string]string) error {
-	// 1. judge the etcd override configmap if exist
+	// check if the etcd override configmap exist
 	overrideCM, err := c.context.Clientset.CoreV1().ConfigMaps(c.namespacedName.Namespace).Get(config.EtcdOverrideConfigMapName, metav1.GetOptions{})
 	if err != nil {
-		return errors.Wrap(err, "failed to get etcd override endoints configmap")
+		log.Errorf("failed to get %s configmap from cluster", config.EtcdOverrideConfigMapName)
+		return errors.Wrapf(err, "failed to get %s configmap from cluster", config.EtcdOverrideConfigMapName)
 	}
 
-	// get etcdEndpoints data key of "etcdEndpoints" from etcd-endpoints-override
+	// get etcd endpoints from key of "etcdEndpoints" of etcd-endpoints-override
 	etcdEndpoints := overrideCM.Data[config.EtcdOvverideConfigMapDataKey]
 
-	// determine the etcd_points that pass to ConfigMap field "initial-cluster" by nodeNameIP
-	curConfigMapName, err := c.createConfigMap(etcdEndpoints)
+	// create mds configmap
+	err = c.createMdsConfigMap(etcdEndpoints)
 	if err != nil {
 		return errors.Wrapf(err, "failed to create mds configmap for %v", config.MdsConfigMapName)
 	}
 
-	// 2. create mds configmap override to record mds endpoints
+	// create mds override configmap to record mds endpoints
 	err = c.createOverrideMdsCM(nodeNameIP)
 	if err != nil {
 		return err
@@ -65,9 +64,9 @@ func (c *Cluster) Start(nodeNameIP map[string]string) error {
 
 	// reorder the nodeNameIP according to the order of nodes spec defined by the user
 	// nodes:
-	// - 10.219.196.145 - curve-mds-a
-	// - 10.219.192.90  - curve-mds-b
-	// - 10.219.196.150 - curve-mds-c
+	// - node1 - curve-mds-a
+	// - node2  - curve-mds-b
+	// - node3 - curve-mds-c
 	nodeNamesOrdered := make([]string, 0)
 	for _, n := range c.spec.Nodes {
 		for nodeName := range nodeNameIP {
@@ -104,7 +103,7 @@ func (c *Cluster) Start(nodeNameIP map[string]string) error {
 		// log.Infof("current node is %v", nodeName)
 
 		// make mds deployment
-		d, err := c.makeDeployment(config.MdsConfigMapDataKey, config.MdsConfigMapMountPathDir, nodeName, mdsConfig, curConfigMapName, nodeNameIP[nodeName])
+		d, err := c.makeDeployment(nodeName, nodeNameIP[nodeName], mdsConfig)
 		if err != nil {
 			return errors.Wrap(err, "failed to create mds Deployment")
 		}
