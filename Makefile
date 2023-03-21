@@ -23,7 +23,7 @@ all: curve-operator
 
 # Run tests
 test: generate fmt vet manifests
-	go test ./... -coverprofile cover.out
+	go test ./... -coverprofile cover.out -v
 
 # Build curve-operator binary
 curve-operator: generate fmt vet

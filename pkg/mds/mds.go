@@ -15,8 +15,7 @@ import (
 )
 
 const (
-	AppName       = "curve-mds"
-	configMapName = "curve-mds-config"
+	AppName = "curve-mds"
 
 	// ContainerPath is the mount path of data and log
 	ContainerDataDir = "/curvebs/mds/data"
@@ -44,18 +43,18 @@ func New(context clusterd.Context, namespacedName types.NamespacedName, spec cur
 // Start begins the process of running a cluster of curve mds.
 func (c *Cluster) Start(nodeNameIP map[string]string) error {
 	// 1. judge the etcd override configmap if exist
-	overrideCM, err := c.context.Clientset.CoreV1().ConfigMaps(c.namespacedName.Namespace).Get(config.OverrideCM, metav1.GetOptions{})
+	overrideCM, err := c.context.Clientset.CoreV1().ConfigMaps(c.namespacedName.Namespace).Get(config.EtcdOverrideConfigMapName, metav1.GetOptions{})
 	if err != nil {
 		return errors.Wrap(err, "failed to get etcd override endoints configmap")
 	}
 
 	// get etcdEndpoints data key of "etcdEndpoints" from etcd-endpoints-override
-	etcdEndpoints := overrideCM.Data[config.OvverideCMDataKey]
+	etcdEndpoints := overrideCM.Data[config.EtcdOvverideConfigMapDataKey]
 
 	// determine the etcd_points that pass to ConfigMap field "initial-cluster" by nodeNameIP
 	curConfigMapName, err := c.createConfigMap(etcdEndpoints)
 	if err != nil {
-		return errors.Wrapf(err, "failed to create mds configmap for %v", configMapName)
+		return errors.Wrapf(err, "failed to create mds configmap for %v", config.MdsConfigMapName)
 	}
 
 	// 2. create mds configmap override to record mds endpoints

@@ -14,17 +14,19 @@ spec:
   dataDirHostPath: "/curvebs/data"
   logDirHostPath: "/curvebs/log"
   etcd:
-    port: 23820
-    listenPort: 23830
+    port: 23880
+    listenPort: 23890
   mds:
-    port: 23990
-    dummyPort: 23980
+    port: 23970
+    dummyPort: 23960
   storage:
     useSelectedNodes: false
     nodes:
     - node1
     - node2
+    - node3
     port: 8200
+    copysets: 100
     # - node3
     devices:
     - name: "/dev/sdb"

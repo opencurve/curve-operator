@@ -25,14 +25,14 @@ func (c *Cluster) createOverrideMdsCM(nodeNameIP map[string]string) error {
 	mds_endpoints = strings.TrimRight(mds_endpoints, ",")
 
 	mdsConfigMapData := map[string]string{
-		config.MdsOvverideCMDataKey: mds_endpoints,
+		config.MdsOvverideConfigMapDataKey: mds_endpoints,
 	}
 
 	// create configMap override to record the endpoints of etcd
 	// etcd-endpoints-override configmap only has one "etcdEndpoints" key that the value is etcd cluster endpoints
 	mdsOverrideCM := &v1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      config.MdsOverrideCM,
+			Name:      config.MdsOverrideConfigMapName,
 			Namespace: c.namespacedName.Namespace,
 		},
 		Data: mdsConfigMapData,
@@ -43,14 +43,14 @@ func (c *Cluster) createOverrideMdsCM(nodeNameIP map[string]string) error {
 		if !kerrors.IsAlreadyExists(err) {
 			return errors.Wrapf(err, "failed to create override configmap %s", c.namespacedName.Namespace)
 		}
-		log.Infof("ConfigMap for override mds endpoints %s already exists. updating if needed", config.OverrideCM)
+		log.Infof("ConfigMap for override mds endpoints %s already exists. updating if needed", config.MdsOverrideConfigMapName)
 
 		// TODO:Update the daemon Deployment
 		// if err := updateDeploymentAndWait(c.context, c.clusterInfo, d, config.MgrType, mgrConfig.DaemonID, c.spec.SkipUpgradeChecks, false); err != nil {
 		// 	logger.Errorf("failed to update mgr deployment %q. %v", resourceName, err)
 		// }
 	} else {
-		log.Infof("ConfigMap %s for override mds endpoints has been created", config.OverrideCM)
+		log.Infof("ConfigMap %s for override mds endpoints has been created", config.MdsOverrideConfigMapName)
 	}
 	return nil
 }
@@ -70,7 +70,7 @@ func (c *Cluster) createConfigMap(etcd_endpoints string) (string, error) {
 	configMapData["mds.snapshotcloneclient.addr"] = ""
 	configMapData["mds.common.logDir"] = "/curvebs/mds/logs"
 
-	curConfigMapName := configMapName
+	curConfigMapName := config.MdsConfigMapName
 
 	// generate configmap data with only one key of "mds.conf"
 	var mdsConfigVal string
@@ -158,7 +158,8 @@ func (c *Cluster) makeMdsDaemonContainer(configMapDataKey string, configMapMount
 	configFileMountPath := path.Join(configMapMountPathDir, configMapDataKey)
 
 	// define two args(--mdsAddr and --confPath) to startup 'curvebs-mds'
-	argsMdsAddr := fmt.Sprintf("--mdsAddr=%s:%s ", nodeIP, strconv.Itoa(c.spec.Mds.Port))
+	listenPort := strconv.Itoa(c.spec.Mds.Port)
+	argsMdsAddr := fmt.Sprintf("--mdsAddr=%s:%s", nodeIP, listenPort)
 	argsConfigFileDir := fmt.Sprintf("--confPath=%s", configFileMountPath)
 
 	container := v1.Container{
@@ -172,13 +173,13 @@ func (c *Cluster) makeMdsDaemonContainer(configMapDataKey string, configMapMount
 		VolumeMounts:    daemon.DaemonVolumeMounts(configMapDataKey, configMapMountPathDir, mdsConfig.DataPathMap, curConfigMapName),
 		Ports: []v1.ContainerPort{
 			{
-				Name:          "server-port",
+				Name:          "listen-port",
 				ContainerPort: int32(c.spec.Mds.Port),
 				HostPort:      int32(c.spec.Mds.Port),
 				Protocol:      v1.ProtocolTCP,
 			},
 			{
-				Name:          "listen-port",
+				Name:          "dummy-port",
 				ContainerPort: int32(c.spec.Mds.DummyPort),
 				HostPort:      int32(c.spec.Mds.DummyPort),
 				Protocol:      v1.ProtocolTCP,

@@ -46,21 +46,24 @@ func New(context clusterd.Context, namespacedName types.NamespacedName, spec cur
 // Start begins the process of running a cluster of curve etcds.
 func (c *Cluster) Start(nodeNameIP map[string]string) error {
 	var etcd_endpoints string
-	for _, ipAddr := range nodeNameIP {
+	var etcd_conf_endpoints string
+	for nodeName, ipAddr := range nodeNameIP {
+		etcd_conf_endpoints = fmt.Sprint(etcd_conf_endpoints, nodeName, "=http://", ipAddr, ":", c.spec.Etcd.Port, ",")
 		etcd_endpoints = fmt.Sprint(etcd_endpoints, ipAddr, ":", c.spec.Etcd.Port, ",")
 	}
 	etcd_endpoints = strings.TrimRight(etcd_endpoints, ",")
+	etcd_conf_endpoints = strings.TrimRight(etcd_conf_endpoints, ",")
 
 	// create etcd endpoints configmap for mds use.
 	etcdConfigMapData := map[string]string{
-		config.OvverideCMDataKey: etcd_endpoints,
+		config.EtcdOvverideConfigMapDataKey: etcd_endpoints,
 	}
 
 	// create configMap override to record the endpoints of etcd
 	// etcd-endpoints-override configmap only has one "etcdEndpoints" key that the value is etcd cluster endpoints
 	overrideCM := &v1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      config.OverrideCM,
+			Name:      config.EtcdOverrideConfigMapName,
 			Namespace: c.namespacedName.Namespace,
 		},
 		Data: etcdConfigMapData,
@@ -71,14 +74,14 @@ func (c *Cluster) Start(nodeNameIP map[string]string) error {
 		if !kerrors.IsAlreadyExists(err) {
 			return errors.Wrapf(err, "failed to create override configmap %s", c.namespacedName.Namespace)
 		}
-		log.Infof("ConfigMap for override etcd endpoints %s already exists. updating if needed", config.OverrideCM)
+		log.Infof("ConfigMap for override etcd endpoints %s already exists. updating if needed", config.EtcdOverrideConfigMapName)
 
 		// TODO:Update the daemon Deployment
 		// if err := updateDeploymentAndWait(c.context, c.clusterInfo, d, config.MgrType, mgrConfig.DaemonID, c.spec.SkipUpgradeChecks, false); err != nil {
 		// 	logger.Errorf("failed to update mgr deployment %q. %v", resourceName, err)
 		// }
 	} else {
-		log.Infof("ConfigMap %s for override etcd endpoints has been created", config.OverrideCM)
+		log.Infof("ConfigMap %s for override etcd endpoints has been created", config.EtcdOverrideConfigMapName)
 	}
 
 	// reorder the nodeNameIP according to the order of nodes spec defined by the user
@@ -123,7 +126,7 @@ func (c *Cluster) Start(nodeNameIP map[string]string) error {
 		// log.Infof("current node is %v", nodeName)
 
 		// determine the etcd_points that pass to ConfigMap field "initial-cluster" by nodeNameIP
-		curConfigMapName, err := c.createConfigMap(daemonIDString, nodeName, nodeNameIP[nodeName], etcd_endpoints)
+		curConfigMapName, err := c.createConfigMap(daemonIDString, nodeName, nodeNameIP[nodeName], etcd_conf_endpoints)
 		if err != nil {
 			return errors.Wrapf(err, "failed to create etcd configmap for %v", nodeName)
 		}

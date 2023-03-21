@@ -262,6 +262,9 @@ type StorageScopeSpec struct {
 	Port int `json:"port,omitempty"`
 
 	// +optional
+	CopySets int `json:"copySets,omitempty"`
+
+	// +optional
 	Devices []DevicesSpec `json:"devices,omitempty"`
 
 	// +optional

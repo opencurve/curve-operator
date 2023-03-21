@@ -124,6 +124,8 @@ spec:
             storage:
               description: StorageScopeSpec
               properties:
+                copySets:
+                  type: integer
                 devices:
                   items:
                     description: Device represents a disk to use in the cluster

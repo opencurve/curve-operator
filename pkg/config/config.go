@@ -2,12 +2,12 @@ package config
 
 const (
 	// configmap to record the endpoints of etcd
-	OverrideCM        = "etcd-endpoints-override"
-	OvverideCMDataKey = "etcdEndpoints"
+	EtcdOverrideConfigMapName    = "etcd-endpoints-override"
+	EtcdOvverideConfigMapDataKey = "etcdEndpoints"
 
 	// configmap to record the endpoints of mds
-	MdsOverrideCM        = "mds-endpoints-override"
-	MdsOvverideCMDataKey = "mdsEndpoints"
+	MdsOverrideConfigMapName    = "mds-endpoints-override"
+	MdsOvverideConfigMapDataKey = "mdsEndpoints"
 
 	// configuration
 	// etcd.conf
@@ -15,6 +15,7 @@ const (
 	EtcdConfigMapMountPathDir = "/curvebs/etcd/conf"
 
 	// mds.conf
+	MdsConfigMapName         = "curve-mds-config"
 	MdsConfigMapDataKey      = "mds.conf"
 	MdsConfigMapMountPathDir = "/curvebs/mds/conf"
 
@@ -32,4 +33,14 @@ const (
 	S3ConfigMapName         = "s3-conf"
 	S3ConfigMapDataKey      = "s3.conf"
 	S3ConfigMapMountPathDir = "/curvebs/chunkserver/conf"
+
+	// topology.json
+	TopoJsonConfigMapName         = "topology-json-conf"
+	TopoJsonConfigmapDataKey      = "topology.json"
+	TopoJsonConfigmapMountPathDir = "/curvebs/tools/conf"
+
+	// tools.conf
+	ToolsConfigMapName         = "tools-conf"
+	ToolsConfigMapDataKey      = "tools.conf"
+	ToolsConfigMapMountPathDir = "/etc/curve"
 )
