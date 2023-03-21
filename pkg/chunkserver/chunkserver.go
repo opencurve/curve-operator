@@ -41,7 +41,7 @@ func New(context clusterd.Context, namespacedName types.NamespacedName, spec cur
 	}
 }
 
-// Start begins the process of running a cluster of curve mds.
+// Start begins the chunkserver daemon
 func (c *Cluster) Start(nodeNameIP map[string]string) error {
 	log.Infof("start running chunkserver in namespace %q", c.namespacedName.Namespace)
 
@@ -55,35 +55,35 @@ func (c *Cluster) Start(nodeNameIP map[string]string) error {
 		return errors.New("useSelectedNodes is set to false but selectedNodes not be specified")
 	}
 
-	log.Info("starting provisioning the chunkfilepool")
+	log.Info("starting to prepare the chunk file")
 
-	// 1. startProvisioningOverNodes format device and provision chunk files
+	// 1. startProvisioningOverNodes format device and prepare chunk files
 	err := c.startProvisioningOverNodes(nodeNameIP)
 	if err != nil {
-		log.Error("failed to provision chunkfilepool")
+		log.Error("failed to prepare chunkfiles")
 		return errors.Wrap(err, "failed to provision chunkfilepool")
 	}
 
-	// 2. wait all job for complete process and wait MDS election success.
+	// 2. wait all job finish to complete format and wait MDS election success.
 	halfMinuteTicker := time.NewTicker(10 * time.Second)
 	defer halfMinuteTicker.Stop()
 
 	chn := make(chan bool, 1)
-	ctx, canf := context.WithTimeout(context.Background(), time.Duration(5*60*time.Second))
+	ctx, canf := context.WithTimeout(context.Background(), time.Duration(10*60*time.Second))
 	defer canf()
 	c.checkJobStatus(ctx, halfMinuteTicker, chn)
 
-	// block here unitl timeout(5 mins) or all jobs has been successed.
+	// block here unitl timeout(10 mins) or all jobs has been successed.
 	flag := <-chn
 
 	// not all job has completed
 	if !flag {
 		// TODO: delete all jobs that has created.
-		log.Error("All jobs have not been completed for more than 5 minutes")
-		return errors.New("All jobs have not been completed for more than 5 minutes")
+		log.Error("Format job is not completed in 10 minutes and exit with -1")
+		return errors.New("Format job is not completed in 10 minutes and exit with -1")
 	}
 
-	log.Info("all jobs has been completed in 5 mins")
+	log.Info("all jobs run completed in 10 mins")
 
 	// 2. create physical pool
 	_, err = c.runCreatePoolJob("physical_pool")

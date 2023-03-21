@@ -33,6 +33,7 @@ func GetValidNodes(c clusterd.Context, storageNodes []string) ([]v1.Node, error)
 	for _, curveNode := range storageNodes {
 		n, err := c.Clientset.CoreV1().Nodes().Get(curveNode, metav1.GetOptions{})
 		if err != nil {
+			logger.Errorf("failed to get node %v info", curveNode)
 			return nil, errors.Wrap(err, "failed to get node info by node name")
 		}
 

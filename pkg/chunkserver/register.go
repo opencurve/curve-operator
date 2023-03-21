@@ -17,7 +17,7 @@ import (
 
 const RegisterJobName = "register-topo"
 
-// create Job to register topology.json
+// runCreatePoolJob create Job to register topology.json
 func (c *Cluster) runCreatePoolJob(poolType string) (*batch.Job, error) {
 	// 1. create topology-json-conf configmap in cluster
 	err := c.createTopoConfigMap()
@@ -41,7 +41,7 @@ func (c *Cluster) runCreatePoolJob(poolType string) (*batch.Job, error) {
 		job, _ = c.makeCreatePoolJob(poolType, "gen-logical-pool")
 	}
 
-	// judge job whether is exist
+	// check whether job is exist
 	existingJob, err := c.context.Clientset.BatchV1().Jobs(job.Namespace).Get(job.Name, metav1.GetOptions{})
 	if err != nil && !kerrors.IsNotFound(err) {
 		log.Warningf("failed to detect job %s. %+v", job.Name, err)
@@ -62,7 +62,7 @@ func (c *Cluster) runCreatePoolJob(poolType string) (*batch.Job, error) {
 }
 
 func (c *Cluster) makeCreatePoolJob(poolType string, jobName string) (*batch.Job, error) {
-	// topology.json volume and volumemount
+	// topology.json and tools.conf volume and volumemount
 	volumes, mounts := c.createTopoAndToolVolumeAndMount()
 
 	podSpec := v1.PodTemplateSpec{
@@ -137,9 +137,9 @@ func (c *Cluster) makeCreatePoolContainer(poolType string, mounts []v1.VolumeMou
 	return container
 }
 
-// createTopoConfigMap create Job to register topology.json
+// createTopoConfigMap create topology configmap
 func (c *Cluster) createTopoConfigMap() error {
-	// generate configmap data with only one key of "topology.json"
+	// get topology.json string
 	clusterPoolJson := c.genClusterPool()
 
 	topoConfigMap := map[string]string{
@@ -157,7 +157,7 @@ func (c *Cluster) createTopoConfigMap() error {
 	// Create topology-json-conf configmap in cluster
 	_, err := c.context.Clientset.CoreV1().ConfigMaps(c.namespacedName.Namespace).Create(cm)
 	if err != nil && !kerrors.IsAlreadyExists(err) {
-		return errors.Wrapf(err, "failed to create topology configmap %s", c.namespacedName.Namespace)
+		return errors.Wrapf(err, "failed to create topology-json-conf configmap in namespace %s", c.namespacedName.Namespace)
 	}
 	return nil
 }
@@ -169,30 +169,26 @@ func (c *Cluster) createToolConfigMap() error {
 		return errors.Wrap(err, "failed to read config file from template/tools.conf")
 	}
 
-	overrideCM, err := c.context.Clientset.CoreV1().ConfigMaps(c.namespacedName.Namespace).Get(config.EtcdOverrideConfigMapName, metav1.GetOptions{})
+	etcdOverrideCM, err := c.context.Clientset.CoreV1().ConfigMaps(c.namespacedName.Namespace).Get(config.EtcdOverrideConfigMapName, metav1.GetOptions{})
 	if err != nil {
 		return errors.Wrap(err, "failed to get etcd override endoints configmap")
 	}
+	etcdEndpoints := etcdOverrideCM.Data[config.EtcdOvverideConfigMapDataKey]
 
-	// get etcdEndpoints data key of "etcdEndpoints" from etcd-endpoints-override
-	etcdEndpoints := overrideCM.Data[config.EtcdOvverideConfigMapDataKey]
-
-	overrideCM, err = c.context.Clientset.CoreV1().ConfigMaps(c.namespacedName.Namespace).Get(config.MdsOverrideConfigMapName, metav1.GetOptions{})
+	mdsOverrideCM, err := c.context.Clientset.CoreV1().ConfigMaps(c.namespacedName.Namespace).Get(config.MdsOverrideConfigMapName, metav1.GetOptions{})
 	if err != nil {
 		return errors.Wrap(err, "failed to get mds override endoints configmap")
 	}
-
-	// get mdsEndpoints data key of "mdsEndpoints" from mds-endpoints-override
-	mdsEndpoints := overrideCM.Data[config.MdsOvverideConfigMapDataKey]
+	mdsEndpoints := mdsOverrideCM.Data[config.MdsOvverideConfigMapDataKey]
 
 	configMapData["mdsAddr"] = mdsEndpoints
 
-	// TODO: not consider for only one host deployment
+	// TODO: do not consider for only one host deployment here
 	dummyPort := strconv.Itoa(c.spec.Mds.DummyPort)
 	mdsDummyPorts := dummyPort + "," + dummyPort + "," + dummyPort
 	configMapData["mdsDummyPort"] = mdsDummyPorts
 
-	// TODO: not consider for only one host deployment
+	// TODO: do not consider for only one host deployment here
 	retEtcdEndpoints := ""
 	etcdEndpointsArr := strings.Split(etcdEndpoints, ",")
 	for _, etcdAddr := range etcdEndpointsArr {
@@ -228,7 +224,7 @@ func (c *Cluster) createToolConfigMap() error {
 	// Create topology-json-conf configmap in cluster
 	_, err = c.context.Clientset.CoreV1().ConfigMaps(c.namespacedName.Namespace).Create(cm)
 	if err != nil && !kerrors.IsAlreadyExists(err) {
-		return errors.Wrapf(err, "failed to create topology configmap %s", c.namespacedName.Namespace)
+		return errors.Wrapf(err, "failed to create tools-conf configmap in namespace %s", c.namespacedName.Namespace)
 	}
 
 	return nil

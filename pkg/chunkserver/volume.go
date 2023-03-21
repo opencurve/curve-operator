@@ -19,32 +19,31 @@ func (c *Cluster) createFormatVolumeAndMount(device curvev1.DevicesSpec) ([]v1.V
 
 	// 1. Create format configmap volume and volume path
 	mode := int32(0644)
-	configMapVolSource := &v1.ConfigMapVolumeSource{LocalObjectReference: v1.LocalObjectReference{Name: formatConfigMapName}, Items: []v1.KeyToPath{{Key: formatScriptFileDataKey, Path: formatScriptFileDataKey, Mode: &mode}}}
+	formatCMVolSource := &v1.ConfigMapVolumeSource{LocalObjectReference: v1.LocalObjectReference{Name: formatConfigMapName}, Items: []v1.KeyToPath{{Key: formatScriptFileDataKey, Path: formatScriptFileDataKey, Mode: &mode}}}
 	configVol := v1.Volume{
 		Name: formatConfigMapName,
 		VolumeSource: v1.VolumeSource{
-			ConfigMap: configMapVolSource,
+			ConfigMap: formatCMVolSource,
 		},
 	}
 
 	// configmap volume mount path
-	m := v1.VolumeMount{
+	formatCMVolumeMount := v1.VolumeMount{
 		Name:      formatConfigMapName,
 		ReadOnly:  true, // should be no reason to write to the config in pods, so enforce this
 		MountPath: formatScriptMountPath,
 		SubPath:   formatScriptFileDataKey,
 	}
 	vols = append(vols, configVol)
-	mounts = append(mounts, m)
+	mounts = append(mounts, formatCMVolumeMount)
 
-	// 2. Create hostpath volume and volume mount for device.MountPath
+	// 2. create hostpath volume and volume mount for device.MountPath
 	hostPathType := v1.HostPathDirectoryOrCreate
 
 	volumeName := strings.TrimSpace(device.MountPath)
 	volumeName = strings.TrimRight(volumeName, "/")
 	volumeNameArr := strings.Split(volumeName, "/")
 	volumeName = volumeNameArr[len(volumeNameArr)-1]
-
 	// volume name : chunkserver-data-chunkserver0
 	tmpVolumeName := chunkserverVolumeName + "-" + volumeName
 
@@ -189,7 +188,7 @@ func (c *Cluster) createTopoAndToolVolumeAndMount() ([]v1.Volume, []v1.VolumeMou
 	vols := []v1.Volume{}
 	mounts := []v1.VolumeMount{}
 
-	// 1. Create topology configmap volume and volume mount path("/curvebs/tools/conf/topology.json")
+	// 1. Create topology configmap volume and volume mount("/curvebs/tools/conf/topology.json")
 	mode := int32(0644)
 	topoConfigMapVolSource := &v1.ConfigMapVolumeSource{LocalObjectReference: v1.LocalObjectReference{Name: config.TopoJsonConfigMapName}, Items: []v1.KeyToPath{{Key: config.TopoJsonConfigmapDataKey, Path: config.TopoJsonConfigmapDataKey, Mode: &mode}}}
 	topoConfigVol := v1.Volume{
@@ -207,7 +206,7 @@ func (c *Cluster) createTopoAndToolVolumeAndMount() ([]v1.Volume, []v1.VolumeMou
 	}
 	mounts = append(mounts, topoMount)
 
-	// 1. Create tools configmap volume and volume mount path("/etc/curve/tools.conf")
+	// 2. Create tools configmap volume and volume mount("/etc/curve/tools.conf")
 	toolConfigMapVolSource := &v1.ConfigMapVolumeSource{LocalObjectReference: v1.LocalObjectReference{Name: config.ToolsConfigMapName}, Items: []v1.KeyToPath{{Key: config.ToolsConfigMapDataKey, Path: config.ToolsConfigMapDataKey, Mode: &mode}}}
 	toolConfigVol := v1.Volume{
 		Name: config.ToolsConfigMapName,
