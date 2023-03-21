@@ -69,9 +69,9 @@ func (c *Cluster) Start(nodeNameIP map[string]string) error {
 	// - 10.219.192.90  - curve-mds-b
 	// - 10.219.196.150 - curve-mds-c
 	nodeNamesOrdered := make([]string, 0)
-	for _, nodeIP := range c.spec.Nodes {
-		for nodeName, ipAddr := range nodeNameIP {
-			if nodeIP == ipAddr {
+	for _, n := range c.spec.Nodes {
+		for nodeName := range nodeNameIP {
+			if n == nodeName {
 				nodeNamesOrdered = append(nodeNamesOrdered, nodeName)
 			}
 		}

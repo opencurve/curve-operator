@@ -8,9 +8,9 @@ spec:
   curveVersion:
     image: opencurvedocker/curvebs:v1.2
   nodes:
-  - 10.219.196.145
-  - 10.219.192.90
-  - 10.219.196.150
+  - node1
+  - node2
+  - node3
   dataDirHostPath: "/curvebs/data"
   logDirHostPath: "/curvebs/log"
   etcd:
@@ -27,7 +27,6 @@ spec:
     - node3
     port: 8200
     copysets: 100
-    # - node3
     devices:
     - name: "/dev/sdb"
       mountPath: "/data/chunkserver0"

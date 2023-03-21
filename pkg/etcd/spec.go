@@ -2,7 +2,6 @@ package etcd
 
 import (
 	"fmt"
-	"path"
 	"strconv"
 
 	"github.com/opencurve/curve-operator/pkg/config"
@@ -14,21 +13,56 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// createConfigMap create etcd configmap for etcd server
-func (c *Cluster) createConfigMap(daemonIDString string, nodeName string, ipAddr string, etcd_endpoints string) (string, error) {
+// createOverrideConfigMap create configMap override to record the endpoints of etcd for mds use
+func (c *Cluster) createOverrideConfigMap(etcd_endpoints string) error {
+	etcdConfigMapData := map[string]string{
+		config.EtcdOvverideConfigMapDataKey: etcd_endpoints,
+	}
+
+	// etcd-endpoints-override configmap only has one "etcdEndpoints" key that the value is etcd cluster endpoints
+	overrideCM := &v1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      config.EtcdOverrideConfigMapName,
+			Namespace: c.namespacedName.Namespace,
+		},
+		Data: etcdConfigMapData,
+	}
+
+	_, err := c.context.Clientset.CoreV1().ConfigMaps(c.namespacedName.Namespace).Create(overrideCM)
+	if err != nil {
+		if !kerrors.IsAlreadyExists(err) {
+			return errors.Wrapf(err, "failed to create override configmap %s", c.namespacedName.Namespace)
+		}
+		log.Infof("ConfigMap for override etcd endpoints %s already exists. updating if needed", config.EtcdOverrideConfigMapName)
+
+		// TODO:Update the daemon Deployment
+		// if err := updateDeploymentAndWait(c.context, c.clusterInfo, d, config.MgrType, mgrConfig.DaemonID, c.spec.SkipUpgradeChecks, false); err != nil {
+		// 	logger.Errorf("failed to update mgr deployment %q. %v", resourceName, err)
+		// }
+	} else {
+		log.Infof("ConfigMap %s for override etcd endpoints has been created", config.EtcdOverrideConfigMapName)
+	}
+
+	return nil
+}
+
+// Comment it because we start etcd now using command line flag but not config file
+// so etcd.conf is not exist in container(pod)
+/**
+func (c *Cluster) createEtcdConfigMap(etcd_endpoints string) error {
 	var configMapData = map[string]string{
 		"name":                        "default",
-		"data-dir":                    "/curvebs/etcd/data",
-		"wal-dir":                     "/curvebs/etcd/data/wal",
-		"listen-peer-urls":            "http://" + ipAddr, // 23800
-		"listen-client-urls":          "http://" + ipAddr, // 23790
-		"initial-advertise-peer-urls": "http://" + ipAddr, // 23800
-		"advertise-client-urls":       "http://" + ipAddr, // 23790
+		"data-dir":                    ContainerDataDir,
+		"wal-dir":                     ContainerDataDir + "/wal",
+		"listen-peer-urls":            "http://0.0.0.0", // 23800
+		"listen-client-urls":          "http://0.0.0.0", // 23790
+		"initial-advertise-peer-urls": "http://",        // 23800
+		"advertise-client-urls":       "http://",        // 23790
 		"initial-cluster":             "",
 	}
 
 	// modify name
-	configMapData["name"] = nodeName
+	// configMapData["name"] = nodeName
 
 	// modify port perr-urls and client-urls by port that user setting
 	configMapData["listen-peer-urls"] = configMapData["listen-peer-urls"] + ":" + strconv.Itoa(c.spec.Etcd.Port)
@@ -40,8 +74,6 @@ func (c *Cluster) createConfigMap(daemonIDString string, nodeName string, ipAddr
 
 	// modify initial-cluster field config
 	configMapData["initial-cluster"] = etcd_endpoints
-
-	curConfigMapName := fmt.Sprintf("%s-%s", configMapName, daemonIDString)
 
 	// generate configmap data with only one key of "etcd.conf"
 	var etcdConfigVal string
@@ -55,7 +87,7 @@ func (c *Cluster) createConfigMap(daemonIDString string, nodeName string, ipAddr
 
 	cm := &v1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      curConfigMapName,
+			Name:      config.EtcdConfigMapName,
 			Namespace: c.namespacedName.Namespace,
 		},
 		Data: etcdConfigMap,
@@ -67,15 +99,17 @@ func (c *Cluster) createConfigMap(daemonIDString string, nodeName string, ipAddr
 	// Create etcd config in cluster
 	_, err := c.context.Clientset.CoreV1().ConfigMaps(c.namespacedName.Namespace).Create(cm)
 	if err != nil && !kerrors.IsAlreadyExists(err) {
-		return "", errors.Wrapf(err, "failed to create override configmap %s", c.namespacedName.Namespace)
+		return errors.Wrapf(err, "failed to create override configmap %s", c.namespacedName.Namespace)
 	}
-	return curConfigMapName, nil
+
+	return nil
 }
+*/
 
 // makeDeployment make etcd deployment to run etcd server
-func (c *Cluster) makeDeployment(configMapDataKey string, configMapMountPathDir string, nodeName string, etcdConfig *etcdConfig, curConfigMapName string) (*apps.Deployment, error) {
+func (c *Cluster) makeDeployment(nodeName string, ip string, etcdConfig *etcdConfig, init_cluster string) (*apps.Deployment, error) {
 	// TODO:
-	volumes := daemon.DaemonVolumes(configMapDataKey, configMapMountPathDir, etcdConfig.DataPathMap, curConfigMapName)
+	volumes := daemon.DaemonVolumes("", "", etcdConfig.DataPathMap, "")
 
 	// for debug
 	// log.Infof("etcdConfig %+v", etcdConfig)
@@ -87,10 +121,10 @@ func (c *Cluster) makeDeployment(configMapDataKey string, configMapMountPathDir 
 		},
 		Spec: v1.PodSpec{
 			InitContainers: []v1.Container{
-				c.makeChmodDirInitContainer(configMapDataKey, configMapMountPathDir, etcdConfig, curConfigMapName),
+				c.makeChmodDirInitContainer(etcdConfig),
 			},
 			Containers: []v1.Container{
-				c.makeEtcdDaemonContainer(configMapDataKey, configMapMountPathDir, etcdConfig, curConfigMapName),
+				c.makeEtcdDaemonContainer(nodeName, ip, etcdConfig, init_cluster),
 			},
 			NodeName:      nodeName,
 			RestartPolicy: v1.RestartPolicyAlways,
@@ -124,14 +158,14 @@ func (c *Cluster) makeDeployment(configMapDataKey string, configMapMountPathDir 
 }
 
 // makeChmodDirInitContainer make init container to chmod 700 of ContainerDataDir('/curvebs/etcd/data')
-func (c *Cluster) makeChmodDirInitContainer(configMapDataKey string, configMapMountPathDir string, etcdConfig *etcdConfig, curConfigMapName string) v1.Container {
+func (c *Cluster) makeChmodDirInitContainer(etcdConfig *etcdConfig) v1.Container {
 	container := v1.Container{
 		Name: "chmod",
 		// Args:            args,
 		Command:         []string{"chmod", "700", etcdConfig.DataPathMap.ContainerDataDir},
 		Image:           c.spec.CurveVersion.Image,
 		ImagePullPolicy: c.spec.CurveVersion.ImagePullPolicy,
-		VolumeMounts:    daemon.DaemonVolumeMounts(configMapDataKey, configMapMountPathDir, etcdConfig.DataPathMap, curConfigMapName),
+		VolumeMounts:    daemon.DaemonVolumeMounts("", "", etcdConfig.DataPathMap, ""),
 		Ports: []v1.ContainerPort{
 			{
 				Name:          "peer-port",
@@ -152,19 +186,39 @@ func (c *Cluster) makeChmodDirInitContainer(configMapDataKey string, configMapMo
 }
 
 // makeEtcdDaemonContainer create etcd container
-func (c *Cluster) makeEtcdDaemonContainer(configMapDataKey string, configMapMountPathDir string, etcdConfig *etcdConfig, curConfigMapName string) v1.Container {
-	configFileMountPath := path.Join(config.EtcdConfigMapMountPathDir, "etcd.conf")
-	argsConfigFileDir := fmt.Sprintf("--config-file=%s", configFileMountPath)
+func (c *Cluster) makeEtcdDaemonContainer(nodeName string, ip string, etcdConfig *etcdConfig, init_cluster string) v1.Container {
+	// Start etcd using command line flag but not config file
+	argsEtcdName := fmt.Sprintf("--name=%s", nodeName)
+
+	argsDataDir := fmt.Sprintf("--data-dir=%s", ContainerDataDir)
+	walDir := ContainerDataDir + "/wal"
+	argsWalDir := fmt.Sprintf("--wal-dir=%s", walDir)
+
+	argsLPU := fmt.Sprintf("--listen-peer-urls=http://%s:%s", ip, strconv.Itoa(c.spec.Etcd.Port))
+	argsLCU := fmt.Sprintf("--listen-client-urls=http://%s:%s", ip, strconv.Itoa(c.spec.Etcd.ListenPort))
+	argsInitialAPU := fmt.Sprintf("--initial-advertise-peer-urls=http://%s:%s", ip, strconv.Itoa(c.spec.Etcd.Port))
+	argsACU := fmt.Sprintf("--advertise-client-urls=http://%s:%s", ip, strconv.Itoa(c.spec.Etcd.ListenPort))
+
+	argsInitialCluster := fmt.Sprintf("--initial-cluster=%s", init_cluster)
 
 	container := v1.Container{
 		Name: "etcd",
 		Command: []string{
 			"/curvebs/etcd/sbin/etcd",
 		},
-		Args:            []string{argsConfigFileDir},
+		Args: []string{
+			argsEtcdName,
+			argsDataDir,
+			argsWalDir,
+			argsLPU,
+			argsLCU,
+			argsInitialAPU,
+			argsACU,
+			argsInitialCluster,
+		},
 		Image:           c.spec.CurveVersion.Image,
 		ImagePullPolicy: c.spec.CurveVersion.ImagePullPolicy,
-		VolumeMounts:    daemon.DaemonVolumeMounts(configMapDataKey, configMapMountPathDir, etcdConfig.DataPathMap, curConfigMapName),
+		VolumeMounts:    daemon.DaemonVolumeMounts("", "", etcdConfig.DataPathMap, ""),
 		Ports: []v1.ContainerPort{
 			{
 				Name:          "peer-port",
