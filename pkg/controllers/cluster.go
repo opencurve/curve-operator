@@ -9,6 +9,7 @@ import (
 	"github.com/opencurve/curve-operator/pkg/clusterd"
 	"github.com/opencurve/curve-operator/pkg/etcd"
 	"github.com/opencurve/curve-operator/pkg/mds"
+	"github.com/opencurve/curve-operator/pkg/snapshotclone"
 	"github.com/pkg/errors"
 	"k8s.io/apimachinery/pkg/types"
 )
@@ -69,11 +70,20 @@ func (c *cluster) reconcileCurveDaemons() error {
 		return errors.Wrap(err, "failed to start curve mds")
 	}
 
-	// // 3. chunkserver
+	// 3. chunkserver
 	chunkservers := chunkserver.New(c.context, c.NamespacedName, *c.Spec)
 	err = chunkservers.Start(nodeNameIP)
 	if err != nil {
 		return errors.Wrap(err, "failed to start curve chunkserver")
+	}
+
+	// // 4. snapshotclone
+	if c.Spec.SnapShotClone.Enable {
+		snapshotclone := snapshotclone.New(c.context, c.NamespacedName, *c.Spec)
+		err = snapshotclone.Start(nodeNameIP)
+		if err != nil {
+			return errors.Wrap(err, "failed to start curve snapshotclone")
+		}
 	}
 
 	return nil

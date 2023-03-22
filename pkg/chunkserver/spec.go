@@ -30,7 +30,7 @@ func (c *Cluster) startChunkServers() error {
 		return errors.New("failed to start chunkserver because of job numbers is not equal with chunkserver config")
 	}
 
-	// 1. judge the mds override configmap if exist
+	// 1. check if the mds override configmap exist
 	overrideCM, err := c.context.Clientset.CoreV1().ConfigMaps(c.namespacedName.Namespace).Get(config.MdsOverrideConfigMapName, metav1.GetOptions{})
 	if err != nil {
 		return errors.Wrap(err, "failed to get mds override endoints configmap")
@@ -43,7 +43,7 @@ func (c *Cluster) startChunkServers() error {
 
 	_ = c.createCSClientConfigMap(mdsEndpoints)
 
-	_ = c.createS3ConfigMap(mdsEndpoints)
+	_ = c.CreateS3ConfigMap(mdsEndpoints)
 
 	cfgData, err := c.createConfigMap(mdsEndpoints)
 	if err != nil {
@@ -114,10 +114,18 @@ func (c *Cluster) createCSClientConfigMap(mdsEndpoints string) error {
 }
 
 // createS3ConfigMap create s3 configmap
-func (c *Cluster) createS3ConfigMap(mdsEndpoints string) error {
+func (c *Cluster) CreateS3ConfigMap(mdsEndpoints string) error {
 	configMapData, err := k8sutil.ReadConfFromTemplate("pkg/template/s3.conf")
 	if err != nil {
 		return errors.Wrap(err, "failed to read config file from template/cs_client.conf")
+	}
+
+	//if true
+	if c.spec.SnapShotClone.Enable {
+		configMapData["s3.ak"] = c.spec.SnapShotClone.S3Config.AK
+		configMapData["s3.sk"] = c.spec.SnapShotClone.S3Config.SK
+		configMapData["s3.nos_address"] = c.spec.SnapShotClone.S3Config.NosAddress
+		configMapData["s3.snapshot_bucket_name"] = c.spec.SnapShotClone.S3Config.SnapShotBucketName
 	}
 
 	var s3ConfigVal string
@@ -200,7 +208,7 @@ func (c *Cluster) createConfigMap(mdsEndpoints string) (configData, error) {
 	cfgData.data["chunkfilepool.chunk_file_pool_dir"] = ChunkserverContainerDataDir
 	cfgData.data["chunkfilepool.meta_path"] = ChunkserverContainerDataDir + "/chunkfilepool.meta"
 	cfgData.data["walfilepool.meta_path"] = ChunkserverContainerDataDir + "/walfilepool.meta"
-	cfgData.data["walfilepool.file_pool_dir"] = ChunkserverContainerDataDir + "/walfilepool.meta"
+	cfgData.data["walfilepool.file_pool_dir"] = ChunkserverContainerDataDir
 	cfgData.data["chunkserver.common.logDir"] = ChunkserverContainerLogDir
 
 	// generate configmap data with only one key of "chunkserver.conf"
