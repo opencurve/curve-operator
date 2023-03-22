@@ -18,7 +18,7 @@ const (
 	PrepareJobName         = "prepare-chunkfile"
 	DEFAULT_CHUNKFILE_SIZE = 16 * 1024 * 1024 // 16MB
 
-	formatConfigMapName     = "format-chunkfilepool-conf"
+	formatConfigMapName     = "format-chunkfile-conf"
 	formatScriptFileDataKey = "format.sh"
 	formatScriptMountPath   = "/curvebs/tools/sbin/format.sh"
 )
@@ -31,11 +31,13 @@ var chunkserverConfigs []chunkserverConfig
 func (c *Cluster) startProvisioningOverNodes(nodeNameIP map[string]string) error {
 	if !c.spec.Storage.UseSelectedNodes {
 
+		// clear slice
 		jobsArr = []string{}
 		chunkserverConfigs = []chunkserverConfig{}
 
 		hostnameMap, err := k8sutil.GetNodeHostNames(c.context.Clientset)
 		if err != nil {
+			log.Error("failed to get node hostnames")
 			return errors.Wrap(err, "failed to get node hostnames")
 		}
 
@@ -60,12 +62,12 @@ func (c *Cluster) startProvisioningOverNodes(nodeNameIP map[string]string) error
 		}
 
 		hostSequence := 0
-		// travel all valid nodes to start job to prepare chunkfilepool
+		// travel all valid nodes to start job to prepare chunkfiles
 		for _, node := range validNodes {
 			nodeIP := nodeNameIP[node.Name]
+			// port
 			portBase := c.spec.Storage.Port
-
-			// replicas replicas bymber
+			// replicas number
 			replicasSequence := 0
 
 			for _, device := range c.spec.Storage.Devices {
@@ -80,6 +82,7 @@ func (c *Cluster) startProvisioningOverNodes(nodeNameIP map[string]string) error
 					log.Errorf("failed to create job for device %s on %s", device.Name, node.Name)
 					continue // do not record the failed job in jobsArr and do not create chunkserverConfig for this device
 				}
+
 				log.Infof("created job for device %s on %s", device.Name, node.Name)
 
 				// jobsArr record all the job that have started, to determine whether the format is completed
@@ -113,10 +116,10 @@ func (c *Cluster) startProvisioningOverNodes(nodeNameIP map[string]string) error
 	return nil
 }
 
-// createConfigMap create configmap to mount format.sh script
+// createConfigMap create configmap to store format.sh script
 func (c *Cluster) createFormatConfigMap() error {
-	// generate configmap data with only one key of "format.sh"
-	formatConfigMap := map[string]string{
+	// create configmap data with only one key of "format.sh"
+	formatConfigMapData := map[string]string{
 		formatScriptFileDataKey: FORMAT,
 	}
 
@@ -125,7 +128,7 @@ func (c *Cluster) createFormatConfigMap() error {
 			Name:      formatConfigMapName,
 			Namespace: c.namespacedName.Namespace,
 		},
-		Data: formatConfigMap,
+		Data: formatConfigMapData,
 	}
 
 	// Create format.sh configmap in cluster
@@ -141,7 +144,7 @@ func (c *Cluster) createFormatConfigMap() error {
 func (c *Cluster) runPrepareJob(nodeName string, device curvev1.DevicesSpec) (*batch.Job, error) {
 	job, _ := c.makeJob(nodeName, device)
 
-	// judge job whether is exist
+	// check whether prepare job is exist
 	existingJob, err := c.context.Clientset.BatchV1().Jobs(job.Namespace).Get(job.Name, metav1.GetOptions{})
 	if err != nil && !kerrors.IsNotFound(err) {
 		log.Warningf("failed to detect job %s. %+v", job.Name, err)
@@ -250,7 +253,7 @@ func (c *Cluster) makeFormatContainer(device curvev1.DevicesSpec, volumeMounts [
 func (c *Cluster) getPodLabels(nodeName string) map[string]string {
 	labels := make(map[string]string)
 	labels["app"] = PrepareJobName
-	labels["chunkserver_name"] = nodeName
+	labels["node"] = nodeName
 	labels["curve_cluster"] = c.namespacedName.Namespace
 	return labels
 }

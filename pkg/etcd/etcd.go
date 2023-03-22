@@ -10,21 +10,16 @@ import (
 	"github.com/opencurve/curve-operator/pkg/config"
 	"github.com/opencurve/curve-operator/pkg/k8sutil"
 	"github.com/pkg/errors"
-	v1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 )
 
 const (
-	AppName       = "curve-etcd"
-	configMapName = "curve-etcd-config"
+	AppName = "curve-etcd"
 
 	// ContainerPath is the mount path of data and log
 	ContainerDataDir = "/curvebs/etcd/data"
 	ContainerLogDir  = "/curvebs/etcd/logs"
-
-	DefaultEtcdCount = 3
 )
 
 type Cluster struct {
@@ -45,59 +40,43 @@ func New(context clusterd.Context, namespacedName types.NamespacedName, spec cur
 
 // Start begins the process of running a cluster of curve etcds.
 func (c *Cluster) Start(nodeNameIP map[string]string) error {
-	var etcd_endpoints string
-	var etcd_conf_endpoints string
+	var etcdEndpoints string
+	var initial_cluster string
 	for nodeName, ipAddr := range nodeNameIP {
-		etcd_conf_endpoints = fmt.Sprint(etcd_conf_endpoints, nodeName, "=http://", ipAddr, ":", c.spec.Etcd.Port, ",")
-		etcd_endpoints = fmt.Sprint(etcd_endpoints, ipAddr, ":", c.spec.Etcd.Port, ",")
+		initial_cluster = fmt.Sprint(initial_cluster, nodeName, "=http://", ipAddr, ":", c.spec.Etcd.Port, ",")
+		etcdEndpoints = fmt.Sprint(etcdEndpoints, ipAddr, ":", c.spec.Etcd.Port, ",")
 	}
-	etcd_endpoints = strings.TrimRight(etcd_endpoints, ",")
-	etcd_conf_endpoints = strings.TrimRight(etcd_conf_endpoints, ",")
+	etcdEndpoints = strings.TrimRight(etcdEndpoints, ",")
+	initial_cluster = strings.TrimRight(initial_cluster, ",")
 
-	// create etcd endpoints configmap for mds use.
-	etcdConfigMapData := map[string]string{
-		config.EtcdOvverideConfigMapDataKey: etcd_endpoints,
-	}
-
-	// create configMap override to record the endpoints of etcd
-	// etcd-endpoints-override configmap only has one "etcdEndpoints" key that the value is etcd cluster endpoints
-	overrideCM := &v1.ConfigMap{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      config.EtcdOverrideConfigMapName,
-			Namespace: c.namespacedName.Namespace,
-		},
-		Data: etcdConfigMapData,
-	}
-
-	_, err := c.context.Clientset.CoreV1().ConfigMaps(c.namespacedName.Namespace).Create(overrideCM)
+	// Create etcd override configmap
+	err := c.createOverrideConfigMap(etcdEndpoints)
 	if err != nil {
-		if !kerrors.IsAlreadyExists(err) {
-			return errors.Wrapf(err, "failed to create override configmap %s", c.namespacedName.Namespace)
-		}
-		log.Infof("ConfigMap for override etcd endpoints %s already exists. updating if needed", config.EtcdOverrideConfigMapName)
-
-		// TODO:Update the daemon Deployment
-		// if err := updateDeploymentAndWait(c.context, c.clusterInfo, d, config.MgrType, mgrConfig.DaemonID, c.spec.SkipUpgradeChecks, false); err != nil {
-		// 	logger.Errorf("failed to update mgr deployment %q. %v", resourceName, err)
-		// }
-	} else {
-		log.Infof("ConfigMap %s for override etcd endpoints has been created", config.EtcdOverrideConfigMapName)
+		return errors.Wrap(err, "failed to create etcd override configmap")
 	}
+
+	// Not use config file here otherwise etcd command only use configfile and ignore command line flags.
+	// Create general curve-etcd-conf configmap for each etcd member
+	// err = c.createEtcdConfigMap(initial_cluster)
+	// if err != nil {
+	// 	return errors.Wrapf(err, "failed to create %s configmap", config.EtcdConfigMapName)
+	// }
 
 	// reorder the nodeNameIP according to the order of nodes spec defined by the user
 	// nodes:
-	// - 10.219.196.145 - curve-etcd-a
-	// - 10.219.196.90  - curve-etcd-b
-	// - 10.219.196.150 - curve-etcd-c
+	// - node1 - curve-etcd-a
+	// - node2  - curve-etcd-b
+	// - node3 - curve-etcd-c
 	nodeNamesOrdered := make([]string, 0)
-	for _, nodeIP := range c.spec.Nodes {
-		for nodeName, ipAddr := range nodeNameIP {
-			if nodeIP == ipAddr {
+	for _, n := range c.spec.Nodes {
+		for nodeName := range nodeNameIP {
+			if n == nodeName {
 				nodeNamesOrdered = append(nodeNamesOrdered, nodeName)
 			}
 		}
 	}
 
+	// Won't appear generally
 	if len(nodeNamesOrdered) != 3 {
 		log.Errorf("Nodes spec field is not 3, current nodes is %d", len(nodeNamesOrdered))
 		return errors.New("Nodes spec field is not 3")
@@ -125,14 +104,8 @@ func (c *Cluster) Start(nodeNameIP map[string]string) error {
 		// for debug
 		// log.Infof("current node is %v", nodeName)
 
-		// determine the etcd_points that pass to ConfigMap field "initial-cluster" by nodeNameIP
-		curConfigMapName, err := c.createConfigMap(daemonIDString, nodeName, nodeNameIP[nodeName], etcd_conf_endpoints)
-		if err != nil {
-			return errors.Wrapf(err, "failed to create etcd configmap for %v", nodeName)
-		}
-
 		// make etcd deployment
-		d, err := c.makeDeployment(config.EtcdConfigMapDataKey, config.EtcdConfigMapMountPathDir, nodeName, etcdConfig, curConfigMapName)
+		d, err := c.makeDeployment(nodeName, nodeNameIP[nodeName], etcdConfig, initial_cluster)
 		if err != nil {
 			return errors.Wrap(err, "failed to create etcd Deployment")
 		}

@@ -8,10 +8,11 @@ import (
 // DaemonVolumes returns the pod volumes used by all Curve daemons.
 func DaemonVolumes(configMapDataKey string, configMapMountPathDir string, dataPaths *config.DataPathMap, curConfigMapName string) []v1.Volume {
 	// create configmap volume
-	configVol, _ := configConfigMapVolumeAndMount(configMapDataKey, configMapMountPathDir, curConfigMapName)
-
 	vols := []v1.Volume{}
-	vols = append(vols, configVol)
+	if curConfigMapName != "" {
+		configVol, _ := configConfigMapVolumeAndMount(configMapDataKey, configMapMountPathDir, curConfigMapName)
+		vols = append(vols, configVol)
+	}
 
 	// create Data hostpath volume and log hostpath volume
 	hostPathType := v1.HostPathDirectoryOrCreate
@@ -27,9 +28,10 @@ func DaemonVolumes(configMapDataKey string, configMapMountPathDir string, dataPa
 // DaemonVolumeMounts returns the pod container volume mounth used by Curve daemon
 func DaemonVolumeMounts(configMapDataKey string, configMapMountPathDir string, dataPaths *config.DataPathMap, curConfigMapName string) []v1.VolumeMount {
 	// create configmap mount path
-	_, configMapMount := configConfigMapVolumeAndMount(configMapDataKey, configMapMountPathDir, curConfigMapName)
-	mounts := []v1.VolumeMount{
-		configMapMount,
+	mounts := []v1.VolumeMount{}
+	if curConfigMapName != "" {
+		_, configMapMount := configConfigMapVolumeAndMount(configMapDataKey, configMapMountPathDir, curConfigMapName)
+		mounts = append(mounts, configMapMount)
 	}
 
 	// create data mount path and log mount path on container

@@ -2,6 +2,7 @@
 kubectl delete cm curve-etcd-config-a -n curvebs
 kubectl delete cm curve-etcd-config-b -n curvebs
 kubectl delete cm curve-etcd-config-c -n curvebs
+kubectl delete cm curve-etcd-conf -n curvebs
 
 # override configmap
 kubectl delete cm etcd-endpoints-override -n curvebs

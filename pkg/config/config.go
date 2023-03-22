@@ -10,7 +10,8 @@ const (
 	MdsOvverideConfigMapDataKey = "mdsEndpoints"
 
 	// configuration
-	// etcd.conf
+	// etcd.conf - it not be used
+	EtcdConfigMapName         = "curve-etcd-conf"
 	EtcdConfigMapDataKey      = "etcd.conf"
 	EtcdConfigMapMountPathDir = "/curvebs/etcd/conf"
 
