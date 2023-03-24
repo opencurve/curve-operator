@@ -31,3 +31,14 @@ spec:
     - name: "/dev/sdb"
       mountPath: "/data/chunkserver0"
       percentage: 90
+  snapShotClone:
+    enable: true
+    port: 5555
+    dummyPort: 8083
+    proxyPort: 8084
+    s3Config:
+      ak: minioadmin
+      sk: minioadmin
+      nosAddress: http://10.219.196.145:9000
+      bucketName: curvebs
+

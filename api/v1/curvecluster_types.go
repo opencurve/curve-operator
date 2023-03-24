@@ -247,7 +247,7 @@ type S3ConfigSpec struct {
 	AK                 string `json:"ak,omitempty"`
 	SK                 string `json:"sk,omitempty"`
 	NosAddress         string `json:"nosAddress,omitempty"`
-	SnapShotBucketName string `json:"snapShotBucketName,omitempty"`
+	SnapShotBucketName string `json:"bucketName,omitempty"`
 }
 
 // StorageScopeSpec

@@ -18,7 +18,7 @@ import (
 const RegisterJobName = "register-topo"
 
 // runCreatePoolJob create Job to register topology.json
-func (c *Cluster) runCreatePoolJob(poolType string) (*batch.Job, error) {
+func (c *Cluster) runCreatePoolJob(nodeNameIP map[string]string, poolType string) (*batch.Job, error) {
 	// 1. create topology-json-conf configmap in cluster
 	err := c.createTopoConfigMap()
 	if err != nil {
@@ -27,7 +27,7 @@ func (c *Cluster) runCreatePoolJob(poolType string) (*batch.Job, error) {
 	log.Infof("created ConfigMap %s success", config.TopoJsonConfigMapName)
 
 	// 2. create tool-conf configmap in cluster
-	err = c.createToolConfigMap()
+	err = c.createToolConfigMap(nodeNameIP)
 	if err != nil {
 		return &batch.Job{}, errors.Wrap(err, "failed to create tool-conf configmap in cluster")
 	}
@@ -163,7 +163,7 @@ func (c *Cluster) createTopoConfigMap() error {
 }
 
 // create tools.conf configmap
-func (c *Cluster) createToolConfigMap() error {
+func (c *Cluster) createToolConfigMap(nodeNameIP map[string]string) error {
 	configMapData, err := k8sutil.ReadConfFromTemplate("pkg/template/tools.conf")
 	if err != nil {
 		return errors.Wrap(err, "failed to read config file from template/tools.conf")
@@ -200,6 +200,17 @@ func (c *Cluster) createToolConfigMap() error {
 
 	configMapData["snapshotCloneAddr"] = ""
 	configMapData["snapshotCloneDummyPort"] = ""
+	// TODO: do not consider for only one host deployment here
+	var snapEndpoints string
+	if c.spec.SnapShotClone.Enable {
+		for _, ipAddr := range nodeNameIP {
+			snapEndpoints = fmt.Sprint(snapEndpoints, ipAddr, ":", c.spec.SnapShotClone.Port, ",")
+		}
+		snapEndpoints = strings.TrimRight(snapEndpoints, ",")
+		configMapData["snapshotCloneAddr"] = snapEndpoints
+		dummyPort := strconv.Itoa(c.spec.SnapShotClone.DummyPort)
+		configMapData["snapshotCloneDummyPort"] = fmt.Sprintf("%s,%s,%s", dummyPort, dummyPort, dummyPort)
+	}
 
 	var toolsConfigVal string
 	for k, v := range configMapData {

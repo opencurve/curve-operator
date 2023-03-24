@@ -86,7 +86,7 @@ func (c *Cluster) Start(nodeNameIP map[string]string) error {
 	log.Info("all jobs run completed in 10 mins")
 
 	// 2. create physical pool
-	_, err = c.runCreatePoolJob("physical_pool")
+	_, err = c.runCreatePoolJob(nodeNameIP, "physical_pool")
 	if err != nil {
 		log.Error("failed to create physical pool")
 		return errors.Wrap(err, "failed to create physical pool")
@@ -103,7 +103,7 @@ func (c *Cluster) Start(nodeNameIP map[string]string) error {
 	time.Sleep(30 * time.Second)
 
 	// 5. create logical pool
-	_, err = c.runCreatePoolJob("logical_pool")
+	_, err = c.runCreatePoolJob(nodeNameIP, "logical_pool")
 	if err != nil {
 		log.Error("failed to create logical pool")
 		return errors.Wrap(err, "failed to create physical pool")

@@ -118,11 +118,11 @@ spec:
                   properties:
                     ak:
                       type: string
+                    bucketName:
+                      type: string
                     nosAddress:
                       type: string
                     sk:
-                      type: string
-                    snapShotBucketName:
                       type: string
                   type: object
               type: object
@@ -359,7 +359,7 @@ spec:
         - --enable-leader-election
         command:
         - /curve-operator
-        image: harbor.cloud.netease.com/curve/curve-operator:e059244
+        image: harbor.cloud.netease.com/curve/curve-operator:db579c6
         name: manager
         resources:
           limits:

@@ -93,7 +93,7 @@ func (c *Cluster) startProvisioningOverNodes(nodeNameIP map[string]string) error
 					ResourceName: resourceName,
 					DataPathMap: &chunkserverDataPathMap{
 						HostDevice:       device.Name,
-						HostLogDir:       fmt.Sprint(c.spec.LogDirHostPath, "/chunkserver"),
+						HostLogDir:       c.spec.LogDirHostPath + "/chunkserver-" + node.Name + "-" + name,
 						ContainerDataDir: ChunkserverContainerDataDir,
 						ContainerLogDir:  ChunkserverContainerLogDir,
 					},

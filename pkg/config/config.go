@@ -31,9 +31,10 @@ const (
 	CSClientConfigMapMountPathDir = "/curvebs/chunkserver/conf"
 
 	// s3.conf
-	S3ConfigMapName         = "s3-conf"
-	S3ConfigMapDataKey      = "s3.conf"
-	S3ConfigMapMountPathDir = "/curvebs/chunkserver/conf"
+	S3ConfigMapName             = "s3-conf"
+	S3ConfigMapDataKey          = "s3.conf"
+	S3ConfigMapMountPathDir     = "/curvebs/chunkserver/conf"
+	S3ConfigMapMountSnapPathDir = "/curvebs/snapshotclone/conf"
 
 	// topology.json
 	TopoJsonConfigMapName         = "topology-json-conf"
@@ -44,4 +45,24 @@ const (
 	ToolsConfigMapName         = "tools-conf"
 	ToolsConfigMapDataKey      = "tools.conf"
 	ToolsConfigMapMountPathDir = "/etc/curve"
+
+	// snap_client.conf
+	SnapClientConfigMapName      = "snap-client-conf"
+	SnapClientConfigMapDataKey   = "snap_client.conf"
+	SnapClientConfigMapMountPath = "/curvebs/snapshotclone/conf"
+
+	// snapshotclone.conf
+	SnapShotCloneConfigMapName      = "snapshotclone-conf"
+	SnapShotCloneConfigMapDataKey   = "snapshotclone.conf"
+	SnapShotCloneConfigMapMountPath = "/curvebs/snapshotclone/conf"
+
+	// nginx.conf
+	NginxConfigMapName      = "nginx-conf"
+	NginxConfigMapDataKey   = "nginx.conf"
+	NginxConfigMapMountPath = "/curvebs/snapshotclone/conf"
+
+	// start nginx.conf
+	StartSnapConfigMap          = "start-snap-conf"
+	StartSnapConfigMapDataKey   = "start_snap.sh"
+	StartSnapConfigMapMountPath = "/curvebs/tools/sbin/start_snap.sh"
 )

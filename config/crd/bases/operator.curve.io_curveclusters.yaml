@@ -113,11 +113,11 @@ spec:
                   properties:
                     ak:
                       type: string
+                    bucketName:
+                      type: string
                     nosAddress:
                       type: string
                     sk:
-                      type: string
-                    snapShotBucketName:
                       type: string
                   type: object
               type: object

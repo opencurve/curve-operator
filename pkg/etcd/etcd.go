@@ -94,8 +94,8 @@ func (c *Cluster) Start(nodeNameIP map[string]string) error {
 			DaemonID:     daemonIDString,
 			ResourceName: resourceName,
 			DataPathMap: config.NewDaemonDataPathMap(
-				fmt.Sprint(c.spec.DataDirHostPath, "/etcd"),
-				fmt.Sprint(c.spec.LogDirHostPath, "/etcd"),
+				fmt.Sprint(c.spec.DataDirHostPath, "/etcd-", daemonIDString),
+				fmt.Sprint(c.spec.LogDirHostPath, "/etcd-", daemonIDString),
 				ContainerDataDir,
 				ContainerLogDir,
 			),
