@@ -31,6 +31,7 @@ import (
 
 	curvev1 "github.com/opencurve/curve-operator/api/v1"
 	"github.com/opencurve/curve-operator/pkg/clusterd"
+	"github.com/opencurve/curve-operator/pkg/k8sutil"
 )
 
 // ClusterController controls an instance of a Curve Cluster
@@ -93,12 +94,20 @@ func (r *CurveClusterReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error
 		return reconcile.Result{}, errors.Wrap(err, "failed to get curveCluster")
 	}
 
+	// Set a finalizer so we can do cleanup before the object goes away
+	err = AddFinalizerIfNotPresent(context.Background(), r.Client, &curveCluster)
+	if err != nil {
+		return reconcile.Result{}, errors.Wrap(err, "failed to add finalizer")
+	}
+
 	// Delete: the CR was deleted
 	if !curveCluster.GetDeletionTimestamp().IsZero() {
 		return r.reconcileDelete(&curveCluster)
 	}
+
+	ownerInfo := k8sutil.NewOwnerInfo(&curveCluster, r.Scheme)
 	// reconcileCurveCluster func to run reconcile curve cluster
-	if err := r.ClusterController.reconcileCurveCluster(&curveCluster); err != nil {
+	if err := r.ClusterController.reconcileCurveCluster(&curveCluster, ownerInfo); err != nil {
 		return reconcile.Result{}, errors.Wrapf(err, "failed to reconcile cluster %q", curveCluster.Name)
 	}
 
@@ -108,15 +117,26 @@ func (r *CurveClusterReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error
 // reconcileDelete
 func (r *CurveClusterReconciler) reconcileDelete(curveCluster *curvev1.CurveCluster) (reconcile.Result, error) {
 	log.Log.Info("Delete the cluster CR now", "namespace", curveCluster.ObjectMeta.Name)
+
+	if _, ok := r.ClusterController.clusterMap[curveCluster.Namespace]; ok {
+		delete(r.ClusterController.clusterMap, curveCluster.Namespace)
+	}
+
+	// Remove finalizers
+	err := r.removeFinalizer(r.Client, r.ClusterController.namespacedName, curveCluster, "")
+	if err != nil {
+		return reconcile.Result{}, errors.Wrap(err, "failed to remove curvecluster cr finalizers")
+	}
 	return reconcile.Result{}, nil
 }
 
 // reconcileCurveCluster
-func (c *ClusterController) reconcileCurveCluster(clusterObj *curvev1.CurveCluster) error {
+func (c *ClusterController) reconcileCurveCluster(clusterObj *curvev1.CurveCluster, ownerInfo *k8sutil.OwnerInfo) error {
+	// one cr cluster in one namespace is allowed
 	cluster, ok := c.clusterMap[clusterObj.Namespace]
 	if !ok {
 		log.Log.Info("A new Cluster will be created!!!")
-		cluster = newCluster(c.context, clusterObj)
+		cluster = newCluster(c.context, clusterObj, ownerInfo)
 		// TODO: update cluster spec if the cluster has already exist!
 	} else {
 		log.Log.Info("Cluster has been exist but need configured but we don't apply it now, you need delete it and recreate it!!!", "namespace", cluster.NameSpace)

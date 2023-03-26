@@ -27,8 +27,12 @@ func (c *Cluster) createOverrideConfigMap(etcd_endpoints string) error {
 		},
 		Data: etcdConfigMapData,
 	}
+	err := c.ownerInfo.SetControllerReference(overrideCM)
+	if err != nil {
+		return errors.Wrapf(err, "failed to set owner reference to etcd override configmap %q", config.EtcdConfigMapName)
+	}
 
-	_, err := c.context.Clientset.CoreV1().ConfigMaps(c.namespacedName.Namespace).Create(overrideCM)
+	_, err = c.context.Clientset.CoreV1().ConfigMaps(c.namespacedName.Namespace).Create(overrideCM)
 	if err != nil {
 		if !kerrors.IsAlreadyExists(err) {
 			return errors.Wrapf(err, "failed to create override configmap %s", c.namespacedName.Namespace)
@@ -152,6 +156,11 @@ func (c *Cluster) makeDeployment(nodeName string, ip string, etcdConfig *etcdCon
 				Type: apps.RecreateDeploymentStrategyType,
 			},
 		},
+	}
+	// set ownerReference
+	err := c.ownerInfo.SetControllerReference(d)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to set owner reference to mon deployment %q", d.Name)
 	}
 
 	return d, nil

@@ -131,8 +131,13 @@ func (c *Cluster) createFormatConfigMap() error {
 		Data: formatConfigMapData,
 	}
 
+	err := c.ownerInfo.SetControllerReference(cm)
+	if err != nil {
+		return errors.Wrapf(err, "failed to set owner reference to format configmap %q", formatConfigMapName)
+	}
+
 	// Create format.sh configmap in cluster
-	_, err := c.context.Clientset.CoreV1().ConfigMaps(c.namespacedName.Namespace).Create(cm)
+	_, err = c.context.Clientset.CoreV1().ConfigMaps(c.namespacedName.Namespace).Create(cm)
 	if err != nil && !kerrors.IsAlreadyExists(err) {
 		return errors.Wrapf(err, "failed to create override configmap %s", c.namespacedName.Namespace)
 	}
@@ -206,6 +211,12 @@ func (c *Cluster) makeJob(nodeName string, device curvev1.DevicesSpec) (*batch.J
 		Spec: batch.JobSpec{
 			Template: podSpec,
 		},
+	}
+
+	// set ownerReference
+	err := c.ownerInfo.SetControllerReference(job)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to set owner reference to job %q", job.Name)
 	}
 
 	return job, nil

@@ -74,6 +74,11 @@ func (c *Cluster) createNginxConfigMap(snapEndpoints string) error {
 		Data: nginxConfigMap,
 	}
 
+	err = c.ownerInfo.SetControllerReference(cm)
+	if err != nil {
+		return errors.Wrapf(err, "failed to set owner reference to nginx.conf configmap %q", config.NginxConfigMapName)
+	}
+
 	// for debug
 	// log.Infof("namespace=%v", c.namespacedName.Namespace)
 
@@ -87,7 +92,7 @@ func (c *Cluster) createNginxConfigMap(snapEndpoints string) error {
 }
 
 func (c *Cluster) createStartSnapConfigMap() error {
-	nginxConfigMap := map[string]string{
+	startSnapShotConfigMap := map[string]string{
 		config.StartSnapConfigMapDataKey: START,
 	}
 
@@ -96,10 +101,15 @@ func (c *Cluster) createStartSnapConfigMap() error {
 			Name:      config.StartSnapConfigMap,
 			Namespace: c.namespacedName.Namespace,
 		},
-		Data: nginxConfigMap,
+		Data: startSnapShotConfigMap,
+	}
+
+	err := c.ownerInfo.SetControllerReference(cm)
+	if err != nil {
+		return errors.Wrapf(err, "failed to set owner reference to start_snapshot.sh configmap %q", config.StartSnapConfigMap)
 	}
 	// create nginx configmap in cluster
-	_, err := c.context.Clientset.CoreV1().ConfigMaps(c.namespacedName.Namespace).Create(cm)
+	_, err = c.context.Clientset.CoreV1().ConfigMaps(c.namespacedName.Namespace).Create(cm)
 	if err != nil && !kerrors.IsAlreadyExists(err) {
 		return errors.Wrapf(err, "failed to create start snapshotclone configmap %s", c.namespacedName.Namespace)
 	}
