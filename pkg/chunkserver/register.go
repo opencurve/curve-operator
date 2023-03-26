@@ -92,6 +92,12 @@ func (c *Cluster) makeCreatePoolJob(poolType string, jobName string) (*batch.Job
 		},
 	}
 
+	// set ownerReference
+	err := c.ownerInfo.SetControllerReference(job)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to set owner reference to mon deployment %q", job.Name)
+	}
+
 	return job, nil
 }
 
@@ -154,8 +160,13 @@ func (c *Cluster) createTopoConfigMap() error {
 		Data: topoConfigMap,
 	}
 
+	err := c.ownerInfo.SetControllerReference(cm)
+	if err != nil {
+		return errors.Wrapf(err, "failed to set owner reference to topology.json configmap %q", config.TopoJsonConfigMapName)
+	}
+
 	// Create topology-json-conf configmap in cluster
-	_, err := c.context.Clientset.CoreV1().ConfigMaps(c.namespacedName.Namespace).Create(cm)
+	_, err = c.context.Clientset.CoreV1().ConfigMaps(c.namespacedName.Namespace).Create(cm)
 	if err != nil && !kerrors.IsAlreadyExists(err) {
 		return errors.Wrapf(err, "failed to create topology-json-conf configmap in namespace %s", c.namespacedName.Namespace)
 	}
@@ -230,6 +241,11 @@ func (c *Cluster) createToolConfigMap(nodeNameIP map[string]string) error {
 			Namespace: c.namespacedName.Namespace,
 		},
 		Data: topoConfigMap,
+	}
+
+	err = c.ownerInfo.SetControllerReference(cm)
+	if err != nil {
+		return errors.Wrapf(err, "failed to set owner reference to tools.conf configmap %q", config.ToolsConfigMapName)
 	}
 
 	// Create topology-json-conf configmap in cluster

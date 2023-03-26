@@ -21,6 +21,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+const CustomResourceGroup = "curve.opencurve.io"
+
 // ClusterPhase represents lifecycle phases
 type ClusterPhase string
 

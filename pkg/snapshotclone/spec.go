@@ -41,6 +41,11 @@ func (c *Cluster) createSnapClientConfigMap(mdsEndpoints string) error {
 		Data: snapClientConfigMap,
 	}
 
+	err = c.ownerInfo.SetControllerReference(cm)
+	if err != nil {
+		return errors.Wrapf(err, "failed to set owner reference to snap_client.conf configmap %q", config.SnapClientConfigMapName)
+	}
+
 	// Create cs_client configmap in cluster
 	_, err = c.context.Clientset.CoreV1().ConfigMaps(c.namespacedName.Namespace).Create(cm)
 	if err != nil && !kerrors.IsAlreadyExists(err) {
@@ -87,6 +92,11 @@ func (c *Cluster) createSnapShotCloneConfigMap(etcdEndpoints string) error {
 			Namespace: c.namespacedName.Namespace,
 		},
 		Data: snapCloneConfigMap,
+	}
+
+	err = c.ownerInfo.SetControllerReference(cm)
+	if err != nil {
+		return errors.Wrapf(err, "failed to set owner reference to snapshotclone.conf configmap %q", config.SnapShotCloneConfigMapName)
 	}
 
 	// Create cs_client configmap in cluster
@@ -144,6 +154,12 @@ func (c *Cluster) makeDeployment(nodeName string, nodeIP string, snapConfig *sna
 				Type: apps.RecreateDeploymentStrategyType,
 			},
 		},
+	}
+
+	// set ownerReference
+	err := c.ownerInfo.SetControllerReference(d)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to set owner reference to chunkserver deployment %q", d.Name)
 	}
 
 	return d, nil

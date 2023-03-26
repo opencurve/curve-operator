@@ -7,6 +7,7 @@ import (
 	"github.com/coreos/pkg/capnslog"
 	curvev1 "github.com/opencurve/curve-operator/api/v1"
 	"github.com/opencurve/curve-operator/pkg/clusterd"
+	"github.com/opencurve/curve-operator/pkg/k8sutil"
 	"github.com/pkg/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -29,15 +30,17 @@ type Cluster struct {
 	context        clusterd.Context
 	namespacedName types.NamespacedName
 	spec           curvev1.CurveClusterSpec
+	ownerInfo      *k8sutil.OwnerInfo
 }
 
 var log = capnslog.NewPackageLogger("github.com/opencurve/curve-operator", "chunkserver")
 
-func New(context clusterd.Context, namespacedName types.NamespacedName, spec curvev1.CurveClusterSpec) *Cluster {
+func New(context clusterd.Context, namespacedName types.NamespacedName, spec curvev1.CurveClusterSpec, ownerInfo *k8sutil.OwnerInfo) *Cluster {
 	return &Cluster{
 		context:        context,
 		namespacedName: namespacedName,
 		spec:           spec,
+		ownerInfo:      ownerInfo,
 	}
 }
 
@@ -123,6 +126,7 @@ func (c *Cluster) checkJobStatus(ctx context.Context, ticker *time.Ticker, chn c
 				job, err := c.context.Clientset.BatchV1().Jobs(c.namespacedName.Namespace).Get(jobName, metav1.GetOptions{})
 				if err != nil {
 					log.Errorf("failed to get job %s in cluster", jobName)
+					chn <- false
 					return
 				}
 

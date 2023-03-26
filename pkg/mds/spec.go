@@ -38,7 +38,12 @@ func (c *Cluster) createOverrideMdsCM(nodeNameIP map[string]string) error {
 		Data: mdsConfigMapData,
 	}
 
-	_, err := c.context.Clientset.CoreV1().ConfigMaps(c.namespacedName.Namespace).Create(mdsOverrideCM)
+	err := c.ownerInfo.SetControllerReference(mdsOverrideCM)
+	if err != nil {
+		return errors.Wrapf(err, "failed to set owner reference to mds override configmap %q", config.MdsOverrideConfigMapName)
+	}
+
+	_, err = c.context.Clientset.CoreV1().ConfigMaps(c.namespacedName.Namespace).Create(mdsOverrideCM)
 	if err != nil {
 		if !kerrors.IsAlreadyExists(err) {
 			return errors.Wrapf(err, "failed to create override configmap %s", c.namespacedName.Namespace)
@@ -89,6 +94,11 @@ func (c *Cluster) createMdsConfigMap(etcd_endpoints string) error {
 			Namespace: c.namespacedName.Namespace,
 		},
 		Data: mdsConfigMap,
+	}
+
+	err = c.ownerInfo.SetControllerReference(cm)
+	if err != nil {
+		return errors.Wrapf(err, "failed to set owner reference to mds configmap %q", config.MdsConfigMapName)
 	}
 
 	// for debug
@@ -145,6 +155,12 @@ func (c *Cluster) makeDeployment(nodeName string, nodeIP string, mdsConfig *mdsC
 				Type: apps.RecreateDeploymentStrategyType,
 			},
 		},
+	}
+
+	// set ownerReference
+	err := c.ownerInfo.SetControllerReference(d)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to set owner reference to mon deployment %q", d.Name)
 	}
 
 	return d, nil

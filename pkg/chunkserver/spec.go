@@ -104,6 +104,11 @@ func (c *Cluster) createCSClientConfigMap(mdsEndpoints string) error {
 		Data: csClientConfigMap,
 	}
 
+	err = c.ownerInfo.SetControllerReference(cm)
+	if err != nil {
+		return errors.Wrapf(err, "failed to set owner reference to cs_client.conf configmap %q", config.CSClientConfigMapName)
+	}
+
 	// Create cs_client configmap in cluster
 	_, err = c.context.Clientset.CoreV1().ConfigMaps(c.namespacedName.Namespace).Create(cm)
 	if err != nil && !kerrors.IsAlreadyExists(err) {
@@ -120,7 +125,7 @@ func (c *Cluster) CreateS3ConfigMap(mdsEndpoints string) error {
 		return errors.Wrap(err, "failed to read config file from template/cs_client.conf")
 	}
 
-	//if true
+	// if true
 	if c.spec.SnapShotClone.Enable {
 		configMapData["s3.ak"] = c.spec.SnapShotClone.S3Config.AK
 		configMapData["s3.sk"] = c.spec.SnapShotClone.S3Config.SK
@@ -143,6 +148,11 @@ func (c *Cluster) CreateS3ConfigMap(mdsEndpoints string) error {
 			Namespace: c.namespacedName.Namespace,
 		},
 		Data: s3ConfigMap,
+	}
+
+	err = c.ownerInfo.SetControllerReference(cm)
+	if err != nil {
+		return errors.Wrapf(err, "failed to set owner reference to s3.conf configmap %q", config.S3ConfigMapName)
 	}
 
 	// Create s3 configmap in cluster
@@ -169,8 +179,13 @@ func (c *Cluster) createStartCSConfigMap() error {
 		Data: startCSConfigMap,
 	}
 
+	err := c.ownerInfo.SetControllerReference(cm)
+	if err != nil {
+		return errors.Wrapf(err, "failed to set owner reference to cs.conf configmap %q", startChunkserverConfigMapName)
+	}
+
 	// Create format.sh configmap in cluster
-	_, err := c.context.Clientset.CoreV1().ConfigMaps(c.namespacedName.Namespace).Create(cm)
+	_, err = c.context.Clientset.CoreV1().ConfigMaps(c.namespacedName.Namespace).Create(cm)
 	if err != nil && !kerrors.IsAlreadyExists(err) {
 		return errors.Wrapf(err, "failed to create override configmap %s", c.namespacedName.Namespace)
 	}
@@ -218,7 +233,7 @@ func (c *Cluster) createConfigMap(mdsEndpoints string) (configData, error) {
 	}
 
 	// for debug
-	log.Info(chunkserverConfigVal)
+	// log.Info(chunkserverConfigVal)
 
 	chunkserverConfigMap := map[string]string{
 		config.ChunkserverConfigMapDataKey: chunkserverConfigVal,
@@ -230,6 +245,11 @@ func (c *Cluster) createConfigMap(mdsEndpoints string) (configData, error) {
 			Namespace: c.namespacedName.Namespace,
 		},
 		Data: chunkserverConfigMap,
+	}
+
+	err = c.ownerInfo.SetControllerReference(cm)
+	if err != nil {
+		return configData{}, errors.Wrapf(err, "failed to set owner reference to chunkserverconfig configmap %q", config.ChunkserverConfigMapName)
 	}
 
 	// Create chunkserver config in cluster
@@ -284,6 +304,12 @@ func (c *Cluster) makeDeployment(csConfig *chunkserverConfig, cfgData *configDat
 				Type: apps.RecreateDeploymentStrategyType,
 			},
 		},
+	}
+
+	// set ownerReference
+	err := c.ownerInfo.SetControllerReference(d)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to set owner reference to chunkserver deployment %q", d.Name)
 	}
 
 	return d, nil

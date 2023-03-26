@@ -26,15 +26,17 @@ type Cluster struct {
 	context        clusterd.Context
 	namespacedName types.NamespacedName
 	spec           curvev1.CurveClusterSpec
+	ownerInfo      *k8sutil.OwnerInfo
 }
 
 var log = capnslog.NewPackageLogger("github.com/opencurve/curve-operator", "etcd")
 
-func New(context clusterd.Context, namespacedName types.NamespacedName, spec curvev1.CurveClusterSpec) *Cluster {
+func New(context clusterd.Context, namespacedName types.NamespacedName, spec curvev1.CurveClusterSpec, ownerInfo *k8sutil.OwnerInfo) *Cluster {
 	return &Cluster{
 		context:        context,
 		namespacedName: namespacedName,
 		spec:           spec,
+		ownerInfo:      ownerInfo,
 	}
 }
 
