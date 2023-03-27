@@ -5,6 +5,12 @@ metadata:
     control-plane: curve-operator
   name: curvebs
 ---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: curve-operator
+  namespace: curvebs
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -24,11 +30,11 @@ spec:
     spec:
       containers:
       - command:
-        - /curve-operator
+        - ./curve-operator
         args:
         - --enable-leader-election
-        image: harbor.cloud.netease.com/curve/curve-operator:latest
-        name: manager
+        image: harbor.cloud.netease.com/curve/curve-operator:v1.0.0
+        name: curve-operator
         resources:
           limits:
             cpu: 2000m
@@ -36,4 +42,5 @@ spec:
           requests:
             cpu: 100m
             memory: 100Mi
+      serviceAccountName: curve-operator
       terminationGracePeriodSeconds: 10

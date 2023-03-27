@@ -62,7 +62,6 @@ func remove(list []string, s string) []string {
 
 // AddFinalizerIfNotPresent adds a finalizer an object to avoid instant deletion
 // of the object without finalizing it.
-// 给obj添加一个Finalizer
 func AddFinalizerIfNotPresent(ctx context.Context, client client.Client, obj runtime.Object) error {
 	objectFinalizer := buildFinalizerName(obj.GetObjectKind().GroupVersionKind().Kind)
 
@@ -71,7 +70,6 @@ func AddFinalizerIfNotPresent(ctx context.Context, client client.Client, obj run
 		return errors.Wrap(err, "failed to get meta information of object")
 	}
 
-	// 如果已经存在这个Finalizer的话，就不会添加。否则就会添加
 	if !contains(accessor.GetFinalizers(), objectFinalizer) {
 		logger.Infof("adding finalizer %q on %q", objectFinalizer, accessor.GetName())
 		accessor.SetFinalizers(append(accessor.GetFinalizers(), objectFinalizer))

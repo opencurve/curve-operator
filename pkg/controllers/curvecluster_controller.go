@@ -70,6 +70,12 @@ func NewCurveClusterReconciler(
 
 // +kubebuilder:rbac:groups=operator.curve.io,resources=curveclusters,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=operator.curve.io,resources=curveclusters/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=core,resources=pods,verbs=get;list;watch;delete
+// +kubebuilder:rbac:groups=core,resources=nodes,verbs=get;list;watch;update;patch
+// +kubebuilder:rbac:groups=core,resources=configmaps,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=core,resources=events,verbs=get;list;watch;create;update;patch
+// +kubebuilder:rbac:groups=apps,resources=deployments,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=batch,resources=jobs,verbs=get;list;watch;create;update;patch;delete
 
 func (r *CurveClusterReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	ctx := context.Background()
