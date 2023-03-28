@@ -54,6 +54,11 @@ spec:
         spec:
           description: CurveClusterSpec defines the desired state of CurveCluster
           properties:
+            cleanupConfirm:
+              description: Indicates user intent when deleting a cluster; blocks orchestration
+                and should not be set if cluster deletion is not imminent.
+              nullable: true
+              type: string
             curveVersion:
               description: CurveVersionSpec represents the settings for the Curve
                 version
@@ -415,7 +420,7 @@ spec:
         - --enable-leader-election
         command:
         - ./curve-operator
-        image: harbor.cloud.netease.com/curve/curve-operator:b35a682
+        image: harbor.cloud.netease.com/curve/curve-operator:2075982
         name: curve-operator
         resources:
           limits:

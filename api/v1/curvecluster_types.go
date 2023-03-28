@@ -141,6 +141,12 @@ type CurveClusterSpec struct {
 
 	// +optional
 	Storage StorageScopeSpec `json:"storage,omitempty"`
+
+	// Indicates user intent when deleting a cluster; blocks orchestration and should not be set if cluster
+	// deletion is not imminent.
+	// +optional
+	// +nullable
+	CleanupConfirm string `json:"cleanupConfirm,omitempty"`
 }
 
 // CurveClusterStatus defines the observed state of CurveCluster

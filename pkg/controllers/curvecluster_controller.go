@@ -128,6 +128,15 @@ func (r *CurveClusterReconciler) reconcileDelete(curveCluster *curvev1.CurveClus
 	log.Log.Info("Delete the cluster CR now", "namespace", curveCluster.ObjectMeta.Name)
 	k8sutil.UpdateCondition(context.TODO(), &r.ClusterController.context, r.ClusterController.namespacedName, curvev1.ConditionTypeDeleting, curvev1.ConditionTrue, curvev1.ConditionDeletingClusterReason, "Reconcile curvecluster deleting")
 
+	if curveCluster.Spec.CleanupConfirm == "Confirm" || curveCluster.Spec.CleanupConfirm == "confirm" {
+		daemonHosts, _ := k8sutil.GetValidDaemonHosts(r.ClusterController.context, curveCluster)
+		chunkserverHosts, _ := k8sutil.GetValidChunkserverHosts(r.ClusterController.context, curveCluster)
+		nodesForJob := k8sutil.MergeNodesOfDaemonAndChunk(daemonHosts, chunkserverHosts)
+
+		go r.ClusterController.startClusterCleanUp(r.ClusterController.context, curveCluster, nodesForJob)
+	}
+
+	// Delete it from clusterMap
 	if _, ok := r.ClusterController.clusterMap[curveCluster.Namespace]; ok {
 		delete(r.ClusterController.clusterMap, curveCluster.Namespace)
 	}
@@ -137,6 +146,9 @@ func (r *CurveClusterReconciler) reconcileDelete(curveCluster *curvev1.CurveClus
 	if err != nil {
 		return reconcile.Result{}, errors.Wrap(err, "failed to remove curvecluster cr finalizers")
 	}
+
+	logger.Infof("curve cluster %v deleted", curveCluster.Name)
+
 	return reconcile.Result{}, nil
 }
 
@@ -145,11 +157,11 @@ func (c *ClusterController) reconcileCurveCluster(clusterObj *curvev1.CurveClust
 	// one cr cluster in one namespace is allowed
 	cluster, ok := c.clusterMap[clusterObj.Namespace]
 	if !ok {
-		log.Log.Info("A new Cluster will be created!!!")
+		logger.Info("A new Cluster will be created!!!")
 		cluster = newCluster(c.context, clusterObj, ownerInfo)
 		// TODO: update cluster spec if the cluster has already exist!
 	} else {
-		log.Log.Info("Cluster has been exist but need configured but we don't apply it now, you need delete it and recreate it!!!", "namespace", cluster.NameSpace)
+		logger.Info("Cluster has been exist but need configured but we don't apply it now, you need delete it and recreate it!!!", "namespace", cluster.NameSpace)
 		return nil
 	}
 

@@ -49,6 +49,11 @@ spec:
         spec:
           description: CurveClusterSpec defines the desired state of CurveCluster
           properties:
+            cleanupConfirm:
+              description: Indicates user intent when deleting a cluster; blocks orchestration
+                and should not be set if cluster deletion is not imminent.
+              nullable: true
+              type: string
             curveVersion:
               description: CurveVersionSpec represents the settings for the Curve
                 version
