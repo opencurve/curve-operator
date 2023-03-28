@@ -4,13 +4,14 @@ import (
 	"fmt"
 	"strconv"
 
-	"github.com/opencurve/curve-operator/pkg/config"
-	"github.com/opencurve/curve-operator/pkg/k8sutil"
 	"github.com/pkg/errors"
 	apps "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	"github.com/opencurve/curve-operator/pkg/config"
+	"github.com/opencurve/curve-operator/pkg/k8sutil"
 )
 
 // startChunkServers start all chunkservers for each device of every node

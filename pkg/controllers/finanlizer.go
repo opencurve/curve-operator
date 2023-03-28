@@ -5,13 +5,14 @@ import (
 	"fmt"
 	"strings"
 
-	curvev1 "github.com/opencurve/curve-operator/api/v1"
 	"github.com/pkg/errors"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	curvev1 "github.com/opencurve/curve-operator/api/v1"
 )
 
 func (r *CurveClusterReconciler) removeFinalizer(client client.Client, name types.NamespacedName, obj runtime.Object, finalizer string) error {

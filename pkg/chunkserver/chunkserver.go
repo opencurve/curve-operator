@@ -5,12 +5,13 @@ import (
 	"time"
 
 	"github.com/coreos/pkg/capnslog"
-	curvev1 "github.com/opencurve/curve-operator/api/v1"
-	"github.com/opencurve/curve-operator/pkg/clusterd"
-	"github.com/opencurve/curve-operator/pkg/k8sutil"
 	"github.com/pkg/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+
+	curvev1 "github.com/opencurve/curve-operator/api/v1"
+	"github.com/opencurve/curve-operator/pkg/clusterd"
+	"github.com/opencurve/curve-operator/pkg/k8sutil"
 )
 
 const (
@@ -68,6 +69,7 @@ func (c *Cluster) Start(nodeNameIP map[string]string) error {
 	}
 
 	// 2. wait all job finish to complete format and wait MDS election success.
+	k8sutil.UpdateCondition(context.TODO(), &c.context, c.namespacedName, curvev1.ConditionTypeFormatedReady, curvev1.ConditionTrue, curvev1.ConditionFormatingChunkfilePoolReason, "Formating chunkfilepool")
 	halfMinuteTicker := time.NewTicker(10 * time.Second)
 	defer halfMinuteTicker.Stop()
 
@@ -85,6 +87,7 @@ func (c *Cluster) Start(nodeNameIP map[string]string) error {
 		log.Error("Format job is not completed in 10 minutes and exit with -1")
 		return errors.New("Format job is not completed in 10 minutes and exit with -1")
 	}
+	k8sutil.UpdateCondition(context.TODO(), &c.context, c.namespacedName, curvev1.ConditionTypeFormatedReady, curvev1.ConditionTrue, curvev1.ConditionFormatChunkfilePoolReason, "Formating chunkfilepool successed")
 
 	log.Info("all jobs run completed in 10 mins")
 
@@ -111,6 +114,8 @@ func (c *Cluster) Start(nodeNameIP map[string]string) error {
 		log.Error("failed to create logical pool")
 		return errors.Wrap(err, "failed to create physical pool")
 	}
+
+	k8sutil.UpdateCondition(context.TODO(), &c.context, c.namespacedName, curvev1.ConditionTypeChunkServerReady, curvev1.ConditionTrue, curvev1.ConditionChunkServerClusterCreatedReason, "Chunkserver cluster has been created")
 
 	return nil
 }

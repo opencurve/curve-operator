@@ -1,17 +1,19 @@
 package snapshotclone
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/coreos/pkg/capnslog"
-	curvev1 "github.com/opencurve/curve-operator/api/v1"
-	"github.com/opencurve/curve-operator/pkg/clusterd"
-	"github.com/opencurve/curve-operator/pkg/config"
-	"github.com/opencurve/curve-operator/pkg/k8sutil"
 	"github.com/pkg/errors"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+
+	curvev1 "github.com/opencurve/curve-operator/api/v1"
+	"github.com/opencurve/curve-operator/pkg/clusterd"
+	"github.com/opencurve/curve-operator/pkg/config"
+	"github.com/opencurve/curve-operator/pkg/k8sutil"
 )
 
 const (
@@ -124,6 +126,9 @@ func (c *Cluster) Start(nodeNameIP map[string]string) error {
 		}
 		// update condition type and phase etc.
 	}
+
+	k8sutil.UpdateCondition(context.TODO(), &c.context, c.namespacedName, curvev1.ConditionTypeSnapShotCloneReady, curvev1.ConditionTrue, curvev1.ConditionSnapShotCloneClusterCreatedReason, "Snapshotclone cluster has been created")
+
 	return nil
 }
 

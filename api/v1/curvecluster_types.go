@@ -23,61 +23,46 @@ import (
 
 const CustomResourceGroup = "curve.opencurve.io"
 
-// ClusterPhase represents lifecycle phases
-type ClusterPhase string
-
-const (
-	// ClusterPending
-	// cluster is Pending phase when creating or deleting or updating(not implement).
-	ClusterPhaseCreating ClusterPhase = "Pending"
-	// ClusterReady
-	// Cluster is Ready phase when all servers are in Ready.
-	ClusterPhaseReady ClusterPhase = "Ready"
-	// ClusterPhaseError
-	// Cluster is Failed phase when any condition is Failed type.
-	ClusterPhaseError ClusterPhase = "Failed"
-	// ClusterPhaseUnknown
-	// Cluster is unknown phase because of unknown reason.
-	ClusterPhaseUnknown ClusterPhase = "Unknown"
-)
-
 // ConditionType represent a resource's status
 type ConditionType string
 
 const (
-	// ConditionEtcdReady
-	ConditionEtcdReady ConditionType = "EtcdReady"
-	// ConditionMdsReady
-	ConditionMdsReady ConditionType = "MdsReady"
-	// ConditionSnapShotCloneReady
-	ConditionSnapShotCloneReady ConditionType = "SnapShotCloneReady"
-	// ConditionChunkServerReady
-	ConditionChunkServerReady ConditionType = "ChunkServerReady"
-	// ConditionReady represents Ready state of an object when cluster is created successed.
-	ConditionReady ConditionType = "Ready"
-	// ConditionFailure represents Failure state of an object
-	ConditionFailure ConditionType = "Failed"
-	// ConditionDeletionIsBlocked represents when deletion of the object is blocked.
-	ConditionDeletionIsBlocked ConditionType = "DeletionIsBlocked"
+	// ClusterPhasePending: The cluster is running to create.
+	// ClusterPhaseReady: The cluster has been created successfully.
+	// ClusterPhaseDeleting: The cluster is running to delete.
+	// ClusterPhaseError: The cluster created failed becasue some reason.
+	// ClusterPhaseUnknown: Unknow phase
+	// ClusterPending
+	ClusterPhasePending ConditionType = "Pending"
+	// ClusterReady
+	ClusterPhaseReady ConditionType = "Ready"
+	// ClusterPhaseDeleting
+	ClusterPhaseDeleting ConditionType = "Deleting"
+	// ClusterPhaseError
+	ClusterPhaseError ConditionType = "Failed"
+	// ClusterPhaseUnknown
+	ClusterPhaseUnknown ConditionType = "Unknown"
 )
 
-// Cluster represents state of a cluster.
-// Only represents the ongoing state of the entire cluster.
-type ClusterState string
-
 const (
-	// ClusterStateCreating
-	// Cluster is being created.
-	ClusterStateCreating ClusterState = "Creating"
-	// ClusterStateCreated
-	// Cluster has been created and in Ready.
-	ClusterStateCreated ClusterState = "Created"
-	// ClusterStateUpdating(Not implement temporary)
-	// Cluster is being updated.
-	ClusterStateUpdating ClusterState = "Updating"
-	// ClusterStateDeleting
-	// Cluster is being deleted
-	ClusterStateDeleting ClusterState = "Deleting"
+	// ConditionTypeEtcdReady
+	ConditionTypeEtcdReady ConditionType = "EtcdReady"
+	// ConditionTypeMdsReady
+	ConditionTypeMdsReady ConditionType = "MdsReady"
+	// ConditionTypeFormatedReady
+	ConditionTypeFormatedReady ConditionType = "formatedReady"
+	// ConditionTypeChunkServerReady
+	ConditionTypeChunkServerReady ConditionType = "ChunkServerReady"
+	// ConditionTypeSnapShotCloneReady
+	ConditionTypeSnapShotCloneReady ConditionType = "SnapShotCloneReady"
+	// ConditionTypeDeleting
+	ConditionTypeDeleting ConditionType = "Deleting"
+	// ConditionTypeClusterReady
+	ConditionTypeClusterReady ConditionType = "Ready"
+	// ConditionTypeFailure
+	ConditionTypeFailure ConditionType = "Failed"
+	// ConditionTypeUnknown
+	ConditionTypeUnknown ConditionType = "Unknow"
 )
 
 type ConditionStatus string
@@ -86,6 +71,21 @@ const (
 	ConditionTrue    ConditionStatus = "True"
 	ConditionFalse   ConditionStatus = "False"
 	ConditionUnknown ConditionStatus = "Unknown"
+)
+
+type ConditionReason string
+
+const (
+	ConditionEtcdClusterCreatedReason          ConditionReason = "EtcdClusterCreated"
+	ConditionMdsClusterCreatedReason           ConditionReason = "MdsClusterCreated"
+	ConditionFormatingChunkfilePoolReason      ConditionReason = "FormatingChunkfilePool"
+	ConditionFormatChunkfilePoolReason         ConditionReason = "FormatedChunkfilePool"
+	ConditionChunkServerClusterCreatedReason   ConditionReason = "ChunkServerClusterCreated"
+	ConditionSnapShotCloneClusterCreatedReason ConditionReason = "SnapShotCloneClusterCreated"
+	ConditionClusterCreatedReason              ConditionReason = "ClusterCreated"
+	ConditionReconcileSucceeded                ConditionReason = "ReconcileSucceeded"
+	ConditionReconcileFailed                   ConditionReason = "ReconcileFailed"
+	ConditionDeletingClusterReason             ConditionReason = "Deleting"
 )
 
 type ClusterCondition struct {
@@ -101,14 +101,13 @@ type ClusterCondition struct {
 	// from one status to another.
 	LastTransitionTime metav1.Time `json:"lastTransitionTime,omitempty"`
 	// Reason is a unique, one-word, CamelCase reason for the condition's last transition.
-	Reason string `json:"reason,omitempty"`
+	Reason ConditionReason `json:"reason,omitempty"`
 	// Message is a human readable message indicating details about last transition.
 	Message string `json:"message,omitempty"`
 }
 
 type ClusterVersion struct {
-	Image   string `json:"image,omitempty"`
-	Version string `json:"version,omitempty"`
+	Image string `json:"image,omitempty"`
 }
 
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
@@ -151,10 +150,7 @@ type CurveClusterStatus struct {
 
 	// Phase is a summary of cluster state.
 	// It can be translate from the last conditiontype
-	Phase ClusterPhase `json:"phase,omitempty"`
-
-	// State represents the state of a cluster.
-	State ClusterState `json:"state,omitempty"`
+	Phase ConditionType `json:"phase,omitempty"`
 
 	// Condition contains current service state of cluster such as progressing/Ready/Failure...
 	Conditions []ClusterCondition `json:"conditions,omitempty"`

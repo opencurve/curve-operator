@@ -2,11 +2,12 @@ package k8sutil
 
 import (
 	"github.com/coreos/pkg/capnslog"
-	"github.com/opencurve/curve-operator/pkg/clusterd"
 	"github.com/pkg/errors"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
+
+	"github.com/opencurve/curve-operator/pkg/clusterd"
 )
 
 var logger = capnslog.NewPackageLogger("github.com/opencurve/curve-operator", "k8sutil")

@@ -211,8 +211,6 @@ spec:
               properties:
                 image:
                   type: string
-                version:
-                  type: string
               type: object
             message:
               description: Message shows summary message of cluster from ClusterState
@@ -221,9 +219,6 @@ spec:
             phase:
               description: Phase is a summary of cluster state. It can be translate
                 from the last conditiontype
-              type: string
-            state:
-              description: State represents the state of a cluster.
               type: string
           type: object
       type: object
@@ -420,7 +415,7 @@ spec:
         - --enable-leader-election
         command:
         - ./curve-operator
-        image: harbor.cloud.netease.com/curve/curve-operator:7ebf587
+        image: harbor.cloud.netease.com/curve/curve-operator:b35a682
         name: curve-operator
         resources:
           limits:
