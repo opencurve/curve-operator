@@ -1,8 +1,9 @@
 package daemon
 
 import (
-	"github.com/opencurve/curve-operator/pkg/config"
 	v1 "k8s.io/api/core/v1"
+
+	"github.com/opencurve/curve-operator/pkg/config"
 )
 
 // DaemonVolumes returns the pod volumes used by all Curve daemons.

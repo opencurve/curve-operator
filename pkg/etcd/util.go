@@ -1,8 +1,9 @@
 package etcd
 
 import (
-	"github.com/opencurve/curve-operator/pkg/k8sutil"
 	"github.com/pkg/errors"
+
+	"github.com/opencurve/curve-operator/pkg/k8sutil"
 )
 
 func (c *Cluster) getDaemonIDs() ([]string, error) {

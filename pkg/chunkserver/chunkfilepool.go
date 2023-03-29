@@ -5,13 +5,14 @@ import (
 	"strconv"
 	"strings"
 
-	curvev1 "github.com/opencurve/curve-operator/api/v1"
-	"github.com/opencurve/curve-operator/pkg/k8sutil"
 	"github.com/pkg/errors"
 	batch "k8s.io/api/batch/v1"
 	v1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	curvev1 "github.com/opencurve/curve-operator/api/v1"
+	"github.com/opencurve/curve-operator/pkg/k8sutil"
 )
 
 const (
@@ -77,13 +78,13 @@ func (c *Cluster) startProvisioningOverNodes(nodeNameIP map[string]string) error
 				name = nameArr[len(nameArr)-1]
 				resourceName := fmt.Sprintf("%s-%s-%s", AppName, node.Name, name)
 
+				log.Infof("creating job for device %s on %s", device.Name, node.Name)
+
 				job, err := c.runPrepareJob(node.Name, device)
 				if err != nil {
 					log.Errorf("failed to create job for device %s on %s", device.Name, node.Name)
 					continue // do not record the failed job in jobsArr and do not create chunkserverConfig for this device
 				}
-
-				log.Infof("created job for device %s on %s", device.Name, node.Name)
 
 				// jobsArr record all the job that have started, to determine whether the format is completed
 				jobsArr = append(jobsArr, job.Name)

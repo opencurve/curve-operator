@@ -5,13 +5,14 @@ import (
 	"fmt"
 	"strings"
 
-	curvev1 "github.com/opencurve/curve-operator/api/v1"
 	"github.com/pkg/errors"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	curvev1 "github.com/opencurve/curve-operator/api/v1"
 )
 
 func (r *CurveClusterReconciler) removeFinalizer(client client.Client, name types.NamespacedName, obj runtime.Object, finalizer string) error {
@@ -62,7 +63,6 @@ func remove(list []string, s string) []string {
 
 // AddFinalizerIfNotPresent adds a finalizer an object to avoid instant deletion
 // of the object without finalizing it.
-// 给obj添加一个Finalizer
 func AddFinalizerIfNotPresent(ctx context.Context, client client.Client, obj runtime.Object) error {
 	objectFinalizer := buildFinalizerName(obj.GetObjectKind().GroupVersionKind().Kind)
 
@@ -71,7 +71,6 @@ func AddFinalizerIfNotPresent(ctx context.Context, client client.Client, obj run
 		return errors.Wrap(err, "failed to get meta information of object")
 	}
 
-	// 如果已经存在这个Finalizer的话，就不会添加。否则就会添加
 	if !contains(accessor.GetFinalizers(), objectFinalizer) {
 		logger.Infof("adding finalizer %q on %q", objectFinalizer, accessor.GetName())
 		accessor.SetFinalizers(append(accessor.GetFinalizers(), objectFinalizer))

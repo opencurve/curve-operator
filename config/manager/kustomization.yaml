@@ -1,8 +1,8 @@
 resources:
-- manager.yaml
+- curve-operator.yaml
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 images:
 - name: harbor.cloud.netease.com/curve/curve-operator
   newName: harbor.cloud.netease.com/curve/curve-operator
-  newTag: 1e7da4e
+  newTag: "2075982"

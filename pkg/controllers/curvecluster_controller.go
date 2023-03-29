@@ -70,6 +70,12 @@ func NewCurveClusterReconciler(
 
 // +kubebuilder:rbac:groups=operator.curve.io,resources=curveclusters,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=operator.curve.io,resources=curveclusters/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=core,resources=pods,verbs=get;list;watch;delete
+// +kubebuilder:rbac:groups=core,resources=nodes,verbs=get;list;watch;update;patch
+// +kubebuilder:rbac:groups=core,resources=configmaps,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=core,resources=events,verbs=get;list;watch;create;update;patch
+// +kubebuilder:rbac:groups=apps,resources=deployments,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=batch,resources=jobs,verbs=get;list;watch;create;update;patch;delete
 
 func (r *CurveClusterReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	ctx := context.Background()
@@ -108,8 +114,11 @@ func (r *CurveClusterReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error
 	ownerInfo := k8sutil.NewOwnerInfo(&curveCluster, r.Scheme)
 	// reconcileCurveCluster func to run reconcile curve cluster
 	if err := r.ClusterController.reconcileCurveCluster(&curveCluster, ownerInfo); err != nil {
+		k8sutil.UpdateCondition(context.TODO(), &r.ClusterController.context, r.ClusterController.namespacedName, curvev1.ConditionTypeFailure, curvev1.ConditionTrue, curvev1.ConditionReconcileFailed, "Reconcile curvecluster failed")
 		return reconcile.Result{}, errors.Wrapf(err, "failed to reconcile cluster %q", curveCluster.Name)
 	}
+
+	k8sutil.UpdateCondition(context.TODO(), &r.ClusterController.context, r.ClusterController.namespacedName, curvev1.ConditionTypeClusterReady, curvev1.ConditionTrue, curvev1.ConditionReconcileSucceeded, "Reconcile curvecluster successed")
 
 	return ctrl.Result{}, nil
 }
@@ -117,7 +126,17 @@ func (r *CurveClusterReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error
 // reconcileDelete
 func (r *CurveClusterReconciler) reconcileDelete(curveCluster *curvev1.CurveCluster) (reconcile.Result, error) {
 	log.Log.Info("Delete the cluster CR now", "namespace", curveCluster.ObjectMeta.Name)
+	k8sutil.UpdateCondition(context.TODO(), &r.ClusterController.context, r.ClusterController.namespacedName, curvev1.ConditionTypeDeleting, curvev1.ConditionTrue, curvev1.ConditionDeletingClusterReason, "Reconcile curvecluster deleting")
 
+	if curveCluster.Spec.CleanupConfirm == "Confirm" || curveCluster.Spec.CleanupConfirm == "confirm" {
+		daemonHosts, _ := k8sutil.GetValidDaemonHosts(r.ClusterController.context, curveCluster)
+		chunkserverHosts, _ := k8sutil.GetValidChunkserverHosts(r.ClusterController.context, curveCluster)
+		nodesForJob := k8sutil.MergeNodesOfDaemonAndChunk(daemonHosts, chunkserverHosts)
+
+		go r.ClusterController.startClusterCleanUp(r.ClusterController.context, curveCluster, nodesForJob)
+	}
+
+	// Delete it from clusterMap
 	if _, ok := r.ClusterController.clusterMap[curveCluster.Namespace]; ok {
 		delete(r.ClusterController.clusterMap, curveCluster.Namespace)
 	}
@@ -127,6 +146,9 @@ func (r *CurveClusterReconciler) reconcileDelete(curveCluster *curvev1.CurveClus
 	if err != nil {
 		return reconcile.Result{}, errors.Wrap(err, "failed to remove curvecluster cr finalizers")
 	}
+
+	logger.Infof("curve cluster %v deleted", curveCluster.Name)
+
 	return reconcile.Result{}, nil
 }
 
@@ -135,11 +157,11 @@ func (c *ClusterController) reconcileCurveCluster(clusterObj *curvev1.CurveClust
 	// one cr cluster in one namespace is allowed
 	cluster, ok := c.clusterMap[clusterObj.Namespace]
 	if !ok {
-		log.Log.Info("A new Cluster will be created!!!")
+		logger.Info("A new Cluster will be created!!!")
 		cluster = newCluster(c.context, clusterObj, ownerInfo)
 		// TODO: update cluster spec if the cluster has already exist!
 	} else {
-		log.Log.Info("Cluster has been exist but need configured but we don't apply it now, you need delete it and recreate it!!!", "namespace", cluster.NameSpace)
+		logger.Info("Cluster has been exist but need configured but we don't apply it now, you need delete it and recreate it!!!", "namespace", cluster.NameSpace)
 		return nil
 	}
 

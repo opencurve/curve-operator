@@ -1,9 +1,13 @@
 package controllers
 
 import (
+	"context"
 	"time"
 
 	"github.com/coreos/pkg/capnslog"
+	"github.com/pkg/errors"
+	"k8s.io/apimachinery/pkg/types"
+
 	curvev1 "github.com/opencurve/curve-operator/api/v1"
 	"github.com/opencurve/curve-operator/pkg/chunkserver"
 	"github.com/opencurve/curve-operator/pkg/clusterd"
@@ -11,8 +15,6 @@ import (
 	"github.com/opencurve/curve-operator/pkg/k8sutil"
 	"github.com/opencurve/curve-operator/pkg/mds"
 	"github.com/opencurve/curve-operator/pkg/snapshotclone"
-	"github.com/pkg/errors"
-	"k8s.io/apimachinery/pkg/types"
 )
 
 // cluster represent a instance of Curve Cluster
@@ -26,7 +28,7 @@ type cluster struct {
 	observedGeneration int64
 }
 
-var logger = capnslog.NewPackageLogger("github.com/opencurve/curve-operator", "cluster")
+var logger = capnslog.NewPackageLogger("github.com/opencurve/curve-operator", "controllers")
 
 func newCluster(ctx clusterd.Context, c *curvev1.CurveCluster, ownerInfo *k8sutil.OwnerInfo) *cluster {
 	return &cluster{
@@ -72,6 +74,7 @@ func (c *cluster) reconcileCurveDaemons() error {
 	if err != nil {
 		return errors.Wrap(err, "failed to start curve mds")
 	}
+	k8sutil.UpdateCondition(context.TODO(), &c.context, c.NamespacedName, curvev1.ConditionTypeMdsReady, curvev1.ConditionTrue, curvev1.ConditionMdsClusterCreatedReason, "MDS cluster has been created")
 
 	// 3. chunkserver
 	chunkservers := chunkserver.New(c.context, c.NamespacedName, *c.Spec, c.ownerInfo)
@@ -79,6 +82,7 @@ func (c *cluster) reconcileCurveDaemons() error {
 	if err != nil {
 		return errors.Wrap(err, "failed to start curve chunkserver")
 	}
+	k8sutil.UpdateCondition(context.TODO(), &c.context, c.NamespacedName, curvev1.ConditionTypeChunkServerReady, curvev1.ConditionTrue, curvev1.ConditionChunkServerClusterCreatedReason, "Chunkserver cluster has been created")
 
 	// // 4. snapshotclone
 	if c.Spec.SnapShotClone.Enable {
@@ -88,6 +92,7 @@ func (c *cluster) reconcileCurveDaemons() error {
 			return errors.Wrap(err, "failed to start curve snapshotclone")
 		}
 	}
+	k8sutil.UpdateCondition(context.TODO(), &c.context, c.NamespacedName, curvev1.ConditionTypeSnapShotCloneReady, curvev1.ConditionTrue, curvev1.ConditionSnapShotCloneClusterCreatedReason, "Snapshotclone cluster has been created")
 
 	return nil
 }

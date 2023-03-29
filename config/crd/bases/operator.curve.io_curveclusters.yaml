@@ -49,6 +49,11 @@ spec:
         spec:
           description: CurveClusterSpec defines the desired state of CurveCluster
           properties:
+            cleanupConfirm:
+              description: Indicates user intent when deleting a cluster; blocks orchestration
+                and should not be set if cluster deletion is not imminent.
+              nullable: true
+              type: string
             curveVersion:
               description: CurveVersionSpec represents the settings for the Curve
                 version
@@ -206,8 +211,6 @@ spec:
               properties:
                 image:
                   type: string
-                version:
-                  type: string
               type: object
             message:
               description: Message shows summary message of cluster from ClusterState
@@ -216,9 +219,6 @@ spec:
             phase:
               description: Phase is a summary of cluster state. It can be translate
                 from the last conditiontype
-              type: string
-            state:
-              description: State represents the state of a cluster.
               type: string
           type: object
       type: object

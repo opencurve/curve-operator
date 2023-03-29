@@ -3,9 +3,10 @@ package chunkserver
 import (
 	"strings"
 
+	v1 "k8s.io/api/core/v1"
+
 	curvev1 "github.com/opencurve/curve-operator/api/v1"
 	"github.com/opencurve/curve-operator/pkg/config"
-	v1 "k8s.io/api/core/v1"
 )
 
 const (

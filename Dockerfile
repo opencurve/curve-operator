@@ -1,5 +1,5 @@
 # Build the curve-operator binary
-FROM golang:1.13 as builder
+FROM golang:1.17 as builder
 
 WORKDIR /workspace
 # Copy the Go Modules manifests
@@ -21,6 +21,12 @@ RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 GO111MODULE=on go build -a -mod vendor
 ## 
 # Use debian-9 as base image to package the curve-operator binary
 FROM ubuntu:20.04
+
+WORKDIR /
+
+# Copy curve-operator binary
+COPY --from=builder /workspace/curve-operator .
+COPY pkg/ pkg/
 
 # Configure apt data sources.
 RUN echo "deb http://mirrors.aliyun.com/ubuntu/ focal main restricted" > /etc/apt/sources.list && \
@@ -44,13 +50,8 @@ RUN wget https://go.dev/dl/go1.13.15.linux-amd64.tar.gz --no-check-certificate &
     tar -C /usr/local -xzf go1.13.15.linux-amd64.tar.gz && \
     rm go1.13.15.linux-amd64.tar.gz
 
-WORKDIR /
-
-# Copy curve-operator binary
-COPY --from=builder /workspace/curve-operator .
-
 Env PATH=$PATH:/usr/local/go/bin
 
 USER root:root
 
-ENTRYPOINT ["/curve-operator"]
+ENTRYPOINT ["./curve-operator"]

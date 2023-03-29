@@ -47,7 +47,7 @@ deploy: manifests
 
 # Generate manifests e.g. CRD, RBAC etc.
 manifests: generate
-	$(CONTROLLER_GEN) $(CRD_OPTIONS) rbac:roleName=manager-role webhook paths="./..." output:crd:artifacts:config=config/crd/bases
+	$(CONTROLLER_GEN) $(CRD_OPTIONS) rbac:roleName=curve-operator-role webhook paths="./..." output:crd:artifacts:config=config/crd/bases
 	cd config/manager && kustomize edit set image harbor.cloud.netease.com/curve/curve-operator=${IMG}:${TAG}
 	kustomize build config/default > config/deploy/manifests.yaml
 
@@ -65,11 +65,11 @@ generate: controller-gen
 
 # Build the docker image
 docker-build: test
-	docker build . -t ${IMG}:${TAG} --network host
+	sudo docker build . -t ${IMG}:${TAG} --network host
 
 # Push the docker image
 docker-push:
-	docker push ${IMG}:${TAG}
+	sudo docker push ${IMG}:${TAG}
 
 # find or download controller-gen
 # download controller-gen if necessary

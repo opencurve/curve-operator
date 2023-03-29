@@ -1,7 +1,7 @@
 apiVersion: operator.curve.io/v1
 kind: CurveCluster
 metadata:
-  name: cluster-test1
+  name: my-cluster
   namespace: curvebs
 spec:
   # Add fields here
