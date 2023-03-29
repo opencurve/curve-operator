@@ -1,6 +1,7 @@
 package chunkserver
 
 import (
+	"path"
 	"strings"
 
 	v1 "k8s.io/api/core/v1"
@@ -66,11 +67,11 @@ func (c *Cluster) createFormatVolumeAndMount(device curvev1.DevicesSpec) ([]v1.V
 // configMapMountPathDir = config.ChunkserverConfigMapMountPathDir ("/curvebs/chunkserver/conf")
 // curConfigMapName = config.ChunkserverConfigMapName ("curve-chunkserver-conf")
 
-func CSDaemonVolumes(dataPaths *chunkserverDataPathMap) []v1.Volume {
+func CSDaemonVolumes(csConfig *chunkserverConfig) []v1.Volume {
 	vols := []v1.Volume{}
 
 	// create configmap volume
-	configMapVolumes, _ := CSConfigConfigMapVolumeAndMount()
+	configMapVolumes, _ := CSConfigConfigMapVolumeAndMount(csConfig)
 	vols = append(vols, configMapVolumes...)
 
 	// create hostpath volume for '/dev'
@@ -79,29 +80,29 @@ func CSDaemonVolumes(dataPaths *chunkserverDataPathMap) []v1.Volume {
 
 	// create logs volume for
 	hostPathType := v1.HostPathDirectoryOrCreate
-	src = v1.VolumeSource{HostPath: &v1.HostPathVolumeSource{Path: dataPaths.HostLogDir, Type: &hostPathType}}
+	src = v1.VolumeSource{HostPath: &v1.HostPathVolumeSource{Path: csConfig.DataPathMap.HostLogDir, Type: &hostPathType}}
 	vols = append(vols, v1.Volume{Name: "log-volume", VolumeSource: src})
 
 	return vols
 }
 
 // DaemonVolumeMounts returns the pod container volume mounth used only by chunkserver
-func CSDaemonVolumeMounts(dataPaths *chunkserverDataPathMap) []v1.VolumeMount {
+func CSDaemonVolumeMounts(csConfig *chunkserverConfig) []v1.VolumeMount {
 	mounts := []v1.VolumeMount{}
 
 	// create configmap mount path
-	_, configMapMounts := CSConfigConfigMapVolumeAndMount()
+	_, configMapMounts := CSConfigConfigMapVolumeAndMount(csConfig)
 	mounts = append(mounts, configMapMounts...)
 
 	// create data mount path and log mount path on container
 	mounts = append(mounts, v1.VolumeMount{Name: "dev-volume", MountPath: "/dev"})
-	mounts = append(mounts, v1.VolumeMount{Name: "log-volume", MountPath: dataPaths.ContainerLogDir})
+	mounts = append(mounts, v1.VolumeMount{Name: "log-volume", MountPath: csConfig.DataPathMap.ContainerLogDir})
 
 	return mounts
 }
 
 // configConfigMapVolumeAndMount Create configmap volume and volume mount for daemon chunkserver pod
-func CSConfigConfigMapVolumeAndMount() ([]v1.Volume, []v1.VolumeMount) {
+func CSConfigConfigMapVolumeAndMount(csConfig *chunkserverConfig) ([]v1.Volume, []v1.VolumeMount) {
 	vols := []v1.Volume{}
 	mounts := []v1.VolumeMount{}
 
@@ -137,9 +138,9 @@ func CSConfigConfigMapVolumeAndMount() ([]v1.Volume, []v1.VolumeMount) {
 	vols = append(vols, S3ConfigVol)
 
 	// chunkserver.conf
-	configMapVolSource := &v1.ConfigMapVolumeSource{LocalObjectReference: v1.LocalObjectReference{Name: config.ChunkserverConfigMapName}, Items: []v1.KeyToPath{{Key: config.ChunkserverConfigMapDataKey, Path: config.ChunkserverConfigMapDataKey, Mode: &mode}}}
+	configMapVolSource := &v1.ConfigMapVolumeSource{LocalObjectReference: v1.LocalObjectReference{Name: csConfig.CurrentConfigMapName}, Items: []v1.KeyToPath{{Key: config.ChunkserverConfigMapDataKey, Path: config.ChunkserverConfigMapDataKey, Mode: &mode}}}
 	configVol := v1.Volume{
-		Name: config.ChunkserverConfigMapName,
+		Name: csConfig.CurrentConfigMapName,
 		VolumeSource: v1.VolumeSource{
 			ConfigMap: configMapVolSource,
 		},
@@ -174,9 +175,9 @@ func CSConfigConfigMapVolumeAndMount() ([]v1.Volume, []v1.VolumeMount) {
 
 	// configmap volume mount path
 	m := v1.VolumeMount{
-		Name:      config.ChunkserverConfigMapName,
+		Name:      csConfig.CurrentConfigMapName,
 		ReadOnly:  true, // should be no reason to write to the config in pods, so enforce this
-		MountPath: config.ChunkserverConfigMapMountPathDir + "/" + config.ChunkserverConfigMapDataKey,
+		MountPath: path.Join(config.ChunkserverConfigMapMountPathDir, config.ChunkserverConfigMapDataKey),
 		SubPath:   config.ChunkserverConfigMapDataKey,
 	}
 	mounts = append(mounts, m)

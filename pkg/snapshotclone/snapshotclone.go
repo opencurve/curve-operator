@@ -3,9 +3,11 @@ package snapshotclone
 import (
 	"context"
 	"fmt"
+	"strconv"
 
 	"github.com/coreos/pkg/capnslog"
 	"github.com/pkg/errors"
+	v1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -17,9 +19,11 @@ import (
 )
 
 const (
-	AppName = "curve-snapshotclone"
+	AppName             = "curve-snapshotclone"
+	ConfigMapNamePrefix = "curve-snapshotclone-conf"
 
 	// ContainerPath is the mount path of data and log
+	Prefix           = "/curvebs/snapshotclone"
 	ContainerDataDir = "/curvebs/snapshotclone/data"
 	ContainerLogDir  = "/curvebs/snapshotclone/logs"
 )
@@ -46,20 +50,26 @@ func New(context clusterd.Context, namespacedName types.NamespacedName, spec cur
 func (c *Cluster) Start(nodeNameIP map[string]string) error {
 	log.Info("starting snapshotclone server")
 
-	c.prepareConfigMap()
-
-	var snapEndpoints string
-	for _, ipAddr := range nodeNameIP {
-		snapEndpoints = fmt.Sprint(snapEndpoints, "server ", ipAddr, ":", c.spec.SnapShotClone.Port, "; ")
-	}
-	err := c.createNginxConfigMap(snapEndpoints)
+	// get clusterEtcdAddr
+	etcdOverrideCM, err := c.context.Clientset.CoreV1().ConfigMaps(c.namespacedName.Namespace).Get(config.EtcdOverrideConfigMapName, metav1.GetOptions{})
 	if err != nil {
-		log.Error("failed to create nginx.conf configMap")
+		log.Errorf("failed to get %s configmap from cluster", config.EtcdOverrideConfigMapName)
+		return errors.Wrapf(err, "failed to get %s configmap from cluster", config.EtcdOverrideConfigMapName)
 	}
+	clusterEtcdAddr := etcdOverrideCM.Data[config.ClusterEtcdAddr]
+
+	// get clusterMdsAddr
+	mdsOverrideCM, err := c.context.Clientset.CoreV1().ConfigMaps(c.namespacedName.Namespace).Get(config.MdsOverrideConfigMapName, metav1.GetOptions{})
+	if err != nil {
+		return errors.Wrap(err, "failed to get mds override endoints configmap")
+	}
+
+	clusterMdsAddr := mdsOverrideCM.Data[config.MdsOvverideConfigMapDataKey]
 
 	err = c.createStartSnapConfigMap()
 	if err != nil {
 		log.Error("failed to create start snapshotclone configMap")
+		return errors.Wrap(err, "failed to create start snapshotclone configMap")
 	}
 
 	// reorder the nodeNameIP according to the order of nodes spec defined by the user
@@ -88,9 +98,19 @@ func (c *Cluster) Start(nodeNameIP map[string]string) error {
 		daemonID++
 		// Construct snapclone config to pass to make deployment
 		resourceName := fmt.Sprintf("%s-%s", AppName, daemonIDString)
+		currentConfigMapName := fmt.Sprintf("%s-%s", ConfigMapNamePrefix, daemonIDString)
 		snapConfig := &snapConfig{
-			DaemonID:     daemonIDString,
-			ResourceName: resourceName,
+			Prefix:           Prefix,
+			ServiceAddr:      nodeNameIP[nodeName],
+			ServicePort:      strconv.Itoa(c.spec.SnapShotClone.Port),
+			ServiceDummyPort: strconv.Itoa(c.spec.SnapShotClone.DummyPort),
+			ServiceProxyPort: strconv.Itoa(c.spec.SnapShotClone.ProxyPort),
+			ClusterEtcdAddr:  clusterEtcdAddr,
+			ClusterMdsAddr:   clusterMdsAddr,
+
+			DaemonID:             daemonIDString,
+			ResourceName:         resourceName,
+			CurrentConfigMapName: currentConfigMapName,
 			DataPathMap: config.NewDaemonDataPathMap(
 				fmt.Sprint(c.spec.DataDirHostPath, "/snapshotclone-", daemonIDString),
 				fmt.Sprint(c.spec.LogDirHostPath, "/snapshotclone-", daemonIDString),
@@ -101,6 +121,11 @@ func (c *Cluster) Start(nodeNameIP map[string]string) error {
 
 		// for debug
 		// log.Infof("current node is %v", nodeName)
+
+		err = c.prepareConfigMap(snapConfig)
+		if err != nil {
+			return err
+		}
 
 		// make snapshotclone deployment
 		d, err := c.makeDeployment(nodeName, nodeNameIP[nodeName], snapConfig)
@@ -132,47 +157,27 @@ func (c *Cluster) Start(nodeNameIP map[string]string) error {
 	return nil
 }
 
-// prepareConfigMap
-func (c *Cluster) prepareConfigMap() error {
-	// get etcdEndpoint to create snapshotclone configMap
-	etcdOverrideCM, err := c.context.Clientset.CoreV1().ConfigMaps(c.namespacedName.Namespace).Get(config.EtcdOverrideConfigMapName, metav1.GetOptions{})
-	if err != nil {
-		log.Errorf("failed to get %s configmap from cluster", config.EtcdOverrideConfigMapName)
-		return errors.Wrapf(err, "failed to get %s configmap from cluster", config.EtcdOverrideConfigMapName)
-	}
-	etcdEndpoints := etcdOverrideCM.Data[config.EtcdOvverideConfigMapDataKey]
-
-	// get mdsEndpoints and create snap_client configmap
-	mdsOverrideCM, err := c.context.Clientset.CoreV1().ConfigMaps(c.namespacedName.Namespace).Get(config.MdsOverrideConfigMapName, metav1.GetOptions{})
-	if err != nil {
-		return errors.Wrap(err, "failed to get mds override endoints configmap")
-	}
-	mdsEndpoints := mdsOverrideCM.Data[config.MdsOvverideConfigMapDataKey]
-	c.createSnapClientConfigMap(mdsEndpoints)
-
-	log.Infof("created ConfigMap '%s' success", config.SnapClientConfigMapName)
-
-	// get s3 configmap
-	_, err = c.context.Clientset.CoreV1().ConfigMaps(c.namespacedName.Namespace).Get(config.S3ConfigMapName, metav1.GetOptions{})
-	if err != nil {
-		log.Errorf("failed to get %s configmap from cluster", config.S3ConfigMapName)
-		return errors.Wrapf(err, "failed to get %s configmap from cluster", config.S3ConfigMapName)
+func (c *Cluster) createStartSnapConfigMap() error {
+	startSnapShotConfigMap := map[string]string{
+		config.StartSnapConfigMapDataKey: START,
 	}
 
-	// create snapshotclone.conf configmap
-	err = c.createSnapShotCloneConfigMap(etcdEndpoints)
-	if err != nil {
-		log.Errorf("failed to create %s configmap from cluster", config.SnapShotCloneConfigMapName)
-		return errors.Wrapf(err, "failed to get %s configmap from cluster", config.SnapShotCloneConfigMapName)
+	cm := &v1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      config.StartSnapConfigMap,
+			Namespace: c.namespacedName.Namespace,
+		},
+		Data: startSnapShotConfigMap,
 	}
 
-	log.Infof("created ConfigMap '%s' success", config.SnapShotCloneConfigMapName)
-
-	// create nginx.conf configmap
-	// err = c.createNginxConfigMap()
-	// if err != nil {
-	// 	log.Errorf("failed to create %s configmap from cluster", config.NginxConfigMapName)
-	// 	return errors.Wrapf(err, "failed to get %s configmap from cluster", config.NginxConfigMapName)
-	// }
+	err := c.ownerInfo.SetControllerReference(cm)
+	if err != nil {
+		return errors.Wrapf(err, "failed to set owner reference to start_snapshot.sh configmap %q", config.StartSnapConfigMap)
+	}
+	// create nginx configmap in cluster
+	_, err = c.context.Clientset.CoreV1().ConfigMaps(c.namespacedName.Namespace).Create(cm)
+	if err != nil && !kerrors.IsAlreadyExists(err) {
+		return errors.Wrapf(err, "failed to create start snapshotclone configmap %s", c.namespacedName.Namespace)
+	}
 	return nil
 }

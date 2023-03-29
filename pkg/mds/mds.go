@@ -3,6 +3,8 @@ package mds
 import (
 	"context"
 	"fmt"
+	"path"
+	"strconv"
 
 	"github.com/coreos/pkg/capnslog"
 	"github.com/pkg/errors"
@@ -17,9 +19,11 @@ import (
 )
 
 const (
-	AppName = "curve-mds"
+	AppName             = "curve-mds"
+	ConfigMapNamePrefix = "curve-mds-conf"
 
 	// ContainerPath is the mount path of data and log
+	Prefix           = "/curvebs/mds"
 	ContainerDataDir = "/curvebs/mds/data"
 	ContainerLogDir  = "/curvebs/mds/logs"
 )
@@ -54,12 +58,6 @@ func (c *Cluster) Start(nodeNameIP map[string]string) error {
 	// get etcd endpoints from key of "etcdEndpoints" of etcd-endpoints-override
 	etcdEndpoints := overrideCM.Data[config.EtcdOvverideConfigMapDataKey]
 
-	// create mds configmap
-	err = c.createMdsConfigMap(etcdEndpoints)
-	if err != nil {
-		return errors.Wrapf(err, "failed to create mds configmap for %v", config.MdsConfigMapName)
-	}
-
 	// create mds override configmap to record mds endpoints
 	err = c.createOverrideMdsCM(nodeNameIP)
 	if err != nil {
@@ -71,6 +69,7 @@ func (c *Cluster) Start(nodeNameIP map[string]string) error {
 	// - node1 - curve-mds-a
 	// - node2  - curve-mds-b
 	// - node3 - curve-mds-c
+
 	nodeNamesOrdered := make([]string, 0)
 	for _, n := range c.spec.Nodes {
 		for nodeName := range nodeNameIP {
@@ -90,14 +89,22 @@ func (c *Cluster) Start(nodeNameIP map[string]string) error {
 	for _, nodeName := range nodeNamesOrdered {
 		daemonIDString = k8sutil.IndexToName(daemonID)
 		daemonID++
-		// Construct mds config to pass to make deployment
+		// Construct mds config
 		resourceName := fmt.Sprintf("%s-%s", AppName, daemonIDString)
+		currentConfigMapName := fmt.Sprintf("%s-%s", ConfigMapNamePrefix, daemonIDString)
 		mdsConfig := &mdsConfig{
-			DaemonID:     daemonIDString,
-			ResourceName: resourceName,
+			ServiceAddr:                   nodeNameIP[nodeName],
+			ServicePort:                   strconv.Itoa(c.spec.Mds.Port),
+			ServiceDummyPort:              strconv.Itoa(c.spec.Mds.DummyPort),
+			ClusterEtcdAddr:               etcdEndpoints,
+			ClusterSnapshotcloneProxyAddr: "",
+
+			DaemonID:             daemonIDString,
+			ResourceName:         resourceName,
+			CurrentConfigMapName: currentConfigMapName,
 			DataPathMap: config.NewDaemonDataPathMap(
-				fmt.Sprint(c.spec.DataDirHostPath, "/mds-", daemonIDString),
-				fmt.Sprint(c.spec.LogDirHostPath, "/mds-", daemonIDString),
+				path.Join(c.spec.DataDirHostPath, fmt.Sprint("mds-", daemonIDString)),
+				path.Join(c.spec.LogDirHostPath, fmt.Sprint("mds-", daemonIDString)),
 				ContainerDataDir,
 				ContainerLogDir,
 			),
@@ -105,6 +112,12 @@ func (c *Cluster) Start(nodeNameIP map[string]string) error {
 
 		// for debug
 		// log.Infof("current node is %v", nodeName)
+
+		// create each mds configmap for each deployment
+		err = c.createMdsConfigMap(mdsConfig)
+		if err != nil {
+			return errors.Wrapf(err, "failed to create mds configmap [ %v ]", config.MdsConfigMapName)
+		}
 
 		// make mds deployment
 		d, err := c.makeDeployment(nodeName, nodeNameIP[nodeName], mdsConfig)

@@ -26,7 +26,6 @@ WORKDIR /
 
 # Copy curve-operator binary
 COPY --from=builder /workspace/curve-operator .
-COPY pkg/ pkg/
 
 # Configure apt data sources.
 RUN echo "deb http://mirrors.aliyun.com/ubuntu/ focal main restricted" > /etc/apt/sources.list && \

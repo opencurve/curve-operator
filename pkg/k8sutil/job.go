@@ -76,3 +76,33 @@ func DeleteBatchJob(ctx context.Context, clientset kubernetes.Interface, namespa
 	logger.Warningf("gave up waiting for batch job %s to be deleted", name)
 	return nil
 }
+
+// checkJobStatus go routine to check job status
+func CheckJobStatus(ctx context.Context, clientSet kubernetes.Interface, ticker *time.Ticker, chn chan bool, namespace string, jobName string) {
+	for {
+		select {
+		case <-ticker.C:
+			logger.Info("time is up")
+
+			job, err := clientSet.BatchV1().Jobs(namespace).Get(jobName, metav1.GetOptions{})
+			if err != nil {
+				logger.Errorf("failed to get job %s in cluster", jobName)
+				chn <- false
+				return
+			}
+
+			if job.Status.Succeeded > 0 {
+				logger.Infof("job %s has successd", job.Name)
+				chn <- true
+				return
+			} else {
+				logger.Infof("job %s is running", job.Name)
+			}
+
+		case <-ctx.Done():
+			chn <- false
+			logger.Error("go routinue exit because check time is more than 5 mins")
+			return
+		}
+	}
+}

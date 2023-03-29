@@ -15,9 +15,11 @@ import (
 )
 
 const (
-	AppName = "curve-chunkserver"
+	AppName             = "curve-chunkserver"
+	ConfigMapNamePrefix = "curve-chunkserver-conf"
 
 	// ContainerPath is the mount path of data and log
+	Prefix                      = "/curvebs/chunkserver"
 	ChunkserverContainerDataDir = "/curvebs/chunkserver/data"
 	ChunkserverContainerLogDir  = "/curvebs/chunkserver/logs"
 

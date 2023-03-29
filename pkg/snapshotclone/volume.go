@@ -1,49 +1,51 @@
 package snapshotclone
 
 import (
+	"path"
+
 	v1 "k8s.io/api/core/v1"
 
 	"github.com/opencurve/curve-operator/pkg/config"
 )
 
 // DaemonVolumes returns the pod volumes used only by snapshotclone
-func SnapDaemonVolumes(dataPaths *config.DataPathMap) []v1.Volume {
+func SnapDaemonVolumes(snapConfig *snapConfig) []v1.Volume {
 	vols := []v1.Volume{}
 
 	// create configmap volume
-	configMapVolumes, _ := SnapConfigMapVolumeAndMount()
+	configMapVolumes, _ := SnapConfigMapVolumeAndMount(snapConfig)
 	vols = append(vols, configMapVolumes...)
 
 	hostPathType := v1.HostPathDirectoryOrCreate
 	// create data volume
-	src := v1.VolumeSource{HostPath: &v1.HostPathVolumeSource{Path: dataPaths.HostDataDir, Type: &hostPathType}}
+	src := v1.VolumeSource{HostPath: &v1.HostPathVolumeSource{Path: snapConfig.DataPathMap.HostDataDir, Type: &hostPathType}}
 	vols = append(vols, v1.Volume{Name: "data-volume", VolumeSource: src})
 
 	// create log volume
-	src = v1.VolumeSource{HostPath: &v1.HostPathVolumeSource{Path: dataPaths.HostLogDir, Type: &hostPathType}}
+	src = v1.VolumeSource{HostPath: &v1.HostPathVolumeSource{Path: snapConfig.DataPathMap.HostLogDir, Type: &hostPathType}}
 	vols = append(vols, v1.Volume{Name: "log-volume", VolumeSource: src})
 
 	return vols
 }
 
 // DaemonVolumeMounts returns the pod container volume mounth used only by chunkserver
-func SnapDaemonVolumeMounts(dataPaths *config.DataPathMap) []v1.VolumeMount {
+func SnapDaemonVolumeMounts(snapConfig *snapConfig) []v1.VolumeMount {
 	mounts := []v1.VolumeMount{}
 
 	// create configmap mount path
-	_, configMapMounts := SnapConfigMapVolumeAndMount()
+	_, configMapMounts := SnapConfigMapVolumeAndMount(snapConfig)
 	mounts = append(mounts, configMapMounts...)
 
 	// create data mount path and log mount path on container
 	// create data mount path and log mount path on container
-	mounts = append(mounts, v1.VolumeMount{Name: "data-volume", MountPath: dataPaths.ContainerDataDir})
-	mounts = append(mounts, v1.VolumeMount{Name: "log-volume", MountPath: dataPaths.ContainerLogDir})
+	mounts = append(mounts, v1.VolumeMount{Name: "data-volume", MountPath: snapConfig.DataPathMap.ContainerDataDir})
+	mounts = append(mounts, v1.VolumeMount{Name: "log-volume", MountPath: snapConfig.DataPathMap.ContainerLogDir})
 
 	return mounts
 }
 
 // configConfigMapVolumeAndMount Create configmap volume and volume mount for daemon chunkserver pod
-func SnapConfigMapVolumeAndMount() ([]v1.Volume, []v1.VolumeMount) {
+func SnapConfigMapVolumeAndMount(snapConfig *snapConfig) ([]v1.Volume, []v1.VolumeMount) {
 	vols := []v1.Volume{}
 	mounts := []v1.VolumeMount{}
 
@@ -89,9 +91,9 @@ func SnapConfigMapVolumeAndMount() ([]v1.Volume, []v1.VolumeMount) {
 	vols = append(vols, S3ConfigVol)
 
 	// snapshotclone.conf
-	snapShotConfigMapVolSource := &v1.ConfigMapVolumeSource{LocalObjectReference: v1.LocalObjectReference{Name: config.SnapShotCloneConfigMapName}, Items: []v1.KeyToPath{{Key: config.SnapShotCloneConfigMapDataKey, Path: config.SnapShotCloneConfigMapDataKey, Mode: &mode}}}
+	snapShotConfigMapVolSource := &v1.ConfigMapVolumeSource{LocalObjectReference: v1.LocalObjectReference{Name: snapConfig.CurrentConfigMapName}, Items: []v1.KeyToPath{{Key: config.SnapShotCloneConfigMapDataKey, Path: config.SnapShotCloneConfigMapDataKey, Mode: &mode}}}
 	configVol := v1.Volume{
-		Name: config.SnapShotCloneConfigMapName,
+		Name: snapConfig.CurrentConfigMapName,
 		VolumeSource: v1.VolumeSource{
 			ConfigMap: snapShotConfigMapVolSource,
 		},
@@ -102,7 +104,7 @@ func SnapConfigMapVolumeAndMount() ([]v1.Volume, []v1.VolumeMount) {
 	nginxMountPath := v1.VolumeMount{
 		Name:      config.NginxConfigMapName,
 		ReadOnly:  true, // should be no reason to write to the config in pods, so enforce this
-		MountPath: config.NginxConfigMapMountPath + "/" + config.NginxConfigMapDataKey,
+		MountPath: path.Join(config.NginxConfigMapMountPath, config.NginxConfigMapDataKey),
 		SubPath:   config.NginxConfigMapDataKey,
 	}
 	mounts = append(mounts, nginxMountPath)
@@ -119,7 +121,7 @@ func SnapConfigMapVolumeAndMount() ([]v1.Volume, []v1.VolumeMount) {
 	snapClientMountPath := v1.VolumeMount{
 		Name:      config.SnapClientConfigMapName,
 		ReadOnly:  true, // should be no reason to write to the config in pods, so enforce this
-		MountPath: config.SnapClientConfigMapMountPath + "/" + config.SnapClientConfigMapDataKey,
+		MountPath: path.Join(config.SnapClientConfigMapMountPath, config.SnapClientConfigMapDataKey),
 		SubPath:   config.SnapClientConfigMapDataKey,
 	}
 	mounts = append(mounts, snapClientMountPath)
@@ -128,18 +130,19 @@ func SnapConfigMapVolumeAndMount() ([]v1.Volume, []v1.VolumeMount) {
 	S3MountPath := v1.VolumeMount{
 		Name:      config.S3ConfigMapName + "-snapshotclone",
 		ReadOnly:  true, // should be no reason to write to the config in pods, so enforce this
-		MountPath: config.S3ConfigMapMountSnapPathDir + "/" + config.S3ConfigMapDataKey,
+		MountPath: path.Join(config.S3ConfigMapMountSnapPathDir, config.S3ConfigMapDataKey),
 		SubPath:   config.S3ConfigMapDataKey,
 	}
 	mounts = append(mounts, S3MountPath)
 
 	// snapshotclone volume mount path
 	m := v1.VolumeMount{
-		Name:      config.SnapShotCloneConfigMapName,
+		Name:      snapConfig.CurrentConfigMapName,
 		ReadOnly:  true, // should be no reason to write to the config in pods, so enforce this
-		MountPath: config.SnapShotCloneConfigMapMountPath + "/" + config.SnapShotCloneConfigMapDataKey,
+		MountPath: path.Join(config.SnapShotCloneConfigMapMountPath, config.SnapShotCloneConfigMapDataKey),
 		SubPath:   config.SnapShotCloneConfigMapDataKey,
 	}
+
 	mounts = append(mounts, m)
 
 	return vols, mounts

@@ -18,15 +18,18 @@ metadata:
   namespace: curvebs
   labels:
     control-plane: curve-operator
+    curve: operator
 spec:
   selector:
     matchLabels:
       control-plane: curve-operator
+      curve: operator
   replicas: 1
   template:
     metadata:
       labels:
         control-plane: curve-operator
+        curve: operator
     spec:
       containers:
       - command:

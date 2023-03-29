@@ -3,14 +3,16 @@ package snapshotclone
 var START = `
 
 argsNginxConf=$1
-argsSnapShotCloneAddr=$2
-argsConfigFileDir=$3
+argsConfigFileDir=$2
 
-/sur/sbin/nginx -c $argsNginxConf
+/usr/sbin/nginx -c $argsNginxConf
 
 # sleep 5 second to wait nginx startup
-sleep 5
+sleep 10
+
+# for test
+#while true; do echo hello; sleep 10;done
 
 cd /curvebs/snapshotclone/sbin 
-./curvebs-snapshotclone $2 $3
+./curvebs-snapshotclone $2
 `

@@ -1,11 +1,6 @@
 package snapshotclone
 
 import (
-	"fmt"
-	"os"
-	"regexp"
-	"strconv"
-
 	"github.com/pkg/errors"
 	v1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
@@ -14,57 +9,28 @@ import (
 	"github.com/opencurve/curve-operator/pkg/config"
 )
 
-func (c *Cluster) replaceNginxVar(snapEndpoints string) (string, error) {
-	content, err := os.ReadFile("pkg/template/nginx.conf")
+func (c *Cluster) createNginxConfigMap(snapConfig *snapConfig) error {
+	// 1. get mds-conf-template from cluster
+	nginxCMTemplate, err := c.context.Clientset.CoreV1().ConfigMaps(c.namespacedName.Namespace).Get(config.NginxCnonfigMapTemp, metav1.GetOptions{})
 	if err != nil {
-		log.Error("failed to read config file from template/nginx.conf")
-		return "", errors.Wrap(err, "failed to read config file from template/nginx.conf")
+		log.Errorf("failed to get configmap %s from cluster", config.NginxCnonfigMapTemp)
+		if kerrors.IsNotFound(err) {
+			return errors.Wrapf(err, "failed to get configmap %s from cluster", config.NginxCnonfigMapTemp)
+		}
+		return errors.Wrapf(err, "failed to get configmap %s from cluster", config.NginxCnonfigMapTemp)
 	}
-	nginxStr := string(content)
 
-	// regexp replace
-	regexpFix, err := regexp.Compile(`\$\{prefix\}`)
+	// 2. read configmap data (string)
+	mdsCMData := nginxCMTemplate.Data[config.NginxConfigMapDataKey]
+	// 3. replace ${} to specific parameters
+	replacedNginxData, err := config.ReplaceConfigVars(mdsCMData, snapConfig)
 	if err != nil {
-		return "", errors.Wrap(err, "failed to compile ${prefix}")
-	}
-	match := regexpFix.ReplaceAllString(nginxStr, "/curvebs/snapshotclone")
-	// for test
-	// log.Info(match)
-
-	// 2.
-	regexpAddr, err := regexp.Compile(`\$\{service_addr\}`)
-	if err != nil {
-		return "", errors.Wrap(err, "failed to compile ${service_addr}")
-	}
-	match = regexpAddr.ReplaceAllString(match, "127.0.0.1")
-
-	// 3.
-	regexpProxyPort, err := regexp.Compile(`\$\{service_proxy_port\}`)
-	if err != nil {
-		return "", errors.Wrap(err, "failed to compile ${service_proxy_port}")
-	}
-	match = regexpProxyPort.ReplaceAllString(match, strconv.Itoa(c.spec.SnapShotClone.ProxyPort))
-
-	// 4.
-	regexSnapshot, err := regexp.Compile(`\$\{cluster_snapshotclone_nginx_upstream\}`)
-	if err != nil {
-		return "", errors.Wrap(err, "failed to compile ${cluster_snapshotclone_nginx_upstream}")
-	}
-	match = regexSnapshot.ReplaceAllString(match, snapEndpoints)
-	// log.Infof("%v", nginxStr)
-	fmt.Println(match)
-
-	return match, nil
-}
-
-func (c *Cluster) createNginxConfigMap(snapEndpoints string) error {
-	nginxStr, err := c.replaceNginxVar(snapEndpoints)
-	if err != nil {
-		return errors.Wrap(err, "failed to replace nginx conf")
+		log.Error("failed to Replace mds config template to generate %s to start server.", snapConfig.CurrentConfigMapName)
+		return errors.Wrap(err, "failed to Replace mds config template to generate a new mds configmap to start server.")
 	}
 
 	nginxConfigMap := map[string]string{
-		config.NginxConfigMapDataKey: nginxStr,
+		config.NginxConfigMapDataKey: replacedNginxData,
 	}
 
 	cm := &v1.ConfigMap{
@@ -89,30 +55,5 @@ func (c *Cluster) createNginxConfigMap(snapEndpoints string) error {
 		return errors.Wrapf(err, "failed to create nginx configmap %s", c.namespacedName.Namespace)
 	}
 
-	return nil
-}
-
-func (c *Cluster) createStartSnapConfigMap() error {
-	startSnapShotConfigMap := map[string]string{
-		config.StartSnapConfigMapDataKey: START,
-	}
-
-	cm := &v1.ConfigMap{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      config.StartSnapConfigMap,
-			Namespace: c.namespacedName.Namespace,
-		},
-		Data: startSnapShotConfigMap,
-	}
-
-	err := c.ownerInfo.SetControllerReference(cm)
-	if err != nil {
-		return errors.Wrapf(err, "failed to set owner reference to start_snapshot.sh configmap %q", config.StartSnapConfigMap)
-	}
-	// create nginx configmap in cluster
-	_, err = c.context.Clientset.CoreV1().ConfigMaps(c.namespacedName.Namespace).Create(cm)
-	if err != nil && !kerrors.IsAlreadyExists(err) {
-		return errors.Wrapf(err, "failed to create start snapshotclone configmap %s", c.namespacedName.Namespace)
-	}
 	return nil
 }

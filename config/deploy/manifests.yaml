@@ -403,6 +403,7 @@ kind: Deployment
 metadata:
   labels:
     control-plane: curve-operator
+    curve: operator
   name: curve-operator
   namespace: curvebs
 spec:
@@ -410,17 +411,19 @@ spec:
   selector:
     matchLabels:
       control-plane: curve-operator
+      curve: operator
   template:
     metadata:
       labels:
         control-plane: curve-operator
+        curve: operator
     spec:
       containers:
       - args:
         - --enable-leader-election
         command:
         - ./curve-operator
-        image: harbor.cloud.netease.com/curve/curve-operator:2075982
+        image: harbor.cloud.netease.com/curve/curve-operator:8f3e0bd
         name: curve-operator
         resources:
           limits:
