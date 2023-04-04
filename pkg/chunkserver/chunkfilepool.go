@@ -12,6 +12,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	curvev1 "github.com/opencurve/curve-operator/api/v1"
+	"github.com/opencurve/curve-operator/pkg/config"
 	"github.com/opencurve/curve-operator/pkg/k8sutil"
 )
 
@@ -62,6 +63,37 @@ func (c *Cluster) startProvisioningOverNodes(nodeNameIP map[string]string) error
 			return err
 		}
 
+		// get ClusterEtcdAddr
+		etcdOverrideCM, err := c.context.Clientset.CoreV1().ConfigMaps(c.namespacedName.Namespace).Get(config.EtcdOverrideConfigMapName, metav1.GetOptions{})
+		if err != nil {
+			return errors.Wrap(err, "failed to get etcd override endoints configmap")
+		}
+		clusterEtcdAddr := etcdOverrideCM.Data[config.ClusterEtcdAddr]
+
+		// get ClusterMdsAddr
+		mdsOverrideCM, err := c.context.Clientset.CoreV1().ConfigMaps(c.namespacedName.Namespace).Get(config.MdsOverrideConfigMapName, metav1.GetOptions{})
+		if err != nil {
+			return errors.Wrap(err, "failed to get mds override endoints configmap")
+		}
+		clusterMdsAddr := mdsOverrideCM.Data[config.MdsOvverideConfigMapDataKey]
+
+		// get clusterMdsDummyPort
+		dummyPort := strconv.Itoa(c.spec.Mds.DummyPort)
+		clusterMdsDummyPort := dummyPort + "," + dummyPort + "," + dummyPort
+
+		// get clusterSnapCloneAddr and clusterSnapShotCloneDummyPort
+		var clusterSnapCloneAddr string
+		var clusterSnapShotCloneDummyPort string
+		if c.spec.SnapShotClone.Enable {
+			for _, ipAddr := range nodeNameIP {
+				clusterSnapCloneAddr = fmt.Sprint(clusterSnapCloneAddr, ipAddr, ":", c.spec.SnapShotClone.Port, ",")
+			}
+			clusterSnapCloneAddr = strings.TrimRight(clusterSnapCloneAddr, ",")
+
+			dummyPort := strconv.Itoa(c.spec.SnapShotClone.DummyPort)
+			clusterSnapShotCloneDummyPort = fmt.Sprintf("%s,%s,%s", dummyPort, dummyPort, dummyPort)
+		}
+
 		hostSequence := 0
 		// travel all valid nodes to start job to prepare chunkfiles
 		for _, node := range validNodes {
@@ -71,12 +103,14 @@ func (c *Cluster) startProvisioningOverNodes(nodeNameIP map[string]string) error
 			// replicas number
 			replicasSequence := 0
 
+			// travel all device to run format job and construct chunkserverConfig
 			for _, device := range c.spec.Storage.Devices {
 				name := strings.TrimSpace(device.Name)
 				name = strings.TrimRight(name, "/")
 				nameArr := strings.Split(name, "/")
 				name = nameArr[len(nameArr)-1]
 				resourceName := fmt.Sprintf("%s-%s-%s", AppName, node.Name, name)
+				currentConfigMapName := fmt.Sprintf("%s-%s-%s", ConfigMapNamePrefix, node.Name, name)
 
 				log.Infof("creating job for device %s on %s", device.Name, node.Name)
 
@@ -91,7 +125,16 @@ func (c *Cluster) startProvisioningOverNodes(nodeNameIP map[string]string) error
 
 				// create chunkserver config for each device of every node
 				chunkserverConfig := chunkserverConfig{
-					ResourceName: resourceName,
+					Prefix:                        Prefix,
+					Port:                          portBase,
+					ClusterMdsAddr:                clusterMdsAddr,
+					ClusterMdsDummyPort:           clusterMdsDummyPort,
+					ClusterEtcdAddr:               clusterEtcdAddr,
+					ClusterSnapshotcloneAddr:      clusterSnapCloneAddr,
+					ClusterSnapshotcloneDummyPort: clusterSnapShotCloneDummyPort,
+
+					ResourceName:         resourceName,
+					CurrentConfigMapName: currentConfigMapName,
 					DataPathMap: &chunkserverDataPathMap{
 						HostDevice:       device.Name,
 						HostLogDir:       c.spec.LogDirHostPath + "/chunkserver-" + node.Name + "-" + name,
@@ -101,7 +144,6 @@ func (c *Cluster) startProvisioningOverNodes(nodeNameIP map[string]string) error
 					NodeName:         node.Name,
 					NodeIP:           nodeIP,
 					DeviceName:       device.Name,
-					Port:             portBase,
 					HostSequence:     hostSequence,
 					ReplicasSequence: replicasSequence,
 					Replicas:         len(c.spec.Storage.Devices),

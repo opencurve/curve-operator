@@ -3,8 +3,6 @@ package chunkserver
 import (
 	"fmt"
 	"path"
-	"strconv"
-	"strings"
 
 	"github.com/pkg/errors"
 	batch "k8s.io/api/batch/v1"
@@ -13,7 +11,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/opencurve/curve-operator/pkg/config"
-	"github.com/opencurve/curve-operator/pkg/k8sutil"
 )
 
 const RegisterJobName = "register-topo"
@@ -176,64 +173,24 @@ func (c *Cluster) createTopoConfigMap() error {
 
 // create tools.conf configmap
 func (c *Cluster) createToolConfigMap(nodeNameIP map[string]string) error {
-	configMapData, err := k8sutil.ReadConfFromTemplate("pkg/template/tools.conf")
+	// 1. get mds-conf-template from cluster
+	toolsCMTemplate, err := c.context.Clientset.CoreV1().ConfigMaps(c.namespacedName.Namespace).Get(config.ToolsConfigMapTemp, metav1.GetOptions{})
 	if err != nil {
-		return errors.Wrap(err, "failed to read config file from template/tools.conf")
-	}
-
-	etcdOverrideCM, err := c.context.Clientset.CoreV1().ConfigMaps(c.namespacedName.Namespace).Get(config.EtcdOverrideConfigMapName, metav1.GetOptions{})
-	if err != nil {
-		return errors.Wrap(err, "failed to get etcd override endoints configmap")
-	}
-	etcdEndpoints := etcdOverrideCM.Data[config.EtcdOvverideConfigMapDataKey]
-
-	mdsOverrideCM, err := c.context.Clientset.CoreV1().ConfigMaps(c.namespacedName.Namespace).Get(config.MdsOverrideConfigMapName, metav1.GetOptions{})
-	if err != nil {
-		return errors.Wrap(err, "failed to get mds override endoints configmap")
-	}
-	mdsEndpoints := mdsOverrideCM.Data[config.MdsOvverideConfigMapDataKey]
-
-	configMapData["mdsAddr"] = mdsEndpoints
-
-	// TODO: do not consider for only one host deployment here
-	dummyPort := strconv.Itoa(c.spec.Mds.DummyPort)
-	mdsDummyPorts := dummyPort + "," + dummyPort + "," + dummyPort
-	configMapData["mdsDummyPort"] = mdsDummyPorts
-
-	// TODO: do not consider for only one host deployment here
-	retEtcdEndpoints := ""
-	etcdEndpointsArr := strings.Split(etcdEndpoints, ",")
-	for _, etcdAddr := range etcdEndpointsArr {
-		ip := strings.Split(etcdAddr, ":")[0]
-		retEtcdEndpoints += (ip + ":" + strconv.Itoa(c.spec.Etcd.ListenPort) + ",")
-	}
-	retEtcdEndpoints = strings.TrimRight(retEtcdEndpoints, ",")
-	configMapData["etcdAddr"] = retEtcdEndpoints
-
-	configMapData["snapshotCloneAddr"] = ""
-	configMapData["snapshotCloneDummyPort"] = ""
-	// TODO: do not consider for only one host deployment here
-	var snapEndpoints string
-	if c.spec.SnapShotClone.Enable {
-		for _, ipAddr := range nodeNameIP {
-			snapEndpoints = fmt.Sprint(snapEndpoints, ipAddr, ":", c.spec.SnapShotClone.Port, ",")
+		log.Errorf("failed to get configmap %s from cluster", config.ToolsConfigMapTemp)
+		if kerrors.IsNotFound(err) {
+			return errors.Wrapf(err, "failed to get configmap %s from cluster", config.ToolsConfigMapTemp)
 		}
-		snapEndpoints = strings.TrimRight(snapEndpoints, ",")
-		configMapData["snapshotCloneAddr"] = snapEndpoints
-		dummyPort := strconv.Itoa(c.spec.SnapShotClone.DummyPort)
-		configMapData["snapshotCloneDummyPort"] = fmt.Sprintf("%s,%s,%s", dummyPort, dummyPort, dummyPort)
+		return errors.Wrapf(err, "failed to get configmap %s from cluster", config.ToolsConfigMapTemp)
+	}
+	toolsCMData := toolsCMTemplate.Data[config.ToolsConfigMapDataKey]
+	replacedToolsData, err := config.ReplaceConfigVars(toolsCMData, &chunkserverConfigs[0])
+	if err != nil {
+		log.Error("failed to Replace tools config template to generate %s to start server.", chunkserverConfigs[0].CurrentConfigMapName)
+		return errors.Wrap(err, "failed to Replace tools config template to generate a new mds configmap to start server.")
 	}
 
-	var toolsConfigVal string
-	for k, v := range configMapData {
-		toolsConfigVal = toolsConfigVal + k + "=" + v + "\n"
-	}
-
-	// for debug
-	log.Info(toolsConfigVal)
-
-	topoConfigMap := map[string]string{
-		config.ToolsConfigMapDataKey: toolsConfigVal,
+	toolConfigMap := map[string]string{
+		config.ToolsConfigMapDataKey: replacedToolsData,
 	}
 
 	cm := &v1.ConfigMap{
@@ -241,7 +198,7 @@ func (c *Cluster) createToolConfigMap(nodeNameIP map[string]string) error {
 			Name:      config.ToolsConfigMapName,
 			Namespace: c.namespacedName.Namespace,
 		},
-		Data: topoConfigMap,
+		Data: toolConfigMap,
 	}
 
 	err = c.ownerInfo.SetControllerReference(cm)

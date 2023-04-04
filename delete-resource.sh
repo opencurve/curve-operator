@@ -23,6 +23,15 @@ kubectl delete cm snap-client-conf -n curvebs
 kubectl delete cm nginx-conf -n curvebs
 kubectl delete cm start-snap-conf -n curvebs
 
+kubectl delete cm chunkserver-conf-template -n curvebs
+kubectl delete cm client-conf-template -n curvebs
+kubectl delete cm cs-conf-template -n curvebs
+kubectl delete cm start-snap-conf -n curvebs
+kubectl delete cm start-snap-conf -n curvebs
+kubectl delete cm start-snap-conf -n curvebs
+kubectl delete cm start-snap-conf -n curvebs
+
+
 # etcd deployment 
 kubectl delete deploy curve-etcd-a -n curvebs
 kubectl delete deploy curve-etcd-b -n curvebs

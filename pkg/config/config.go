@@ -1,9 +1,14 @@
 package config
 
+import "github.com/coreos/pkg/capnslog"
+
+var logger = capnslog.NewPackageLogger("github.com/opencurve/curve-operator", "config")
+
 const (
 	// configmap to record the endpoints of etcd
 	EtcdOverrideConfigMapName    = "etcd-endpoints-override"
 	EtcdOvverideConfigMapDataKey = "etcdEndpoints"
+	ClusterEtcdAddr              = "clusterEtcdAddr"
 
 	// configmap to record the endpoints of mds
 	MdsOverrideConfigMapName    = "mds-endpoints-override"
@@ -65,4 +70,16 @@ const (
 	StartSnapConfigMap          = "start-snap-conf"
 	StartSnapConfigMapDataKey   = "start_snap.sh"
 	StartSnapConfigMapMountPath = "/curvebs/tools/sbin/start_snap.sh"
+)
+
+const (
+	EtcdConfigTemp             = "etcd-conf-template"
+	MdsConfigMapTemp           = "mds-conf-template"
+	ChunkServerConfigMapTemp   = "chunkserver-conf-template"
+	S3ConfigMapTemp            = "s3-conf-template"
+	SnapShotCloneConfigMapTemp = "snapshotclone-conf-template"
+	CsClientConfigMapTemp      = "cs-conf-template"
+	SnapClientConfigMapTemp    = "snap-conf-template"
+	ToolsConfigMapTemp         = "tools-conf-template"
+	NginxCnonfigMapTemp        = "nginx-conf-template"
 )

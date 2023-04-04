@@ -58,7 +58,37 @@ func (c *cluster) reconcileCurveDaemons() error {
 	// for debug
 	logger.Infof("nodeNameIP: %+v", nodeNameIP)
 
-	// 1. Start etcd cluster
+	// 0. Create a pod to get all config file in curve image
+	job, err := c.makeReadConfJob()
+	if err != nil {
+		return errors.Wrap(err, "failed to start job to read all conf from curve image")
+	}
+
+	logger.Info("starting read config template job")
+
+	ticker := time.NewTicker(5 * time.Second)
+	defer ticker.Stop()
+
+	chn := make(chan bool, 1)
+	ctx, canf := context.WithTimeout(context.Background(), time.Duration(10*60*time.Second))
+	defer canf()
+	k8sutil.CheckJobStatus(ctx, c.context.Clientset, ticker, chn, c.NameSpace, job.Name)
+
+	flag := <-chn
+	if !flag {
+		logger.Errorf("failed to check job [ %s ] status", job.Name)
+		return errors.New("failed to check job status")
+	}
+
+	// 1. Create ConfigMaps for all configs
+	err = c.createEachConfigMap()
+	if err != nil {
+		return errors.Wrap(err, "failed to create all config file template configmap")
+	}
+
+	logger.Info("create config template configmap successed")
+
+	// 2. Start etcd cluster
 	etcds := etcd.New(c.context, c.NamespacedName, *c.Spec, c.ownerInfo)
 	err = etcds.Start(nodeNameIP)
 	if err != nil {
@@ -66,9 +96,9 @@ func (c *cluster) reconcileCurveDaemons() error {
 	}
 
 	// wait to etcd election finished
-	time.Sleep(10 * time.Second)
+	time.Sleep(20 * time.Second)
 
-	// 2. Start Mds cluster
+	// 3. Start Mds cluster
 	mds := mds.New(c.context, c.NamespacedName, *c.Spec, c.ownerInfo)
 	err = mds.Start(nodeNameIP)
 	if err != nil {
@@ -76,7 +106,7 @@ func (c *cluster) reconcileCurveDaemons() error {
 	}
 	k8sutil.UpdateCondition(context.TODO(), &c.context, c.NamespacedName, curvev1.ConditionTypeMdsReady, curvev1.ConditionTrue, curvev1.ConditionMdsClusterCreatedReason, "MDS cluster has been created")
 
-	// 3. chunkserver
+	// 4. chunkserver
 	chunkservers := chunkserver.New(c.context, c.NamespacedName, *c.Spec, c.ownerInfo)
 	err = chunkservers.Start(nodeNameIP)
 	if err != nil {
@@ -84,7 +114,7 @@ func (c *cluster) reconcileCurveDaemons() error {
 	}
 	k8sutil.UpdateCondition(context.TODO(), &c.context, c.NamespacedName, curvev1.ConditionTypeChunkServerReady, curvev1.ConditionTrue, curvev1.ConditionChunkServerClusterCreatedReason, "Chunkserver cluster has been created")
 
-	// // 4. snapshotclone
+	// 5. snapshotclone
 	if c.Spec.SnapShotClone.Enable {
 		snapshotclone := snapshotclone.New(c.context, c.NamespacedName, *c.Spec, c.ownerInfo)
 		err = snapshotclone.Start(nodeNameIP)
