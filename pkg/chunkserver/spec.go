@@ -137,12 +137,9 @@ func (c *Cluster) CreateS3ConfigMap() error {
 		data["s3.snapshot_bucket_name"] = c.spec.SnapShotClone.S3Config.SnapShotBucketName
 	}
 
-	// for debug
-	log.Info(data)
-
 	var configMapData string
 	for k, v := range data {
-		configMapData += configMapData + k + "=" + v + "\n"
+		configMapData = configMapData + k + "=" + v + "\n"
 	}
 
 	s3ConfigMap := map[string]string{

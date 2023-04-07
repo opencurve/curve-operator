@@ -55,8 +55,8 @@ func (c *Cluster) Start(nodeNameIP map[string]string) error {
 		return errors.Wrapf(err, "failed to get %s configmap from cluster", config.EtcdOverrideConfigMapName)
 	}
 
-	// get etcd endpoints from key of "etcdEndpoints" of etcd-endpoints-override
-	etcdEndpoints := overrideCM.Data[config.EtcdOvverideConfigMapDataKey]
+	// get etcd endpoints from key of "clusterEtcdAddr" of etcd-endpoints-override
+	clusterEtcdAddr := overrideCM.Data[config.ClusterEtcdAddr]
 
 	// create mds override configmap to record mds endpoints
 	err = c.createOverrideMdsCM(nodeNameIP)
@@ -96,7 +96,7 @@ func (c *Cluster) Start(nodeNameIP map[string]string) error {
 			ServiceAddr:                   nodeNameIP[nodeName],
 			ServicePort:                   strconv.Itoa(c.spec.Mds.Port),
 			ServiceDummyPort:              strconv.Itoa(c.spec.Mds.DummyPort),
-			ClusterEtcdAddr:               etcdEndpoints,
+			ClusterEtcdAddr:               clusterEtcdAddr,
 			ClusterSnapshotcloneProxyAddr: "",
 
 			DaemonID:             daemonIDString,

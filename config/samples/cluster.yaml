@@ -13,8 +13,8 @@ spec:
   dataDirHostPath: /curvebs/data
   logDirHostPath: /curvebs/log
   etcd:
-    port: 23880
-    listenPort: 23890
+    peerPort: 23891
+    clientPort: 23791
   mds:
     port: 23970
     dummyPort: 23960

@@ -58,13 +58,11 @@ kubectl delete deploy curve-snapshotclone-c -n curvebs
 
 # all job in curvebs cluster
 kubectl delete --all job -n curvebs
+# all deploy in curvebs cluster
+kubectl delete --all deployment -n curvebs
 
 # all po in curvebs cluster
 kubectl delete --all pods -n curvebs
-
-
-# all deploy in curvebs cluster
-kubectl delete --all deployment -n curvebs
 
 # curvecluster cr
 kubectl delete -f config/samples/

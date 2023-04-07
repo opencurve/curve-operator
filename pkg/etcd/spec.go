@@ -168,21 +168,21 @@ func (c *Cluster) makeChmodDirInitContainer(etcdConfig *etcdConfig) v1.Container
 		Image:           c.spec.CurveVersion.Image,
 		ImagePullPolicy: c.spec.CurveVersion.ImagePullPolicy,
 		VolumeMounts:    daemon.DaemonVolumeMounts(config.EtcdConfigMapDataKey, config.EtcdConfigMapMountPathDir, etcdConfig.DataPathMap, etcdConfig.CurrentConfigMapName),
+		Env:             []v1.EnvVar{{Name: "TZ", Value: "Asia/Hangzhou"}},
 		Ports: []v1.ContainerPort{
 			{
-				Name:          "peer-port",
-				ContainerPort: int32(c.spec.Etcd.Port),
-				HostPort:      int32(c.spec.Etcd.Port),
+				Name:          "listen-port",
+				ContainerPort: int32(c.spec.Etcd.ClientPort),
+				HostPort:      int32(c.spec.Etcd.ClientPort),
 				Protocol:      v1.ProtocolTCP,
 			},
 			{
-				Name:          "listen-port",
-				ContainerPort: int32(c.spec.Etcd.ListenPort),
-				HostPort:      int32(c.spec.Etcd.ListenPort),
+				Name:          "peer-port",
+				ContainerPort: int32(c.spec.Etcd.PeerPort),
+				HostPort:      int32(c.spec.Etcd.PeerPort),
 				Protocol:      v1.ProtocolTCP,
 			},
 		},
-		Env: []v1.EnvVar{{Name: "TZ", Value: "Asia/Hangzhou"}},
 	}
 	return container
 }
@@ -197,15 +197,15 @@ func (c *Cluster) makeReplaceVarContainer(nodeName string, ip string, etcdConfig
 		VolumeMounts:    daemon.DaemonVolumeMounts("", "", etcdConfig.DataPathMap, ""),
 		Ports: []v1.ContainerPort{
 			{
-				Name:          "peer-port",
-				ContainerPort: int32(c.spec.Etcd.Port),
-				HostPort:      int32(c.spec.Etcd.Port),
+				Name:          "listen-port",
+				ContainerPort: int32(c.spec.Etcd.ClientPort),
+				HostPort:      int32(c.spec.Etcd.ClientPort),
 				Protocol:      v1.ProtocolTCP,
 			},
 			{
-				Name:          "listen-port",
-				ContainerPort: int32(c.spec.Etcd.ListenPort),
-				HostPort:      int32(c.spec.Etcd.ListenPort),
+				Name:          "peer-port",
+				ContainerPort: int32(c.spec.Etcd.PeerPort),
+				HostPort:      int32(c.spec.Etcd.PeerPort),
 				Protocol:      v1.ProtocolTCP,
 			},
 		},
@@ -234,15 +234,15 @@ func (c *Cluster) makeEtcdDaemonContainer(nodeName string, ip string, etcdConfig
 		VolumeMounts:    daemon.DaemonVolumeMounts(config.EtcdConfigMapDataKey, config.EtcdConfigMapMountPathDir, etcdConfig.DataPathMap, etcdConfig.CurrentConfigMapName),
 		Ports: []v1.ContainerPort{
 			{
-				Name:          "peer-port",
-				ContainerPort: int32(c.spec.Etcd.Port),
-				HostPort:      int32(c.spec.Etcd.Port),
+				Name:          "listen-port",
+				ContainerPort: int32(c.spec.Etcd.ClientPort),
+				HostPort:      int32(c.spec.Etcd.ClientPort),
 				Protocol:      v1.ProtocolTCP,
 			},
 			{
-				Name:          "listen-port",
-				ContainerPort: int32(c.spec.Etcd.ListenPort),
-				HostPort:      int32(c.spec.Etcd.ListenPort),
+				Name:          "peer-port",
+				ContainerPort: int32(c.spec.Etcd.PeerPort),
+				HostPort:      int32(c.spec.Etcd.PeerPort),
 				Protocol:      v1.ProtocolTCP,
 			},
 		},
