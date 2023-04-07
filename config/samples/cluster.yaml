@@ -4,33 +4,32 @@ metadata:
   name: my-cluster
   namespace: curvebs
 spec:
-  # Add fields here
   curveVersion:
     image: opencurvedocker/curvebs:v1.2
   nodes:
-  - node1
-  - node2
-  - node3
-  dataDirHostPath: "/curvebs/data"
-  logDirHostPath: "/curvebs/log"
+  - curve-operator-node1
+  - curve-operator-node2
+  - curve-operator-node3
+  dataDirHostPath: /curvebs/data
+  logDirHostPath: /curvebs/log
   etcd:
-    port: 23880
-    listenPort: 23890
+    peerPort: 23891
+    clientPort: 23791
   mds:
     port: 23970
     dummyPort: 23960
   storage:
     useSelectedNodes: false
     nodes:
-    - node1
-    - node2
-    - node3
+    - curve-operator-node1
+    - curve-operator-node2
+    - curve-operator-node3
     port: 8200
     copysets: 100
     devices:
-    - name: "/dev/sdb"
-      mountPath: "/data/chunkserver0"
-      percentage: 90
+    - name: /dev/vdc
+      mountPath: /data/chunkserver0
+      percentage: 80
   snapShotClone:
     enable: true
     port: 5555
@@ -39,6 +38,6 @@ spec:
     s3Config:
       ak: minioadmin
       sk: minioadmin
-      nosAddress: http://10.219.196.145:9000
+      nosAddress: http://59.111.93.76:9001
       bucketName: curvebs
 

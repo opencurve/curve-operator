@@ -75,13 +75,13 @@ spec:
             etcd:
               description: EtcdSpec
               properties:
+                clientPort:
+                  type: integer
                 config:
                   additionalProperties:
                     type: string
                   type: object
-                listenPort:
-                  type: integer
-                port:
+                peerPort:
                   type: integer
               type: object
             logDirHostPath:

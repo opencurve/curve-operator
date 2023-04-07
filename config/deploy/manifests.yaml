@@ -80,13 +80,13 @@ spec:
             etcd:
               description: EtcdSpec
               properties:
+                clientPort:
+                  type: integer
                 config:
                   additionalProperties:
                     type: string
                   type: object
-                listenPort:
-                  type: integer
-                port:
+                peerPort:
                   type: integer
               type: object
             logDirHostPath:
@@ -423,7 +423,7 @@ spec:
         - --enable-leader-election
         command:
         - ./curve-operator
-        image: harbor.cloud.netease.com/curve/curve-operator:8f3e0bd
+        image: harbor.cloud.netease.com/curve/curve-operator:684ba2b
         name: curve-operator
         resources:
           limits:

@@ -207,10 +207,10 @@ type CurveVersionSpec struct {
 // EtcdSpec
 type EtcdSpec struct {
 	// +optional
-	Port int `json:"port,omitempty"`
+	PeerPort int `json:"peerPort,omitempty"`
 
 	// +optional
-	ListenPort int `json:"listenPort,omitempty"`
+	ClientPort int `json:"clientPort,omitempty"`
 
 	// +optional
 	Config map[string]string `json:"config,omitempty"`

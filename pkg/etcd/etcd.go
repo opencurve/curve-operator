@@ -50,14 +50,13 @@ func New(context clusterd.Context, namespacedName types.NamespacedName, spec cur
 func (c *Cluster) Start(nodeNameIP map[string]string) error {
 	var etcdEndpoints string
 	var clusterEtcdAddr string
-	var initial_cluster string
+
 	for _, ipAddr := range nodeNameIP {
-		etcdEndpoints = fmt.Sprint(etcdEndpoints, ipAddr, ":", c.spec.Etcd.Port, ",")
-		clusterEtcdAddr = fmt.Sprint(clusterEtcdAddr, ipAddr, ":", c.spec.Etcd.ListenPort, ",")
+		etcdEndpoints = fmt.Sprint(etcdEndpoints, ipAddr, ":", c.spec.Etcd.PeerPort, ",")
+		clusterEtcdAddr = fmt.Sprint(clusterEtcdAddr, ipAddr, ":", c.spec.Etcd.ClientPort, ",")
 	}
 	etcdEndpoints = strings.TrimRight(etcdEndpoints, ",")
 	clusterEtcdAddr = strings.TrimRight(clusterEtcdAddr, ",")
-	initial_cluster = strings.TrimRight(initial_cluster, ",")
 
 	// Create etcd override configmap
 	err := c.createOverrideConfigMap(etcdEndpoints, clusterEtcdAddr)
@@ -87,8 +86,9 @@ func (c *Cluster) Start(nodeNameIP map[string]string) error {
 	}
 
 	hostId := 0
+	var initial_cluster string
 	for _, nodeName := range nodeNamesOrdered {
-		initial_cluster = fmt.Sprint(initial_cluster, "etcd", strconv.Itoa(hostId), "0", "=http://", nodeNameIP[nodeName], ":", c.spec.Etcd.Port, ",")
+		initial_cluster = fmt.Sprint(initial_cluster, "etcd", strconv.Itoa(hostId), "0", "=http://", nodeNameIP[nodeName], ":", c.spec.Etcd.PeerPort, ",")
 		hostId++
 	}
 	initial_cluster = strings.TrimRight(initial_cluster, ",")
@@ -107,8 +107,8 @@ func (c *Cluster) Start(nodeNameIP map[string]string) error {
 			ServiceHostSequence:    strconv.Itoa(daemonID),
 			ServiceReplicaSequence: strconv.Itoa(replicasSequence),
 			ServiceAddr:            nodeNameIP[nodeName],
-			ServicePort:            strconv.Itoa(c.spec.Etcd.Port),
-			ServiceClientPort:      strconv.Itoa(c.spec.Etcd.ListenPort),
+			ServicePort:            strconv.Itoa(c.spec.Etcd.PeerPort),
+			ServiceClientPort:      strconv.Itoa(c.spec.Etcd.ClientPort),
 			ClusterEtcdHttpAddr:    initial_cluster,
 
 			DaemonID:             daemonIDString,

@@ -128,17 +128,18 @@ func (c *Cluster) CreateS3ConfigMap() error {
 		return errors.Wrapf(err, "failed to get configmap %s from cluster", config.S3ConfigMapTemp)
 	}
 
+	data := s3CMTemplate.Data
 	// if true
 	if c.spec.SnapShotClone.Enable {
-		s3CMTemplate.Data["s3.ak"] = c.spec.SnapShotClone.S3Config.AK
-		s3CMTemplate.Data["s3.sk"] = c.spec.SnapShotClone.S3Config.SK
-		s3CMTemplate.Data["s3.nos_address"] = c.spec.SnapShotClone.S3Config.NosAddress
-		s3CMTemplate.Data["s3.snapshot_bucket_name"] = c.spec.SnapShotClone.S3Config.SnapShotBucketName
+		data["s3.ak"] = c.spec.SnapShotClone.S3Config.AK
+		data["s3.sk"] = c.spec.SnapShotClone.S3Config.SK
+		data["s3.nos_address"] = c.spec.SnapShotClone.S3Config.NosAddress
+		data["s3.snapshot_bucket_name"] = c.spec.SnapShotClone.S3Config.SnapShotBucketName
 	}
 
 	var configMapData string
-	for k, v := range s3CMTemplate.Data {
-		configMapData += configMapData + k + "=" + v + "\n"
+	for k, v := range data {
+		configMapData = configMapData + k + "=" + v + "\n"
 	}
 
 	s3ConfigMap := map[string]string{
