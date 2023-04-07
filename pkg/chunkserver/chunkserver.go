@@ -72,26 +72,26 @@ func (c *Cluster) Start(nodeNameIP map[string]string) error {
 
 	// 2. wait all job finish to complete format and wait MDS election success.
 	k8sutil.UpdateCondition(context.TODO(), &c.context, c.namespacedName, curvev1.ConditionTypeFormatedReady, curvev1.ConditionTrue, curvev1.ConditionFormatingChunkfilePoolReason, "Formating chunkfilepool")
-	halfMinuteTicker := time.NewTicker(10 * time.Second)
+	halfMinuteTicker := time.NewTicker(1 * time.Minute)
 	defer halfMinuteTicker.Stop()
 
 	chn := make(chan bool, 1)
-	ctx, canf := context.WithTimeout(context.Background(), time.Duration(10*60*time.Second))
+	ctx, canf := context.WithTimeout(context.Background(), time.Duration(24*60*60*time.Second))
 	defer canf()
 	c.checkJobStatus(ctx, halfMinuteTicker, chn)
 
-	// block here unitl timeout(10 mins) or all jobs has been successed.
+	// block here unitl timeout(24 hours) or all jobs has been successed.
 	flag := <-chn
 
 	// not all job has completed
 	if !flag {
 		// TODO: delete all jobs that has created.
-		log.Error("Format job is not completed in 10 minutes and exit with -1")
-		return errors.New("Format job is not completed in 10 minutes and exit with -1")
+		log.Error("Format job is not completed in 24 hours and exit with -1")
+		return errors.New("Format job is not completed in 24 hours and exit with -1")
 	}
 	k8sutil.UpdateCondition(context.TODO(), &c.context, c.namespacedName, curvev1.ConditionTypeFormatedReady, curvev1.ConditionTrue, curvev1.ConditionFormatChunkfilePoolReason, "Formating chunkfilepool successed")
 
-	log.Info("all jobs run completed in 10 mins")
+	log.Info("all jobs run completed in 24 hours")
 
 	// 2. create physical pool
 	_, err = c.runCreatePoolJob(nodeNameIP, "physical_pool")
@@ -99,6 +99,7 @@ func (c *Cluster) Start(nodeNameIP map[string]string) error {
 		log.Error("failed to create physical pool")
 		return errors.Wrap(err, "failed to create physical pool")
 	}
+	log.Info("create physical pool successed")
 
 	// 3. startChunkServers start all chunkservers for each device of every node
 	err = c.startChunkServers()
@@ -108,6 +109,7 @@ func (c *Cluster) Start(nodeNameIP map[string]string) error {
 	}
 
 	// 4. wait all chunkservers online before create logical pool
+	log.Info("starting all chunkserver")
 	time.Sleep(30 * time.Second)
 
 	// 5. create logical pool
@@ -116,6 +118,7 @@ func (c *Cluster) Start(nodeNameIP map[string]string) error {
 		log.Error("failed to create logical pool")
 		return errors.Wrap(err, "failed to create physical pool")
 	}
+	log.Info("create logical pool successed")
 
 	k8sutil.UpdateCondition(context.TODO(), &c.context, c.namespacedName, curvev1.ConditionTypeChunkServerReady, curvev1.ConditionTrue, curvev1.ConditionChunkServerClusterCreatedReason, "Chunkserver cluster has been created")
 
@@ -127,7 +130,7 @@ func (c *Cluster) checkJobStatus(ctx context.Context, ticker *time.Ticker, chn c
 	for {
 		select {
 		case <-ticker.C:
-			log.Info("time is up")
+			log.Info("time is up(1 minute)")
 			completed := 0
 			for _, jobName := range jobsArr {
 				job, err := c.context.Clientset.BatchV1().Jobs(c.namespacedName.Namespace).Get(jobName, metav1.GetOptions{})

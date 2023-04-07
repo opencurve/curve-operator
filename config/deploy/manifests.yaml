@@ -423,7 +423,7 @@ spec:
         - --enable-leader-election
         command:
         - ./curve-operator
-        image: harbor.cloud.netease.com/curve/curve-operator:8f3e0bd
+        image: harbor.cloud.netease.com/curve/curve-operator:76da910
         name: curve-operator
         resources:
           limits:

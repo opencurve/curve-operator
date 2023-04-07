@@ -66,7 +66,7 @@ func (c *cluster) reconcileCurveDaemons() error {
 
 	logger.Info("starting read config template job")
 
-	ticker := time.NewTicker(5 * time.Second)
+	ticker := time.NewTicker(10 * time.Second)
 	defer ticker.Stop()
 
 	chn := make(chan bool, 1)
