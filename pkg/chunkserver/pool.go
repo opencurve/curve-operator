@@ -168,7 +168,7 @@ func (c *Cluster) createLogicalPool(logicalPool string) (LogicalPool, []Server) 
 	}
 
 	// copysets
-	copysets = (int)(copysets / DEFAULT_REPLICAS_PER_COPYSET)
+	copysets = copysets / DEFAULT_REPLICAS_PER_COPYSET
 	if copysets == 0 {
 		copysets = 1
 	}

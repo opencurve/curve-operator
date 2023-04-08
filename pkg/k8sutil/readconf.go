@@ -8,7 +8,7 @@ import (
 	"github.com/pkg/errors"
 )
 
-// ReadConfFromTemplate read config file of each daemon to map.
+// ReadConf reads config file of each daemon to map.
 func ReadConf(path string) (map[string]string, error) {
 	file, err := os.Open(path)
 	if err != nil {

@@ -26,7 +26,7 @@ func DaemonVolumes(configMapDataKey string, configMapMountPathDir string, dataPa
 	return vols
 }
 
-// DaemonVolumeMounts returns the pod container volume mounth used by Curve daemon
+// DaemonVolumeMounts returns the pod container volumeMounts used by Curve daemon
 func DaemonVolumeMounts(configMapDataKey string, configMapMountPathDir string, dataPaths *config.DataPathMap, curConfigMapName string) []v1.VolumeMount {
 	// create configmap mount path
 	mounts := []v1.VolumeMount{}

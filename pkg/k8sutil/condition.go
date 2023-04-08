@@ -114,6 +114,7 @@ func UpdateStatus(client client.Client, namespaceName types.NamespacedName, obj 
 	if kerrors.IsNotFound(err) {
 		err = client.Update(context.Background(), obj)
 	}
+
 	if err != nil {
 		return errors.Wrapf(err, "failed to update object %q status", nsName.String())
 	}
