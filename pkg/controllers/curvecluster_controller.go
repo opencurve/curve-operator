@@ -18,6 +18,7 @@ package controllers
 
 import (
 	"context"
+	"path"
 
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
@@ -170,7 +171,10 @@ func (c *ClusterController) reconcileCurveCluster(clusterObj *curvev1.CurveClust
 	cluster.NamespacedName = c.namespacedName
 	cluster.NameSpace = c.namespacedName.Namespace
 	// Set the spec
-	cluster.Spec = &clusterObj.Spec
+	cluster.Spec = clusterObj.Spec
+	cluster.dataDirHostPath = path.Join(clusterObj.Spec.HostDataDir, "data")
+	cluster.logDirHostPath = path.Join(clusterObj.Spec.HostDataDir, "logs")
+	cluster.confDirHostPath = path.Join(clusterObj.Spec.HostDataDir, "conf")
 
 	// updating observedGeneration in cluster if it's not the first reconcile
 	cluster.observedGeneration = clusterObj.ObjectMeta.Generation

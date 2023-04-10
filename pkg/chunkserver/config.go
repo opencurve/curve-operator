@@ -15,7 +15,7 @@ type chunkserverConfig struct {
 	// ResourceName represents the name that operator gives to chunkserver resources in k8s metadata
 	ResourceName string
 
-	//
+	// The configmap corresponding to the current server
 	CurrentConfigMapName string
 
 	// location to store data in container and local host
@@ -53,10 +53,6 @@ type chunkserverDataPathMap struct {
 
 	// ContainerLogDir is the log dir of chunkserver such as '/curvebs/chunkserver/logs'
 	ContainerLogDir string
-}
-
-type configData struct {
-	data map[string]string
 }
 
 // chunkserverConfig implement ConfigInterface

@@ -47,14 +47,14 @@ func (c *Cluster) createOverrideMdsCM(nodeNameIP map[string]string) error {
 		if !kerrors.IsAlreadyExists(err) {
 			return errors.Wrapf(err, "failed to create override configmap %s", c.namespacedName.Namespace)
 		}
-		log.Infof("ConfigMap for override mds endpoints %s already exists. updating if needed", config.MdsOverrideConfigMapName)
+		logger.Infof("ConfigMap for override mds endpoints %s already exists. updating if needed", config.MdsOverrideConfigMapName)
 
 		// TODO:Update the daemon Deployment
 		// if err := updateDeploymentAndWait(c.context, c.clusterInfo, d, config.MgrType, mgrConfig.DaemonID, c.spec.SkipUpgradeChecks, false); err != nil {
 		// 	logger.Errorf("failed to update mgr deployment %q. %v", resourceName, err)
 		// }
 	} else {
-		log.Infof("ConfigMap %s for override mds endpoints has been created", config.MdsOverrideConfigMapName)
+		logger.Infof("ConfigMap %s for override mds endpoints has been created", config.MdsOverrideConfigMapName)
 	}
 
 	return nil
@@ -65,7 +65,7 @@ func (c *Cluster) createMdsConfigMap(mdsConfig *mdsConfig) error {
 	// 1. get mds-conf-template from cluster
 	mdsCMTemplate, err := c.context.Clientset.CoreV1().ConfigMaps(c.namespacedName.Namespace).Get(config.MdsConfigMapTemp, metav1.GetOptions{})
 	if err != nil {
-		log.Errorf("failed to get configmap %s from cluster", config.MdsConfigMapTemp)
+		logger.Errorf("failed to get configmap %s from cluster", config.MdsConfigMapTemp)
 		if kerrors.IsNotFound(err) {
 			return errors.Wrapf(err, "failed to get configmap %s from cluster", config.MdsConfigMapTemp)
 		}
@@ -77,7 +77,6 @@ func (c *Cluster) createMdsConfigMap(mdsConfig *mdsConfig) error {
 	// 3. replace ${} to specific parameters
 	replacedMdsData, err := config.ReplaceConfigVars(mdsCMData, mdsConfig)
 	if err != nil {
-		log.Error("failed to Replace mds config template to generate %s to start server.", mdsConfig.CurrentConfigMapName)
 		return errors.Wrap(err, "failed to Replace mds config template to generate a new mds configmap to start server.")
 	}
 

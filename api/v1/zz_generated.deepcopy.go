@@ -61,7 +61,11 @@ func (in *CurveCluster) DeepCopyInto(out *CurveCluster) {
 	*out = *in
 	out.TypeMeta = in.TypeMeta
 	in.ObjectMeta.DeepCopyInto(&out.ObjectMeta)
-	in.Spec.DeepCopyInto(&out.Spec)
+	if in.Spec != nil {
+		in, out := &in.Spec, &out.Spec
+		*out = new(CurveClusterSpec)
+		(*in).DeepCopyInto(*out)
+	}
 	in.Status.DeepCopyInto(&out.Status)
 }
 

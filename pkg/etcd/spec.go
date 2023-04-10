@@ -69,7 +69,6 @@ func (c *Cluster) createEtcdConfigMap(etcdConfig *etcdConfig) error {
 	// 3. replace ${} to specific parameters
 	EtcdConfigTemp, err := config.ReplaceConfigVars(etcdCMData, etcdConfig)
 	if err != nil {
-		logger.Error("failed to Replace etcd config template to generate %s to start server.", etcdConfig.CurrentConfigMapName)
 		return errors.Wrap(err, "failed to Replace etcd config template to generate a new etcd configmap to start server.")
 	}
 
@@ -91,7 +90,6 @@ func (c *Cluster) createEtcdConfigMap(etcdConfig *etcdConfig) error {
 
 	err = c.ownerInfo.SetControllerReference(cm)
 	if err != nil {
-		logger.Errorf("failed to set owner reference for etcd configmap [ %v ]", etcdConfig.CurrentConfigMapName)
 		return errors.Wrapf(err, "failed to set owner reference for etcd configmap [ %v ]", etcdConfig.CurrentConfigMapName)
 	}
 
@@ -248,6 +246,5 @@ func (c *Cluster) makeEtcdDaemonContainer(nodeName string, ip string, etcdConfig
 		},
 		Env: []v1.EnvVar{{Name: "TZ", Value: "Asia/Hangzhou"}},
 	}
-
 	return container
 }

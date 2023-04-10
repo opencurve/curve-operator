@@ -30,7 +30,7 @@ curve-operator: generate fmt vet
 	go build -o bin/curve-operator main.go
 
 # Run against the configured Kubernetes cluster in ~/.kube/config
-run: generate fmt vet manifests
+run: generate fmt vet
 	go run ./main.go
 
 # Install CRDs into a cluster

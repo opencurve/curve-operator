@@ -10,7 +10,7 @@ func (c *Cluster) getDaemonIDs() ([]string, error) {
 	var daemonIDs []string
 	replicas := len(c.spec.Nodes)
 	if replicas != 3 {
-		return nil, errors.Errorf("nodes replicas must be set to 3")
+		return nil, errors.New("nodes replicas must be set to 3")
 	}
 	for i := 0; i < replicas; i++ {
 		daemonIDs = append(daemonIDs, k8sutil.IndexToName(i))

@@ -13,7 +13,6 @@ func (c *Cluster) createNginxConfigMap(snapConfig *snapConfig) error {
 	// 1. get mds-conf-template from cluster
 	nginxCMTemplate, err := c.context.Clientset.CoreV1().ConfigMaps(c.namespacedName.Namespace).Get(config.NginxCnonfigMapTemp, metav1.GetOptions{})
 	if err != nil {
-		log.Errorf("failed to get configmap %s from cluster", config.NginxCnonfigMapTemp)
 		if kerrors.IsNotFound(err) {
 			return errors.Wrapf(err, "failed to get configmap %s from cluster", config.NginxCnonfigMapTemp)
 		}
@@ -25,7 +24,6 @@ func (c *Cluster) createNginxConfigMap(snapConfig *snapConfig) error {
 	// 3. replace ${} to specific parameters
 	replacedNginxData, err := config.ReplaceConfigVars(mdsCMData, snapConfig)
 	if err != nil {
-		log.Error("failed to Replace mds config template to generate %s to start server.", snapConfig.CurrentConfigMapName)
 		return errors.Wrap(err, "failed to Replace mds config template to generate a new mds configmap to start server.")
 	}
 
