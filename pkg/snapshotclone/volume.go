@@ -11,7 +11,6 @@ import (
 // DaemonVolumes returns the pod volumes used only by snapshotclone
 func SnapDaemonVolumes(snapConfig *snapConfig) []v1.Volume {
 	vols := []v1.Volume{}
-
 	// create configmap volume
 	configMapVolumes, _ := SnapConfigMapVolumeAndMount(snapConfig)
 	vols = append(vols, configMapVolumes...)

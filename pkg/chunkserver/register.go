@@ -22,14 +22,14 @@ func (c *Cluster) runCreatePoolJob(nodeNameIP map[string]string, poolType string
 	if err != nil {
 		return &batch.Job{}, errors.Wrap(err, "failed to create topology-json-conf configmap in cluster")
 	}
-	log.Infof("created ConfigMap %s success", config.TopoJsonConfigMapName)
+	logger.Infof("created ConfigMap %s success", config.TopoJsonConfigMapName)
 
 	// 2. create tool-conf configmap in cluster
 	err = c.createToolConfigMap(nodeNameIP)
 	if err != nil {
 		return &batch.Job{}, errors.Wrap(err, "failed to create tool-conf configmap in cluster")
 	}
-	log.Infof("created ConfigMap %s success", config.ToolsConfigMapName)
+	logger.Infof("created ConfigMap %s success", config.ToolsConfigMapName)
 
 	// 3. make job to register topology.json to curve cluster
 	job := &batch.Job{}
@@ -42,11 +42,11 @@ func (c *Cluster) runCreatePoolJob(nodeNameIP map[string]string, poolType string
 	// check whether job is exist
 	existingJob, err := c.context.Clientset.BatchV1().Jobs(job.Namespace).Get(job.Name, metav1.GetOptions{})
 	if err != nil && !kerrors.IsNotFound(err) {
-		log.Warningf("failed to detect job %s. %+v", job.Name, err)
+		logger.Warningf("failed to detect job %s. %+v", job.Name, err)
 	} else if err == nil {
 		// if the job is still running
 		if existingJob.Status.Active > 0 {
-			log.Infof("Found previous job %s. Status=%+v", job.Name, existingJob.Status)
+			logger.Infof("Found previous job %s. Status=%+v", job.Name, existingJob.Status)
 			return existingJob, nil
 		}
 	}
@@ -54,7 +54,7 @@ func (c *Cluster) runCreatePoolJob(nodeNameIP map[string]string, poolType string
 	// job is not found or job is not active status, so create or recreate it here
 	_, err = c.context.Clientset.BatchV1().Jobs(job.Namespace).Create(job)
 
-	log.Infof("creaded job to generate %s", poolType)
+	logger.Infof("creaded job to generate %s", poolType)
 
 	return &batch.Job{}, err
 }
@@ -176,7 +176,7 @@ func (c *Cluster) createToolConfigMap(nodeNameIP map[string]string) error {
 	// 1. get mds-conf-template from cluster
 	toolsCMTemplate, err := c.context.Clientset.CoreV1().ConfigMaps(c.namespacedName.Namespace).Get(config.ToolsConfigMapTemp, metav1.GetOptions{})
 	if err != nil {
-		log.Errorf("failed to get configmap %s from cluster", config.ToolsConfigMapTemp)
+		logger.Errorf("failed to get configmap %s from cluster", config.ToolsConfigMapTemp)
 		if kerrors.IsNotFound(err) {
 			return errors.Wrapf(err, "failed to get configmap %s from cluster", config.ToolsConfigMapTemp)
 		}
@@ -185,7 +185,6 @@ func (c *Cluster) createToolConfigMap(nodeNameIP map[string]string) error {
 	toolsCMData := toolsCMTemplate.Data[config.ToolsConfigMapDataKey]
 	replacedToolsData, err := config.ReplaceConfigVars(toolsCMData, &chunkserverConfigs[0])
 	if err != nil {
-		log.Error("failed to Replace tools config template to generate %s to start server.", chunkserverConfigs[0].CurrentConfigMapName)
 		return errors.Wrap(err, "failed to Replace tools config template to generate a new mds configmap to start server.")
 	}
 

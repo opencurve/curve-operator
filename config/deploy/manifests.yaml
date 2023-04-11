@@ -14,11 +14,8 @@ metadata:
   name: curveclusters.operator.curve.io
 spec:
   additionalPrinterColumns:
-  - JSONPath: .spec.dataDirHostPath
-    name: DataDirHostPath
-    type: string
-  - JSONPath: .spec.logDirHostPath
-    name: LogDirHostPath
+  - JSONPath: .spec.hostDataDir
+    name: HostDataDir
     type: string
   - JSONPath: .spec.curveVersion.image
     name: Version
@@ -75,8 +72,6 @@ spec:
                   - ""
                   type: string
               type: object
-            dataDirHostPath:
-              type: string
             etcd:
               description: EtcdSpec
               properties:
@@ -89,7 +84,7 @@ spec:
                 peerPort:
                   type: integer
               type: object
-            logDirHostPath:
+            hostDataDir:
               type: string
             mds:
               description: MdsSpec
@@ -423,7 +418,7 @@ spec:
         - --enable-leader-election
         command:
         - ./curve-operator
-        image: harbor.cloud.netease.com/curve/curve-operator:684ba2b
+        image: harbor.cloud.netease.com/curve/curve-operator:2db1565
         name: curve-operator
         resources:
           limits:

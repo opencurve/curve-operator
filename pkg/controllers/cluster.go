@@ -19,16 +19,20 @@ import (
 
 // cluster represent a instance of Curve Cluster
 type cluster struct {
-	context            clusterd.Context
-	NameSpace          string
-	NamespacedName     types.NamespacedName
-	Spec               *curvev1.CurveClusterSpec
+	context        clusterd.Context
+	NameSpace      string
+	NamespacedName types.NamespacedName
+	Spec           *curvev1.CurveClusterSpec
+	// hostpath
+	dataDirHostPath    string
+	logDirHostPath     string
+	confDirHostPath    string
 	ownerInfo          *k8sutil.OwnerInfo
 	isUpgrade          bool
 	observedGeneration int64
 }
 
-var logger = capnslog.NewPackageLogger("github.com/opencurve/curve-operator", "controllers")
+var logger = capnslog.NewPackageLogger("github.com/opencurve/curve-operator", "controller")
 
 func newCluster(ctx clusterd.Context, c *curvev1.CurveCluster, ownerInfo *k8sutil.OwnerInfo) *cluster {
 	return &cluster{
@@ -37,7 +41,7 @@ func newCluster(ctx clusterd.Context, c *curvev1.CurveCluster, ownerInfo *k8suti
 		// identity can be established.
 		context:        ctx,
 		NamespacedName: types.NamespacedName{Namespace: c.Namespace, Name: c.Name},
-		Spec:           &c.Spec,
+		Spec:           c.Spec,
 		ownerInfo:      ownerInfo,
 		isUpgrade:      false,
 		// update observedGeneration with current generation value,
@@ -50,46 +54,39 @@ func newCluster(ctx clusterd.Context, c *curvev1.CurveCluster, ownerInfo *k8suti
 // reconcileCurveDaemons start all daemon progress of Curve
 func (c *cluster) reconcileCurveDaemons() error {
 	// get node name and internal ip mapping
-	nodeNameIP, err := c.getNodeInfoMap()
+	nodeNameIP, err := k8sutil.GetNodeInfoMap(c.Spec, c.context.Clientset)
 	if err != nil {
-		return errors.Wrap(err, "failed get node with app=etcd label")
+		return errors.Wrap(err, "failed get all nodes specified in spec nodes")
 	}
+	logger.Infof("using %v to create curve cluster", nodeNameIP)
 
-	// for debug
-	logger.Infof("nodeNameIP: %+v", nodeNameIP)
-
-	// 0. Create a pod to get all config file in curve image
+	// 1. Create a pod to get all config file from curve image
 	job, err := c.makeReadConfJob()
 	if err != nil {
-		return errors.Wrap(err, "failed to start job to read all conf from curve image")
+		return errors.Wrap(err, "failed to start job to read all config file from curve image")
 	}
-
-	logger.Info("starting read config template job")
+	logger.Info("starting read config file template job")
 
 	ticker := time.NewTicker(10 * time.Second)
 	defer ticker.Stop()
-
 	chn := make(chan bool, 1)
 	ctx, canf := context.WithTimeout(context.Background(), time.Duration(10*60*time.Second))
 	defer canf()
 	k8sutil.CheckJobStatus(ctx, c.context.Clientset, ticker, chn, c.NameSpace, job.Name)
-
 	flag := <-chn
 	if !flag {
-		logger.Errorf("failed to check job [ %s ] status", job.Name)
-		return errors.New("failed to check job status")
+		return errors.Errorf("failed to check job %q status", job.GetName())
 	}
 
-	// 1. Create ConfigMaps for all configs
+	// 2. Create ConfigMaps for all configs
 	err = c.createEachConfigMap()
 	if err != nil {
 		return errors.Wrap(err, "failed to create all config file template configmap")
 	}
-
 	logger.Info("create config template configmap successed")
 
 	// 2. Start etcd cluster
-	etcds := etcd.New(c.context, c.NamespacedName, *c.Spec, c.ownerInfo)
+	etcds := etcd.New(c.context, c.NamespacedName, *c.Spec, c.ownerInfo, c.dataDirHostPath, c.logDirHostPath, c.confDirHostPath)
 	err = etcds.Start(nodeNameIP)
 	if err != nil {
 		return errors.Wrap(err, "failed to start curve etcd")
@@ -99,7 +96,7 @@ func (c *cluster) reconcileCurveDaemons() error {
 	time.Sleep(20 * time.Second)
 
 	// 3. Start Mds cluster
-	mds := mds.New(c.context, c.NamespacedName, *c.Spec, c.ownerInfo)
+	mds := mds.New(c.context, c.NamespacedName, *c.Spec, c.ownerInfo, c.dataDirHostPath, c.logDirHostPath, c.confDirHostPath)
 	err = mds.Start(nodeNameIP)
 	if err != nil {
 		return errors.Wrap(err, "failed to start curve mds")
@@ -107,7 +104,7 @@ func (c *cluster) reconcileCurveDaemons() error {
 	k8sutil.UpdateCondition(context.TODO(), &c.context, c.NamespacedName, curvev1.ConditionTypeMdsReady, curvev1.ConditionTrue, curvev1.ConditionMdsClusterCreatedReason, "MDS cluster has been created")
 
 	// 4. chunkserver
-	chunkservers := chunkserver.New(c.context, c.NamespacedName, *c.Spec, c.ownerInfo)
+	chunkservers := chunkserver.New(c.context, c.NamespacedName, *c.Spec, c.ownerInfo, c.dataDirHostPath, c.logDirHostPath, c.confDirHostPath)
 	err = chunkservers.Start(nodeNameIP)
 	if err != nil {
 		return errors.Wrap(err, "failed to start curve chunkserver")
@@ -116,7 +113,7 @@ func (c *cluster) reconcileCurveDaemons() error {
 
 	// 5. snapshotclone
 	if c.Spec.SnapShotClone.Enable {
-		snapshotclone := snapshotclone.New(c.context, c.NamespacedName, *c.Spec, c.ownerInfo)
+		snapshotclone := snapshotclone.New(c.context, c.NamespacedName, *c.Spec, c.ownerInfo, c.dataDirHostPath, c.logDirHostPath, c.confDirHostPath)
 		err = snapshotclone.Start(nodeNameIP)
 		if err != nil {
 			return errors.Wrap(err, "failed to start curve snapshotclone")

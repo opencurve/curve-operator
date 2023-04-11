@@ -29,20 +29,26 @@ const (
 )
 
 type Cluster struct {
-	context        clusterd.Context
-	namespacedName types.NamespacedName
-	spec           curvev1.CurveClusterSpec
-	ownerInfo      *k8sutil.OwnerInfo
+	context         clusterd.Context
+	namespacedName  types.NamespacedName
+	spec            curvev1.CurveClusterSpec
+	dataDirHostPath string
+	logDirHostPath  string
+	confDirHostPath string
+	ownerInfo       *k8sutil.OwnerInfo
 }
 
 var logger = capnslog.NewPackageLogger("github.com/opencurve/curve-operator", "etcd")
 
-func New(context clusterd.Context, namespacedName types.NamespacedName, spec curvev1.CurveClusterSpec, ownerInfo *k8sutil.OwnerInfo) *Cluster {
+func New(context clusterd.Context, namespacedName types.NamespacedName, spec curvev1.CurveClusterSpec, ownerInfo *k8sutil.OwnerInfo, dataDirHostPath, logDirHostPath, confDirHostPath string) *Cluster {
 	return &Cluster{
-		context:        context,
-		namespacedName: namespacedName,
-		spec:           spec,
-		ownerInfo:      ownerInfo,
+		context:         context,
+		namespacedName:  namespacedName,
+		spec:            spec,
+		ownerInfo:       ownerInfo,
+		dataDirHostPath: dataDirHostPath,
+		logDirHostPath:  logDirHostPath,
+		confDirHostPath: confDirHostPath,
 	}
 }
 
@@ -61,7 +67,6 @@ func (c *Cluster) Start(nodeNameIP map[string]string) error {
 	// Create etcd override configmap
 	err := c.createOverrideConfigMap(etcdEndpoints, clusterEtcdAddr)
 	if err != nil {
-		logger.Error("failed to create etcd override configmap")
 		return errors.Wrap(err, "failed to create etcd override configmap")
 	}
 
@@ -81,7 +86,6 @@ func (c *Cluster) Start(nodeNameIP map[string]string) error {
 
 	// Won't appear generally
 	if len(nodeNamesOrdered) != 3 {
-		logger.Errorf("Nodes spec field is not 3, current nodes is %d", len(nodeNamesOrdered))
 		return errors.New("Nodes spec field is not 3")
 	}
 
@@ -115,8 +119,8 @@ func (c *Cluster) Start(nodeNameIP map[string]string) error {
 			CurrentConfigMapName: currentConfigMapName,
 			ResourceName:         resourceName,
 			DataPathMap: config.NewDaemonDataPathMap(
-				path.Join(c.spec.DataDirHostPath, fmt.Sprint("etcd-", daemonIDString)),
-				path.Join(c.spec.LogDirHostPath, fmt.Sprint("etcd-", daemonIDString)),
+				path.Join(c.dataDirHostPath, fmt.Sprint("etcd-", daemonIDString)),
+				path.Join(c.logDirHostPath, fmt.Sprint("etcd-", daemonIDString)),
 				ContainerDataDir,
 				ContainerLogDir,
 			),

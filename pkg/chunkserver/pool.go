@@ -173,8 +173,7 @@ func (c *Cluster) createLogicalPool(logicalPool string) (LogicalPool, []Server) 
 		copysets = 1
 	}
 
-	// Json文件中LogicPool字段
-	// logical pool
+	// logical pool field in topology.json file
 	lpool := LogicalPool{
 		Name:     logicalPool,
 		Copysets: copysets,
@@ -192,8 +191,8 @@ func (c *Cluster) createLogicalPool(logicalPool string) (LogicalPool, []Server) 
 func (c *Cluster) genClusterPool() string {
 	// create CurveClusterTopo object by call createLogicalPool
 	lpool, servers := c.createLogicalPool("pool1")
-
 	topo := CurveClusterTopo{Servers: servers, NPools: 1}
+
 	// curvebs
 	topo.LogicalPools = []LogicalPool{lpool}
 
@@ -204,9 +203,7 @@ func (c *Cluster) genClusterPool() string {
 		return ""
 	}
 	clusterPoolJson := string(bytes)
-
-	log.Info(clusterPoolJson)
-
+	logger.Info(clusterPoolJson)
 	return clusterPoolJson
 }
 

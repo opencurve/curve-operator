@@ -23,13 +23,9 @@ import (
 const (
 	CleanupAppName                    = "curve-cleanup"
 	clusterCleanUpPolicyRetryInterval = 5 //seconds
-)
 
-var (
 	dataVolumeName     = "data-cleanup-volume"
-	logVolumeName      = "log-cleanup-volume"
 	dataDirHostPathEnv = "CURVE_DATA_DIR_HOST_PATH"
-	logDirHostPathEnv  = "CURVE_LOG_DIR_HOST_PATH"
 )
 
 // startClusterCleanUp start job to clean hostpath
@@ -78,10 +74,8 @@ func (c *ClusterController) startCleanUpJobs(cluster *curvev1.CurveCluster, node
 
 func (c *ClusterController) cleanUpJobTemplateSpec(cluster *curvev1.CurveCluster) v1.PodTemplateSpec {
 	volumes := []v1.Volume{}
-	dataHostPathVolume := v1.Volume{Name: dataVolumeName, VolumeSource: v1.VolumeSource{HostPath: &v1.HostPathVolumeSource{Path: cluster.Spec.DataDirHostPath}}}
-	logHostPathVolume := v1.Volume{Name: logVolumeName, VolumeSource: v1.VolumeSource{HostPath: &v1.HostPathVolumeSource{Path: cluster.Spec.LogDirHostPath}}}
+	dataHostPathVolume := v1.Volume{Name: dataVolumeName, VolumeSource: v1.VolumeSource{HostPath: &v1.HostPathVolumeSource{Path: cluster.Spec.HostDataDir}}}
 	volumes = append(volumes, dataHostPathVolume)
-	volumes = append(volumes, logHostPathVolume)
 
 	podSpec := v1.PodTemplateSpec{
 		ObjectMeta: metav1.ObjectMeta{
@@ -103,25 +97,16 @@ func (c *ClusterController) cleanUpJobContainer(cluster *curvev1.CurveCluster) v
 	volumeMounts := []v1.VolumeMount{}
 	envVars := []v1.EnvVar{}
 
-	if cluster.Spec.DataDirHostPath != "" {
-		dataHhostPathVolumeMount := v1.VolumeMount{Name: dataVolumeName, MountPath: cluster.Spec.DataDirHostPath}
-		volumeMounts = append(volumeMounts, dataHhostPathVolumeMount)
-	}
-
-	if cluster.Spec.LogDirHostPath != "" {
-		logHostPathVolumeMount := v1.VolumeMount{Name: logVolumeName, MountPath: cluster.Spec.LogDirHostPath}
-		volumeMounts = append(volumeMounts, logHostPathVolumeMount)
-	}
+	dataHhostPathVolumeMount := v1.VolumeMount{Name: dataVolumeName, MountPath: cluster.Spec.HostDataDir}
+	volumeMounts = append(volumeMounts, dataHhostPathVolumeMount)
 
 	securityContext := k8sutil.PrivilegedContext(true)
 
 	envVars = append(envVars, []v1.EnvVar{
-		{Name: dataDirHostPathEnv, Value: strings.TrimRight(cluster.Spec.DataDirHostPath, "/")},
-		{Name: logDirHostPathEnv, Value: strings.TrimRight(cluster.Spec.LogDirHostPath, "/")},
+		{Name: dataDirHostPathEnv, Value: strings.TrimRight(cluster.Spec.HostDataDir, "/")},
 	}...)
 
-	commandLine := `rm -rf $(CURVE_DATA_DIR_HOST_PATH)/*; 
-					rm -rf $(CURVE_LOG_DIR_HOST_PATH)/*; `
+	commandLine := `rm -rf $(CURVE_DATA_DIR_HOST_PATH)/*;`
 	return v1.Container{
 		Name:            "host-cleanup",
 		Image:           cluster.Spec.CurveVersion.Image,

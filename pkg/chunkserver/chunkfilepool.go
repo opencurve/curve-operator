@@ -32,14 +32,12 @@ var chunkserverConfigs []chunkserverConfig
 // startProvisioningOverNodes format device and provision chunk files
 func (c *Cluster) startProvisioningOverNodes(nodeNameIP map[string]string) error {
 	if !c.spec.Storage.UseSelectedNodes {
-
 		// clear slice
 		jobsArr = []string{}
 		chunkserverConfigs = []chunkserverConfig{}
 
 		hostnameMap, err := k8sutil.GetNodeHostNames(c.context.Clientset)
 		if err != nil {
-			log.Error("failed to get node hostnames")
 			return errors.Wrap(err, "failed to get node hostnames")
 		}
 
@@ -51,16 +49,15 @@ func (c *Cluster) startProvisioningOverNodes(nodeNameIP map[string]string) error
 		// get valid nodes that ready status and is schedulable
 		validNodes, _ := k8sutil.GetValidNodes(c.context, storageNodes)
 		if len(validNodes) == 0 {
-			log.Warningf("no valid nodes available to run osds on nodes in namespace %q", c.namespacedName.Namespace)
+			logger.Warningf("no valid nodes available to run chunkservers on nodes in namespace %q", c.namespacedName.Namespace)
 			return nil
 		}
 
-		log.Infof("%d of the %d storage nodes are valid", len(validNodes), len(c.spec.Storage.Nodes))
+		logger.Infof("%d of the %d storage nodes are valid", len(validNodes), len(c.spec.Storage.Nodes))
 
 		err = c.createFormatConfigMap()
 		if err != nil {
-			log.Errorf("failed to create format configmap")
-			return err
+			return errors.Wrap(err, "failed to create format ConfigMap")
 		}
 
 		// get ClusterEtcdAddr
@@ -98,9 +95,7 @@ func (c *Cluster) startProvisioningOverNodes(nodeNameIP map[string]string) error
 		// travel all valid nodes to start job to prepare chunkfiles
 		for _, node := range validNodes {
 			nodeIP := nodeNameIP[node.Name]
-			// port
 			portBase := c.spec.Storage.Port
-			// replicas number
 			replicasSequence := 0
 
 			// travel all device to run format job and construct chunkserverConfig
@@ -112,11 +107,11 @@ func (c *Cluster) startProvisioningOverNodes(nodeNameIP map[string]string) error
 				resourceName := fmt.Sprintf("%s-%s-%s", AppName, node.Name, name)
 				currentConfigMapName := fmt.Sprintf("%s-%s-%s", ConfigMapNamePrefix, node.Name, name)
 
-				log.Infof("creating job for device %s on %s", device.Name, node.Name)
+				logger.Infof("creating job for device %s on %s", device.Name, node.Name)
 
 				job, err := c.runPrepareJob(node.Name, device)
 				if err != nil {
-					log.Errorf("failed to create job for device %s on %s", device.Name, node.Name)
+					logger.Errorf("failed to create job for device %s on %s", device.Name, node.Name)
 					continue // do not record the failed job in jobsArr and do not create chunkserverConfig for this device
 				}
 
@@ -137,7 +132,7 @@ func (c *Cluster) startProvisioningOverNodes(nodeNameIP map[string]string) error
 					CurrentConfigMapName: currentConfigMapName,
 					DataPathMap: &chunkserverDataPathMap{
 						HostDevice:       device.Name,
-						HostLogDir:       c.spec.LogDirHostPath + "/chunkserver-" + node.Name + "-" + name,
+						HostLogDir:       c.logDirHostPath + "/chunkserver-" + node.Name + "-" + name,
 						ContainerDataDir: ChunkserverContainerDataDir,
 						ContainerLogDir:  ChunkserverContainerLogDir,
 					},
@@ -195,11 +190,11 @@ func (c *Cluster) runPrepareJob(nodeName string, device curvev1.DevicesSpec) (*b
 	// check whether prepare job is exist
 	existingJob, err := c.context.Clientset.BatchV1().Jobs(job.Namespace).Get(job.Name, metav1.GetOptions{})
 	if err != nil && !kerrors.IsNotFound(err) {
-		log.Warningf("failed to detect job %s. %+v", job.Name, err)
+		logger.Warningf("failed to detect job %s. %+v", job.Name, err)
 	} else if err == nil {
 		// if the job is still running
 		if existingJob.Status.Active > 0 {
-			log.Infof("Found previous job %s. Status=%+v", job.Name, existingJob.Status)
+			logger.Infof("Found previous job %s. Status=%+v", job.Name, existingJob.Status)
 			return existingJob, nil
 		}
 	}
