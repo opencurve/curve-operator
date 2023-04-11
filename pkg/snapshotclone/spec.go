@@ -18,31 +18,28 @@ func (c *Cluster) prepareConfigMap(snapConfig *snapConfig) error {
 	// 1. get s3 configmap that must has been created by chunkserver
 	_, err := c.context.Clientset.CoreV1().ConfigMaps(c.namespacedName.Namespace).Get(config.S3ConfigMapName, metav1.GetOptions{})
 	if err != nil {
-		log.Errorf("failed to get %s configmap from cluster", config.S3ConfigMapName)
 		return errors.Wrapf(err, "failed to get %s configmap from cluster", config.S3ConfigMapName)
 	}
-	log.Infof("check %s configmap has been exist", config.S3ConfigMapName)
+	logger.Infof("check %s configmap has been exist", config.S3ConfigMapName)
 
 	// 2. create snap_client.conf configmap
 	err = c.createSnapClientConfigMap(snapConfig)
 	if err != nil {
-		log.Errorf("failed to create %s configmap from cluster", config.SnapShotCloneConfigMapName)
 		return errors.Wrapf(err, "failed to get %s configmap from cluster", config.SnapShotCloneConfigMapName)
 	}
-	log.Infof("creat ConfigMap '%s' successed", config.SnapClientConfigMapName)
+	logger.Infof("creat ConfigMap '%s' successed", config.SnapClientConfigMapName)
 
 	// 3. create snapshotclone.conf configmap
 	err = c.createSnapShotCloneConfigMap(snapConfig)
 	if err != nil {
-		log.Errorf("failed to create %s configmap from cluster", config.SnapShotCloneConfigMapName)
 		return errors.Wrapf(err, "failed to get %s configmap from cluster", config.SnapShotCloneConfigMapName)
 	}
-	log.Infof("creat ConfigMap '%s' successed", config.SnapShotCloneConfigMapName)
+	logger.Infof("creat ConfigMap '%s' successed", config.SnapShotCloneConfigMapName)
 
 	// 4. create nginx.conf configmap
 	err = c.createNginxConfigMap(snapConfig)
 	if err != nil {
-		log.Error("failed to create nginx.conf configMap")
+		logger.Error("failed to create nginx.conf configMap")
 	}
 
 	return nil
@@ -53,7 +50,7 @@ func (c *Cluster) createSnapClientConfigMap(snapConfig *snapConfig) error {
 	// 1. get ...-conf-template from cluster
 	snapClientCMTemplate, err := c.context.Clientset.CoreV1().ConfigMaps(c.namespacedName.Namespace).Get(config.SnapClientConfigMapTemp, metav1.GetOptions{})
 	if err != nil {
-		log.Errorf("failed to get configmap %s from cluster", config.SnapClientConfigMapTemp)
+		logger.Errorf("failed to get configmap %s from cluster", config.SnapClientConfigMapTemp)
 		if kerrors.IsNotFound(err) {
 			return errors.Wrapf(err, "failed to get configmap %s from cluster", config.SnapClientConfigMapTemp)
 		}
@@ -66,10 +63,9 @@ func (c *Cluster) createSnapClientConfigMap(snapConfig *snapConfig) error {
 	replacedSnapClientData, err := config.ReplaceConfigVars(snapClientCMData, snapConfig)
 
 	// for debug
-	// log.Info(replacedSnapClientData)
+	// logger.Info(replacedSnapClientData)
 
 	if err != nil {
-		log.Error("failed to Replace snap_client config template to generate %s to start server.", snapConfig.CurrentConfigMapName)
 		return errors.Wrap(err, "failed to Replace snap_client config template to generate a new snap_client configmap to start server.")
 	}
 
@@ -103,7 +99,7 @@ func (c *Cluster) createSnapShotCloneConfigMap(snapConfig *snapConfig) error {
 	// 1. get snapshotclone-conf-template from cluster
 	snapShotCloneCMTemplate, err := c.context.Clientset.CoreV1().ConfigMaps(c.namespacedName.Namespace).Get(config.SnapShotCloneConfigMapTemp, metav1.GetOptions{})
 	if err != nil {
-		log.Errorf("failed to get configmap %s from cluster", config.SnapShotCloneConfigMapTemp)
+		logger.Errorf("failed to get configmap %s from cluster", config.SnapShotCloneConfigMapTemp)
 		if kerrors.IsNotFound(err) {
 			return errors.Wrapf(err, "failed to get configmap %s from cluster", config.SnapShotCloneConfigMapTemp)
 		}
@@ -115,7 +111,7 @@ func (c *Cluster) createSnapShotCloneConfigMap(snapConfig *snapConfig) error {
 	// 3. replace ${} to specific parameters
 	replacedSnapShotCloneData, err := config.ReplaceConfigVars(snapShotCloneCMData, snapConfig)
 	if err != nil {
-		log.Error("failed to Replace snapshotclone config template to generate %s to start server.", snapConfig.CurrentConfigMapName)
+		logger.Error("failed to Replace snapshotclone config template to generate %s to start server.", snapConfig.CurrentConfigMapName)
 		return errors.Wrap(err, "failed to Replace snapshotclone config template to generate a new snapshotclone configmap to start server.")
 	}
 

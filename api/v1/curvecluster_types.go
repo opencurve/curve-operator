@@ -110,9 +110,6 @@ type ClusterVersion struct {
 	Image string `json:"image,omitempty"`
 }
 
-// EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
-// NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
-
 // CurveClusterSpec defines the desired state of CurveCluster
 type CurveClusterSpec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
@@ -125,10 +122,7 @@ type CurveClusterSpec struct {
 	Nodes []string `json:"nodes,omitempty"`
 
 	// +optional
-	DataDirHostPath string `json:"dataDirHostPath,omitempty"`
-
-	// +optional
-	LogDirHostPath string `json:"logDirHostPath,omitempty"`
+	HostDataDir string `json:"hostDataDir,omitempty"`
 
 	// +optional
 	Etcd EtcdSpec `json:"etcd,omitempty"`
@@ -151,9 +145,6 @@ type CurveClusterSpec struct {
 
 // CurveClusterStatus defines the observed state of CurveCluster
 type CurveClusterStatus struct {
-	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
-
 	// Phase is a summary of cluster state.
 	// It can be translate from the last conditiontype
 	Phase ConditionType `json:"phase,omitempty"`
@@ -171,8 +162,7 @@ type CurveClusterStatus struct {
 
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
-// +kubebuilder:printcolumn:name="DataDirHostPath",JSONPath=".spec.dataDirHostPath",type=string
-// +kubebuilder:printcolumn:name="LogDirHostPath",JSONPath=".spec.logDirHostPath",type=string
+// +kubebuilder:printcolumn:name="HostDataDir",JSONPath=".spec.hostDataDir",type=string
 // +kubebuilder:printcolumn:name="Version",JSONPath=".spec.curveVersion.image",type=string
 // +kubebuilder:printcolumn:name="Phase",JSONPath=".status.phase",type=string
 
@@ -181,7 +171,7 @@ type CurveCluster struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec   CurveClusterSpec   `json:"spec,omitempty"`
+	Spec   *CurveClusterSpec  `json:"spec,omitempty"`
 	Status CurveClusterStatus `json:"status,omitempty"`
 }
 

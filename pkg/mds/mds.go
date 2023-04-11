@@ -29,20 +29,32 @@ const (
 )
 
 type Cluster struct {
-	context        clusterd.Context
-	namespacedName types.NamespacedName
-	spec           curvev1.CurveClusterSpec
-	ownerInfo      *k8sutil.OwnerInfo
+	context         clusterd.Context
+	namespacedName  types.NamespacedName
+	spec            curvev1.CurveClusterSpec
+	dataDirHostPath string
+	logDirHostPath  string
+	confDirHostPath string
+	ownerInfo       *k8sutil.OwnerInfo
 }
 
-var log = capnslog.NewPackageLogger("github.com/opencurve/curve-operator", "mds")
+var logger = capnslog.NewPackageLogger("github.com/opencurve/curve-operator", "mds")
 
-func New(context clusterd.Context, namespacedName types.NamespacedName, spec curvev1.CurveClusterSpec, ownerInfo *k8sutil.OwnerInfo) *Cluster {
+func New(context clusterd.Context,
+	namespacedName types.NamespacedName,
+	spec curvev1.CurveClusterSpec,
+	ownerInfo *k8sutil.OwnerInfo,
+	dataDirHostPath string,
+	logDirHostPath string,
+	confDirHostPath string) *Cluster {
 	return &Cluster{
-		context:        context,
-		namespacedName: namespacedName,
-		spec:           spec,
-		ownerInfo:      ownerInfo,
+		context:         context,
+		namespacedName:  namespacedName,
+		spec:            spec,
+		dataDirHostPath: dataDirHostPath,
+		logDirHostPath:  logDirHostPath,
+		confDirHostPath: confDirHostPath,
+		ownerInfo:       ownerInfo,
 	}
 }
 
@@ -51,7 +63,6 @@ func (c *Cluster) Start(nodeNameIP map[string]string) error {
 	// check if the etcd override configmap exist
 	overrideCM, err := c.context.Clientset.CoreV1().ConfigMaps(c.namespacedName.Namespace).Get(config.EtcdOverrideConfigMapName, metav1.GetOptions{})
 	if err != nil {
-		log.Errorf("failed to get %s configmap from cluster", config.EtcdOverrideConfigMapName)
 		return errors.Wrapf(err, "failed to get %s configmap from cluster", config.EtcdOverrideConfigMapName)
 	}
 
@@ -80,7 +91,6 @@ func (c *Cluster) Start(nodeNameIP map[string]string) error {
 	}
 
 	if len(nodeNamesOrdered) != 3 {
-		log.Errorf("Nodes spec field is not 3, current nodes number is %d", len(nodeNamesOrdered))
 		return errors.New("Nodes spec field is not 3")
 	}
 
@@ -103,8 +113,8 @@ func (c *Cluster) Start(nodeNameIP map[string]string) error {
 			ResourceName:         resourceName,
 			CurrentConfigMapName: currentConfigMapName,
 			DataPathMap: config.NewDaemonDataPathMap(
-				path.Join(c.spec.DataDirHostPath, fmt.Sprint("mds-", daemonIDString)),
-				path.Join(c.spec.LogDirHostPath, fmt.Sprint("mds-", daemonIDString)),
+				path.Join(c.dataDirHostPath, fmt.Sprint("mds-", daemonIDString)),
+				path.Join(c.logDirHostPath, fmt.Sprint("mds-", daemonIDString)),
 				ContainerDataDir,
 				ContainerLogDir,
 			),
@@ -116,13 +126,13 @@ func (c *Cluster) Start(nodeNameIP map[string]string) error {
 		// create each mds configmap for each deployment
 		err = c.createMdsConfigMap(mdsConfig)
 		if err != nil {
-			return errors.Wrapf(err, "failed to create mds configmap [ %v ]", config.MdsConfigMapName)
+			return errors.Wrapf(err, "failed to create mds configmap %q", config.MdsConfigMapName)
 		}
 
 		// make mds deployment
 		d, err := c.makeDeployment(nodeName, nodeNameIP[nodeName], mdsConfig)
 		if err != nil {
-			return errors.Wrap(err, "failed to create mds Deployment")
+			return errors.Wrapf(err, "failed to create mds Deployment %q", mdsConfig.ResourceName)
 		}
 
 		newDeployment, err := c.context.Clientset.AppsV1().Deployments(c.namespacedName.Namespace).Create(d)
@@ -130,14 +140,14 @@ func (c *Cluster) Start(nodeNameIP map[string]string) error {
 			if !kerrors.IsAlreadyExists(err) {
 				return errors.Wrapf(err, "failed to create mds deployment %s", resourceName)
 			}
-			log.Infof("deployment for mds %s already exists. updating if needed", resourceName)
+			logger.Infof("deployment for mds %s already exists. updating if needed", resourceName)
 
 			// TODO:Update the daemon Deployment
 			// if err := updateDeploymentAndWait(c.context, c.clusterInfo, d, config.MgrType, mgrConfig.DaemonID, c.spec.SkipUpgradeChecks, false); err != nil {
 			// 	logger.Errorf("failed to update mgr deployment %q. %v", resourceName, err)
 			// }
 		} else {
-			log.Infof("Deployment %s has been created , waiting for startup", newDeployment.GetName())
+			logger.Infof("Deployment %s has been created , waiting for startup", newDeployment.GetName())
 			// TODO:wait for the new deployment
 			// deploymentsToWaitFor = append(deploymentsToWaitFor, newDeployment)
 		}

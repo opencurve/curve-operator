@@ -16,17 +16,17 @@ import (
 // startChunkServers start all chunkservers for each device of every node
 func (c *Cluster) startChunkServers() error {
 	if len(jobsArr) == 0 {
-		log.Errorf("no job to format device and provision chunk file")
+		logger.Errorf("no job to format device and provision chunk file")
 		return nil
 	}
 
 	if len(chunkserverConfigs) == 0 {
-		log.Errorf("no device need to start chunkserver")
+		logger.Errorf("no device need to start chunkserver")
 		return nil
 	}
 
 	if len(jobsArr) != len(chunkserverConfigs) {
-		log.Errorf("no device need to start chunkserver")
+		logger.Errorf("no device need to start chunkserver")
 		return errors.New("failed to start chunkserver because of job numbers is not equal with chunkserver config")
 	}
 
@@ -53,14 +53,14 @@ func (c *Cluster) startChunkServers() error {
 			if !kerrors.IsAlreadyExists(err) {
 				return errors.Wrapf(err, "failed to create chunkserver deployment %s", csConfig.ResourceName)
 			}
-			log.Infof("deployment for chunkserver %s already exists. updating if needed", csConfig.ResourceName)
+			logger.Infof("deployment for chunkserver %s already exists. updating if needed", csConfig.ResourceName)
 
 			// TODO:Update the daemon Deployment
 			// if err := updateDeploymentAndWait(c.context, c.clusterInfo, d, config.MgrType, mgrConfig.DaemonID, c.spec.SkipUpgradeChecks, false); err != nil {
 			// 	logger.Errorf("failed to update mgr deployment %q. %v", resourceName, err)
 			// }
 		} else {
-			log.Infof("Deployment %s has been created , waiting for startup", newDeployment.GetName())
+			logger.Infof("Deployment %s has been created , waiting for startup", newDeployment.GetName())
 			// TODO:wait for the new deployment
 			// deploymentsToWaitFor = append(deploymentsToWaitFor, newDeployment)
 		}
@@ -75,7 +75,7 @@ func (c *Cluster) createCSClientConfigMap() error {
 	// 1. get mds-conf-template from cluster
 	csClientCMTemplate, err := c.context.Clientset.CoreV1().ConfigMaps(c.namespacedName.Namespace).Get(config.CsClientConfigMapTemp, metav1.GetOptions{})
 	if err != nil {
-		log.Errorf("failed to get configmap %s from cluster", config.CsClientConfigMapTemp)
+		logger.Errorf("failed to get configmap %s from cluster", config.CsClientConfigMapTemp)
 		if kerrors.IsNotFound(err) {
 			return errors.Wrapf(err, "failed to get configmap %s from cluster", config.CsClientConfigMapTemp)
 		}
@@ -87,7 +87,6 @@ func (c *Cluster) createCSClientConfigMap() error {
 	// 3. replace ${} to specific parameters
 	replacedCsClientData, err := config.ReplaceConfigVars(csClientCMData, &chunkserverConfigs[0])
 	if err != nil {
-		log.Error("failed to Replace cs_client config template to generate %s to start server.", chunkserverConfigs[0].CurrentConfigMapName)
 		return errors.Wrap(err, "failed to Replace cs_client config template to generate a new cs_client configmap to start server.")
 	}
 
@@ -121,7 +120,7 @@ func (c *Cluster) createCSClientConfigMap() error {
 func (c *Cluster) CreateS3ConfigMap() error {
 	s3CMTemplate, err := c.context.Clientset.CoreV1().ConfigMaps(c.namespacedName.Namespace).Get(config.S3ConfigMapTemp, metav1.GetOptions{})
 	if err != nil {
-		log.Errorf("failed to get configmap %s from cluster", config.S3ConfigMapTemp)
+		logger.Errorf("failed to get configmap %s from cluster", config.S3ConfigMapTemp)
 		if kerrors.IsNotFound(err) {
 			return errors.Wrapf(err, "failed to get configmap %s from cluster", config.S3ConfigMapTemp)
 		}
@@ -201,7 +200,7 @@ func (c *Cluster) createConfigMap(csConfig chunkserverConfig) error {
 	// 1. get mds-conf-template from cluster
 	chunkserverCMTemplate, err := c.context.Clientset.CoreV1().ConfigMaps(c.namespacedName.Namespace).Get(config.ChunkServerConfigMapTemp, metav1.GetOptions{})
 	if err != nil {
-		log.Errorf("failed to get configmap %s from cluster", config.ChunkServerConfigMapTemp)
+		logger.Errorf("failed to get configmap %s from cluster", config.ChunkServerConfigMapTemp)
 		if kerrors.IsNotFound(err) {
 			return errors.Wrapf(err, "failed to get configmap %s from cluster", config.ChunkServerConfigMapTemp)
 		}
@@ -217,7 +216,6 @@ func (c *Cluster) createConfigMap(csConfig chunkserverConfig) error {
 	// 3. replace ${} to specific parameters
 	replacedChunkServerData, err := config.ReplaceConfigVars(chunkserverData, &csConfig)
 	if err != nil {
-		log.Error("failed to Replace chunkserver config template to generate %s to start server.", chunkserverConfigs[0].CurrentConfigMapName)
 		return errors.Wrap(err, "failed to Replace chunkserver config template to generate a new chunkserver configmap to start server.")
 	}
 

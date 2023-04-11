@@ -16,19 +16,22 @@ func ReadConf(path string) (map[string]string, error) {
 	}
 	defer file.Close()
 
-	scanner := bufio.NewScanner(file)
-
 	configMapData := make(map[string]string)
-
+	scanner := bufio.NewScanner(file)
 	// optionally, resize scanner's capacity for lines over 64K, see next example
 	for scanner.Scan() {
-		line := scanner.Text()
-		line = strings.TrimSpace(line)
-		if strings.HasPrefix(line, "#") || len(line) == 0 {
+		line := strings.TrimSpace(scanner.Text())
+		if strings.HasPrefix(line, "#") || line == "" {
 			continue
 		}
-		ret := strings.Split(line, "=")
-		configMapData[ret[0]] = ret[1]
+		parts := strings.Split(line, "=")
+		if len(parts) != 2 {
+			continue
+
+		}
+		key := strings.TrimSpace(parts[0])
+		value := strings.TrimSpace(parts[1])
+		configMapData[key] = value
 	}
 
 	if err := scanner.Err(); err != nil {
@@ -41,51 +44,49 @@ func ReadConf(path string) (map[string]string, error) {
 func ReadEtcdTypeConfig(path string) (map[string]string, error) {
 	file, err := os.Open(path)
 	if err != nil {
-		return make(map[string]string), errors.Wrapf(err, "failed to open file %s ", path)
+		return nil, errors.Wrapf(err, "failed to open file %q", path)
 	}
 	defer file.Close()
-	scanner := bufio.NewScanner(file)
-	configMapData := make(map[string]string)
 
-	// optionally, resize scanner's capacity for lines over 64K, see next example
+	configMapData := make(map[string]string)
+	scanner := bufio.NewScanner(file)
 	for scanner.Scan() {
-		line := scanner.Text()
-		line = strings.TrimSpace(line)
-		if strings.HasPrefix(line, "#") || len(line) == 0 {
+		line := strings.TrimSpace(scanner.Text())
+		if strings.HasPrefix(line, "#") || line == "" {
 			continue
 		}
 		ret := strings.Split(line, ":")
 		if len(ret) == 2 {
-			ret[0] = strings.TrimSpace(ret[0])
-			ret[1] = strings.TrimSpace(ret[1])
-			configMapData[ret[0]] = ret[1]
+			key := strings.TrimSpace(ret[0])
+			value := strings.TrimSpace(ret[1])
+			configMapData[key] = value
 		} else if len(ret) == 1 {
 			configMapData[ret[0]] = ""
 		} else if len(ret) > 2 {
-			ret[0] = strings.TrimSpace(ret[0])
-			tmp := ""
+			key := strings.TrimSpace(ret[0])
+			value := ""
 			for i := 1; i < len(ret); i++ {
-				tmp = tmp + ":" + ret[i]
+				value = value + ":" + ret[i]
 			}
-			tmp = strings.TrimLeft(tmp, ":")
-			tmp = strings.TrimSpace(tmp)
-			configMapData[ret[0]] = tmp
+			value = strings.TrimLeft(value, ":")
+			value = strings.TrimSpace(value)
+			configMapData[key] = value
 		}
 	}
 
 	if err := scanner.Err(); err != nil {
-		return make(map[string]string), errors.Wrap(err, "failed to scan file")
+		return nil, errors.Wrap(err, "failed to scan file")
 	}
-
 	return configMapData, nil
 }
 
-func ReadNginxConf(path string) (string, error) {
+func ReadNginxConf(path string) (map[string]string, error) {
 	content, err := os.ReadFile(path)
 	if err != nil {
 		logger.Error("failed to read nginx config file")
-		return "", errors.Wrap(err, "failed to read nginx config file")
+		return nil, errors.Wrap(err, "failed to read nginx config file")
 	}
-	nginxStr := string(content)
-	return nginxStr, nil
+	nginxData := make(map[string]string)
+	nginxData["nginx.conf"] = string(content)
+	return nginxData, nil
 }

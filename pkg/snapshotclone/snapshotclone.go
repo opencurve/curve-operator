@@ -3,6 +3,7 @@ package snapshotclone
 import (
 	"context"
 	"fmt"
+	"path"
 	"strconv"
 
 	"github.com/coreos/pkg/capnslog"
@@ -29,31 +30,42 @@ const (
 )
 
 type Cluster struct {
-	context        clusterd.Context
-	namespacedName types.NamespacedName
-	spec           curvev1.CurveClusterSpec
-	ownerInfo      *k8sutil.OwnerInfo
+	context         clusterd.Context
+	namespacedName  types.NamespacedName
+	spec            curvev1.CurveClusterSpec
+	dataDirHostPath string
+	logDirHostPath  string
+	confDirHostPath string
+	ownerInfo       *k8sutil.OwnerInfo
 }
 
-var log = capnslog.NewPackageLogger("github.com/opencurve/curve-operator", "snapshotclone")
+var logger = capnslog.NewPackageLogger("github.com/opencurve/curve-operator", "snapshotclone")
 
-func New(context clusterd.Context, namespacedName types.NamespacedName, spec curvev1.CurveClusterSpec, ownerInfo *k8sutil.OwnerInfo) *Cluster {
+func New(context clusterd.Context,
+	namespacedName types.NamespacedName,
+	spec curvev1.CurveClusterSpec,
+	ownerInfo *k8sutil.OwnerInfo,
+	dataDirHostPath string,
+	logDirHostPath string,
+	confDirHostPath string) *Cluster {
 	return &Cluster{
-		context:        context,
-		namespacedName: namespacedName,
-		spec:           spec,
-		ownerInfo:      ownerInfo,
+		context:         context,
+		namespacedName:  namespacedName,
+		spec:            spec,
+		dataDirHostPath: dataDirHostPath,
+		logDirHostPath:  logDirHostPath,
+		confDirHostPath: confDirHostPath,
+		ownerInfo:       ownerInfo,
 	}
 }
 
 // Start Curve snapshotclone daemon
 func (c *Cluster) Start(nodeNameIP map[string]string) error {
-	log.Info("starting snapshotclone server")
+	logger.Info("starting snapshotclone server")
 
 	// get clusterEtcdAddr
 	etcdOverrideCM, err := c.context.Clientset.CoreV1().ConfigMaps(c.namespacedName.Namespace).Get(config.EtcdOverrideConfigMapName, metav1.GetOptions{})
 	if err != nil {
-		log.Errorf("failed to get %s configmap from cluster", config.EtcdOverrideConfigMapName)
 		return errors.Wrapf(err, "failed to get %s configmap from cluster", config.EtcdOverrideConfigMapName)
 	}
 	clusterEtcdAddr := etcdOverrideCM.Data[config.ClusterEtcdAddr]
@@ -63,12 +75,10 @@ func (c *Cluster) Start(nodeNameIP map[string]string) error {
 	if err != nil {
 		return errors.Wrap(err, "failed to get mds override endoints configmap")
 	}
-
 	clusterMdsAddr := mdsOverrideCM.Data[config.MdsOvverideConfigMapDataKey]
 
 	err = c.createStartSnapConfigMap()
 	if err != nil {
-		log.Error("failed to create start snapshotclone configMap")
 		return errors.Wrap(err, "failed to create start snapshotclone configMap")
 	}
 
@@ -87,7 +97,7 @@ func (c *Cluster) Start(nodeNameIP map[string]string) error {
 	}
 
 	if len(nodeNamesOrdered) != 3 {
-		log.Errorf("Nodes spec field is not 3, current nodes number is %d", len(nodeNamesOrdered))
+		logger.Errorf("Nodes spec field is not 3, current nodes number is %d", len(nodeNamesOrdered))
 		return errors.New("Nodes spec field is not 3")
 	}
 
@@ -112,8 +122,8 @@ func (c *Cluster) Start(nodeNameIP map[string]string) error {
 			ResourceName:         resourceName,
 			CurrentConfigMapName: currentConfigMapName,
 			DataPathMap: config.NewDaemonDataPathMap(
-				fmt.Sprint(c.spec.DataDirHostPath, "/snapshotclone-", daemonIDString),
-				fmt.Sprint(c.spec.LogDirHostPath, "/snapshotclone-", daemonIDString),
+				path.Join(c.dataDirHostPath, fmt.Sprint("snapshotclone-", daemonIDString)),
+				path.Join(c.logDirHostPath, fmt.Sprint("snapshotclone-", daemonIDString)),
 				ContainerDataDir,
 				ContainerLogDir,
 			),
@@ -124,28 +134,28 @@ func (c *Cluster) Start(nodeNameIP map[string]string) error {
 
 		err = c.prepareConfigMap(snapConfig)
 		if err != nil {
-			return err
+			return errors.Wrap(err, "failed to prepare all ConfigMaps of snapshotclone")
 		}
 
 		// make snapshotclone deployment
 		d, err := c.makeDeployment(nodeName, nodeNameIP[nodeName], snapConfig)
 		if err != nil {
-			return errors.Wrap(err, "failed to create snapshotclone Deployment")
+			return errors.Wrapf(err, "failed to create snapshotclone Deployment %q object", snapConfig.ResourceName)
 		}
 
 		newDeployment, err := c.context.Clientset.AppsV1().Deployments(c.namespacedName.Namespace).Create(d)
 		if err != nil {
 			if !kerrors.IsAlreadyExists(err) {
-				return errors.Wrapf(err, "failed to create snapshotclone deployment %s", resourceName)
+				return errors.Wrapf(err, "failed to create snapshotclone deployment %q in cluster", snapConfig.ResourceName)
 			}
-			log.Infof("deployment for snapshotclone %s already exists. updating if needed", resourceName)
+			logger.Infof("deployment %v for snapshotclone already exists. updating if needed", snapConfig.ResourceName)
 
 			// TODO:Update the daemon Deployment
 			// if err := updateDeploymentAndWait(c.context, c.clusterInfo, d, config.MgrType, mgrConfig.DaemonID, c.spec.SkipUpgradeChecks, false); err != nil {
 			// 	logger.Errorf("failed to update mgr deployment %q. %v", resourceName, err)
 			// }
 		} else {
-			log.Infof("Deployment %s has been created , waiting for startup", newDeployment.GetName())
+			logger.Infof("Deployment %q has been created, waiting for startup", newDeployment.GetName())
 			// TODO:wait for the new deployment
 			// deploymentsToWaitFor = append(deploymentsToWaitFor, newDeployment)
 		}

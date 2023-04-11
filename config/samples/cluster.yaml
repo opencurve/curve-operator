@@ -20,13 +20,12 @@ spec:
   # - node2 -> etcd-b, mds-b, snapshotclone-b
   # - node3 -> etcd-c, mds-c, snapshotclone-c
   nodes:
-  - curve-operator-node1
-  - curve-operator-node2
-  - curve-operator-node3
+  - node2
+  - node3
+  - node4
   # DataDirHostPath and LogDirHostPath where data files and log files will be persisted on host machine. Must be specified.
   # If you reinstall the cluster, make surce that you delete this directory from each host.
-  dataDirHostPath: /curvebs/data
-  logDirHostPath: /curvebs/log
+  hostDataDir: /curvebs
   etcd:
     # Port for listening to partner communication. 
     # Etcd member accept incoming requests from its peers on a specific scheme://IP:port combination and the IP is host ip because we use hostnetwork:true.
@@ -44,14 +43,14 @@ spec:
     # The hosts specified to deployment chunkserver as storage resource.
     # And you can configure the same nodes above configure that deploy etcd, mds and snapshotclone service.
     nodes:
-    - curve-operator-node1
-    - curve-operator-node2
-    - curve-operator-node3
+    - node2
+    - node3
+    - node4
     port: 8200
     copysets: 100
     # Make sure the devices configured are available on hosts above.
     devices:
-    - name: /dev/vdc
+    - name: /dev/sdb
       mountPath: /data/chunkserver0
       percentage: 80
     #selectedNodes:
@@ -82,7 +81,7 @@ spec:
       # Access Key for the S3 service. Uploading snapshots
       sk: minioadmin
       # S3 service address
-      nosAddress: http://59.111.93.76:9001
+      nosAddress: http://10.219.92.100:9000
       # S3 service bucket name to store snapshots
       bucketName: curvebs
 
