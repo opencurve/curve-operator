@@ -116,7 +116,7 @@ func (c *Cluster) createCSClientConfigMap() error {
 	return nil
 }
 
-// createS3ConfigMap create s3 configmap
+// CreateS3ConfigMap creates s3 configmap
 func (c *Cluster) CreateS3ConfigMap() error {
 	s3CMTemplate, err := c.context.Clientset.CoreV1().ConfigMaps(c.namespacedName.Namespace).Get(config.S3ConfigMapTemp, metav1.GetOptions{})
 	if err != nil {
@@ -358,7 +358,7 @@ func (c *Cluster) makeCSDaemonContainer(csConfig *chunkserverConfig) v1.Containe
 	return container
 }
 
-// getChunkServerPodLabels
+// getChunkServerPodLabels returns pod labels for chunk server
 func (c *Cluster) getChunkServerPodLabels(csConfig *chunkserverConfig) map[string]string {
 	labels := make(map[string]string)
 	labels["app"] = AppName

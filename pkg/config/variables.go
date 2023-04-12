@@ -193,9 +193,8 @@ func getValue(name string, dc ConfigInterface) string {
 	return ""
 }
 
-// ReplaceConfigVars
+// ReplaceConfigVars replaces vars in config string
 func ReplaceConfigVars(confStr string, c ConfigInterface) (string, error) {
-
 	r, err := regexp.Compile(REGEX_VARIABLE)
 	if err != nil {
 		return "", err

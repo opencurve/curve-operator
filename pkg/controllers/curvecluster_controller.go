@@ -141,7 +141,6 @@ func (r *CurveClusterReconciler) reconcileDelete(curveCluster *curvev1.CurveClus
 	if _, ok := r.ClusterController.clusterMap[curveCluster.Namespace]; ok {
 		delete(r.ClusterController.clusterMap, curveCluster.Namespace)
 	}
-
 	// Remove finalizers
 	err := r.removeFinalizer(r.Client, r.ClusterController.namespacedName, curveCluster, "")
 	if err != nil {

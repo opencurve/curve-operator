@@ -70,7 +70,7 @@ func (c *cluster) reconcileCurveDaemons() error {
 	ticker := time.NewTicker(10 * time.Second)
 	defer ticker.Stop()
 	chn := make(chan bool, 1)
-	ctx, canf := context.WithTimeout(context.Background(), time.Duration(10*60*time.Second))
+	ctx, canf := context.WithTimeout(context.Background(), 10*60*time.Second)
 	defer canf()
 	k8sutil.CheckJobStatus(ctx, c.context.Clientset, ticker, chn, c.NameSpace, job.Name)
 	flag := <-chn
@@ -83,7 +83,7 @@ func (c *cluster) reconcileCurveDaemons() error {
 	if err != nil {
 		return errors.Wrap(err, "failed to create all config file template configmap")
 	}
-	logger.Info("create config template configmap successed")
+	logger.Info("create config template configmap successfully")
 
 	// 2. Start etcd cluster
 	etcds := etcd.New(c.context, c.NamespacedName, *c.Spec, c.ownerInfo, c.dataDirHostPath, c.logDirHostPath, c.confDirHostPath)
