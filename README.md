@@ -66,9 +66,9 @@ spec:
   - curve-operator-node1
   - curve-operator-node2
   - curve-operator-node3
-  # dataDirHostPath where data files and log files will be persisted on host machine. Must be specified.
+  # hostDataDir where data files and log files will be persisted on host machine. Must be specified.
   # If you reinstall the cluster, make surce that you delete this directory from each host.
-  dataDirHostPath: /curvebs
+  hostDataDir: /curvebs
   etcd:
     # Port for listening to partner communication. 
     # Etcd member accept incoming requests from its peers on a specific scheme://IP:port combination and the IP is host ip because we use hostnetwork:true.
@@ -220,7 +220,7 @@ $ kubectl delete -f config/deploy/
 
 ### 3. Delete data and log on host
 
-The final cleanup setp requires deleting files on each host in the cluster. All files under the `dataDirHostPath` and `logDirHostPath` property specified in the cluster CRD will need to be deleted. Otherwise, inconsistent state will remain when a new cluster is started.
+The final cleanup setp requires deleting files on each host in the cluster. All files under the `hostDataDir` property specified in the cluster CRD will need to be deleted. Otherwise, inconsistent state will remain when a new cluster is started.
 
 Connect to each machine and delete `/curvebs`, or the path specified by the `dataDirHostPath` and `logDirHostPath`.
 

@@ -20,8 +20,6 @@ import (
 	"flag"
 	"os"
 
-	// +kubebuilder:scaffold:imports
-
 	"github.com/spf13/pflag"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes"

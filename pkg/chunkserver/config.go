@@ -3,6 +3,7 @@ package chunkserver
 import "strconv"
 
 // chunkserverConfig for a single chunkserver
+// chunkserverConfig implements config.ConfigInterface
 type chunkserverConfig struct {
 	Prefix                        string
 	Port                          int    // chunkserver.conf(service_port)
@@ -55,7 +56,6 @@ type chunkserverDataPathMap struct {
 	ContainerLogDir string
 }
 
-// chunkserverConfig implement ConfigInterface
 func (c *chunkserverConfig) GetPrefix() string {
 	return c.Prefix
 }
@@ -121,6 +121,7 @@ func (c *chunkserverConfig) GetDataDir() string {
 }
 
 // cluster
+
 func (c *chunkserverConfig) GetClusterEtcdHttpAddr() string {
 	return ""
 }

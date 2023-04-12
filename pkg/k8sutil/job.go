@@ -77,7 +77,7 @@ func DeleteBatchJob(ctx context.Context, clientset kubernetes.Interface, namespa
 	return nil
 }
 
-// checkJobStatus go routine to check job status
+// CheckJobStatus go routine to check job status
 func CheckJobStatus(ctx context.Context, clientSet kubernetes.Interface, ticker *time.Ticker, chn chan bool, namespace string, jobName string) {
 	for {
 		select {
@@ -95,10 +95,8 @@ func CheckJobStatus(ctx context.Context, clientSet kubernetes.Interface, ticker 
 				logger.Infof("job %s has successd", job.Name)
 				chn <- true
 				return
-			} else {
-				logger.Infof("job %s is running", job.Name)
 			}
-
+			logger.Infof("job %s is running", job.Name)
 		case <-ctx.Done():
 			chn <- false
 			logger.Error("go routinue exit because check time is more than 5 mins")

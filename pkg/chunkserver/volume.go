@@ -86,7 +86,7 @@ func CSDaemonVolumes(csConfig *chunkserverConfig) []v1.Volume {
 	return vols
 }
 
-// DaemonVolumeMounts returns the pod container volume mounth used only by chunkserver
+// CSDaemonVolumeMounts returns the pod container volume mounth used only by chunkserver
 func CSDaemonVolumeMounts(csConfig *chunkserverConfig) []v1.VolumeMount {
 	mounts := []v1.VolumeMount{}
 
@@ -101,7 +101,7 @@ func CSDaemonVolumeMounts(csConfig *chunkserverConfig) []v1.VolumeMount {
 	return mounts
 }
 
-// configConfigMapVolumeAndMount Create configmap volume and volume mount for daemon chunkserver pod
+// CSConfigConfigMapVolumeAndMount creates configmap volume and volume mount for daemon chunkserver pod
 func CSConfigConfigMapVolumeAndMount(csConfig *chunkserverConfig) ([]v1.Volume, []v1.VolumeMount) {
 	vols := []v1.Volume{}
 	mounts := []v1.VolumeMount{}
@@ -185,14 +185,25 @@ func CSConfigConfigMapVolumeAndMount(csConfig *chunkserverConfig) ([]v1.Volume, 
 	return vols, mounts
 }
 
-// createTopoAndToolVolumeAndMount
+// createTopoAndToolVolumeAndMount creates volumes and volumeMounts for topo and tool
 func (c *Cluster) createTopoAndToolVolumeAndMount() ([]v1.Volume, []v1.VolumeMount) {
 	vols := []v1.Volume{}
 	mounts := []v1.VolumeMount{}
 
 	// 1. Create topology configmap volume and volume mount("/curvebs/tools/conf/topology.json")
 	mode := int32(0644)
-	topoConfigMapVolSource := &v1.ConfigMapVolumeSource{LocalObjectReference: v1.LocalObjectReference{Name: config.TopoJsonConfigMapName}, Items: []v1.KeyToPath{{Key: config.TopoJsonConfigmapDataKey, Path: config.TopoJsonConfigmapDataKey, Mode: &mode}}}
+	topoConfigMapVolSource := &v1.ConfigMapVolumeSource{
+		LocalObjectReference: v1.LocalObjectReference{
+			Name: config.TopoJsonConfigMapName,
+		},
+		Items: []v1.KeyToPath{
+			{
+				Key:  config.TopoJsonConfigmapDataKey,
+				Path: config.TopoJsonConfigmapDataKey,
+				Mode: &mode,
+			},
+		},
+	}
 	topoConfigVol := v1.Volume{
 		Name: config.TopoJsonConfigMapName,
 		VolumeSource: v1.VolumeSource{
@@ -209,7 +220,18 @@ func (c *Cluster) createTopoAndToolVolumeAndMount() ([]v1.Volume, []v1.VolumeMou
 	mounts = append(mounts, topoMount)
 
 	// 2. Create tools configmap volume and volume mount("/etc/curve/tools.conf")
-	toolConfigMapVolSource := &v1.ConfigMapVolumeSource{LocalObjectReference: v1.LocalObjectReference{Name: config.ToolsConfigMapName}, Items: []v1.KeyToPath{{Key: config.ToolsConfigMapDataKey, Path: config.ToolsConfigMapDataKey, Mode: &mode}}}
+	toolConfigMapVolSource := &v1.ConfigMapVolumeSource{
+		LocalObjectReference: v1.LocalObjectReference{
+			Name: config.ToolsConfigMapName,
+		},
+		Items: []v1.KeyToPath{
+			{
+				Key:  config.ToolsConfigMapDataKey,
+				Path: config.ToolsConfigMapDataKey,
+				Mode: &mode,
+			},
+		},
+	}
 	toolConfigVol := v1.Volume{
 		Name: config.ToolsConfigMapName,
 		VolumeSource: v1.VolumeSource{

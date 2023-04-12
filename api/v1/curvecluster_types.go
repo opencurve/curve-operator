@@ -23,46 +23,41 @@ import (
 
 const CustomResourceGroup = "curve.opencurve.io"
 
-// ConditionType represent a resource's status
+// ConditionType represents a resource's status
 type ConditionType string
 
 const (
-	// ClusterPhasePending: The cluster is running to create.
-	// ClusterPhaseReady: The cluster has been created successfully.
-	// ClusterPhaseDeleting: The cluster is running to delete.
-	// ClusterPhaseError: The cluster created failed becasue some reason.
-	// ClusterPhaseUnknown: Unknow phase
-	// ClusterPending
+	// ClusterPhasePending indicates the cluster is running to create.
 	ClusterPhasePending ConditionType = "Pending"
-	// ClusterReady
+	// ClusterPhaseReady indicates the cluster has been created successfully.
 	ClusterPhaseReady ConditionType = "Ready"
-	// ClusterPhaseDeleting
+	// ClusterPhaseDeleting indicates the cluster is running to delete.
 	ClusterPhaseDeleting ConditionType = "Deleting"
-	// ClusterPhaseError
+	// ClusterPhaseError indicates the cluster created failed because of some reason.
 	ClusterPhaseError ConditionType = "Failed"
-	// ClusterPhaseUnknown
+	// ClusterPhaseUnknown is unknown phase
 	ClusterPhaseUnknown ConditionType = "Unknown"
 )
 
 const (
-	// ConditionTypeEtcdReady
+	// ConditionTypeEtcdReady indicates the etcd is ready
 	ConditionTypeEtcdReady ConditionType = "EtcdReady"
-	// ConditionTypeMdsReady
+	// ConditionTypeMdsReady indicates the mds is ready
 	ConditionTypeMdsReady ConditionType = "MdsReady"
-	// ConditionTypeFormatedReady
+	// ConditionTypeFormatedReady indicates the formated job is ready
 	ConditionTypeFormatedReady ConditionType = "formatedReady"
-	// ConditionTypeChunkServerReady
+	// ConditionTypeChunkServerReady indicates the chunk server is ready
 	ConditionTypeChunkServerReady ConditionType = "ChunkServerReady"
-	// ConditionTypeSnapShotCloneReady
+	// ConditionTypeSnapShotCloneReady indicates the snapshot clone is ready
 	ConditionTypeSnapShotCloneReady ConditionType = "SnapShotCloneReady"
-	// ConditionTypeDeleting
+	// ConditionTypeDeleting indicates it's deleting
 	ConditionTypeDeleting ConditionType = "Deleting"
-	// ConditionTypeClusterReady
+	// ConditionTypeClusterReady indicates the cluster is ready
 	ConditionTypeClusterReady ConditionType = "Ready"
-	// ConditionTypeFailure
+	// ConditionTypeFailure indicates it's failed
 	ConditionTypeFailure ConditionType = "Failed"
-	// ConditionTypeUnknown
-	ConditionTypeUnknown ConditionType = "Unknow"
+	// ConditionTypeUnknown is unknown condition
+	ConditionTypeUnknown ConditionType = "Unknown"
 )
 
 type ConditionStatus string
@@ -146,7 +141,7 @@ type CurveClusterSpec struct {
 // CurveClusterStatus defines the observed state of CurveCluster
 type CurveClusterStatus struct {
 	// Phase is a summary of cluster state.
-	// It can be translate from the last conditiontype
+	// It can be translated from the last conditiontype
 	Phase ConditionType `json:"phase,omitempty"`
 
 	// Condition contains current service state of cluster such as progressing/Ready/Failure...
@@ -194,7 +189,7 @@ type CurveVersionSpec struct {
 	ImagePullPolicy v1.PullPolicy `json:"imagePullPolicy,omitempty"`
 }
 
-// EtcdSpec
+// EtcdSpec is the spec of etcd
 type EtcdSpec struct {
 	// +optional
 	PeerPort int `json:"peerPort,omitempty"`
@@ -206,7 +201,7 @@ type EtcdSpec struct {
 	Config map[string]string `json:"config,omitempty"`
 }
 
-// MdsSpec
+// MdsSpec is the spec of mds
 type MdsSpec struct {
 	// +optional
 	Port int `json:"port,omitempty"`
@@ -218,7 +213,7 @@ type MdsSpec struct {
 	Config map[string]string `json:"config,omitempty"`
 }
 
-// SnapShotCloneSpec
+// SnapShotCloneSpec is the spec of snapshot clone
 type SnapShotCloneSpec struct {
 	// +optional
 	Enable bool `json:"enable,omitempty"`
@@ -236,7 +231,7 @@ type SnapShotCloneSpec struct {
 	S3Config S3ConfigSpec `json:"s3Config,omitempty"`
 }
 
-// S3Config
+// S3ConfigSpec is the spec of s3 config
 type S3ConfigSpec struct {
 	AK                 string `json:"ak,omitempty"`
 	SK                 string `json:"sk,omitempty"`
@@ -244,7 +239,7 @@ type S3ConfigSpec struct {
 	SnapShotBucketName string `json:"bucketName,omitempty"`
 }
 
-// StorageScopeSpec
+// StorageScopeSpec is the spec of storage scope
 type StorageScopeSpec struct {
 	// +optional
 	UseSelectedNodes bool `json:"useSelectedNodes,omitempty"`
@@ -265,7 +260,7 @@ type StorageScopeSpec struct {
 	SelectedNodes []SelectedNodesSpec `json:"selectedNodes,omitempty"`
 }
 
-// Device represents a disk to use in the cluster
+// DevicesSpec represents a disk to use in the cluster
 type DevicesSpec struct {
 	// +optional
 	Name string `json:"name,omitempty"`

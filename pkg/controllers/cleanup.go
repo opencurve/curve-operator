@@ -22,7 +22,7 @@ import (
 
 const (
 	CleanupAppName                    = "curve-cleanup"
-	clusterCleanUpPolicyRetryInterval = 5 //seconds
+	clusterCleanUpPolicyRetryInterval = 5 * time.Second
 
 	dataVolumeName     = "data-cleanup-volume"
 	dataDirHostPathEnv = "CURVE_DATA_DIR_HOST_PATH"
@@ -37,7 +37,7 @@ func (c *ClusterController) startClusterCleanUp(ctx clusterd.Context, cluster *c
 
 	logger.Infof("starting clean up for cluster %q", cluster.Name)
 
-	err := c.waitForCurveDaemonCleanUp(context.TODO(), cluster, time.Duration(clusterCleanUpPolicyRetryInterval)*time.Second)
+	err := c.waitForCurveDaemonCleanUp(context.TODO(), cluster, clusterCleanUpPolicyRetryInterval)
 	if err != nil {
 		logger.Errorf("failed to wait till curve daemons are destroyed. %v", err)
 		return
