@@ -20,6 +20,9 @@ import (
 	"flag"
 	"os"
 
+	// +kubebuilder:scaffold:imports
+
+	"github.com/spf13/pflag"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
@@ -30,8 +33,6 @@ import (
 	operatorv1 "github.com/opencurve/curve-operator/api/v1"
 	"github.com/opencurve/curve-operator/pkg/clusterd"
 	"github.com/opencurve/curve-operator/pkg/controllers"
-	"github.com/spf13/pflag"
-	// +kubebuilder:scaffold:imports
 )
 
 var (
