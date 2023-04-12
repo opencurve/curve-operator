@@ -30,13 +30,13 @@ const (
 	// ClusterPhasePending indicates the cluster is running to create.
 	ClusterPhasePending ConditionType = "Pending"
 	// ClusterPhaseReady indicates the cluster has been created successfully.
-	ClusterPhaseReady ConditionType = "Ready"
+	ClusterPhaseReady ConditionType = "Ready" //nolint:unused
 	// ClusterPhaseDeleting indicates the cluster is running to delete.
 	ClusterPhaseDeleting ConditionType = "Deleting"
 	// ClusterPhaseError indicates the cluster created failed because of some reason.
-	ClusterPhaseError ConditionType = "Failed"
+	ClusterPhaseError ConditionType = "Failed" //nolint:unused
 	// ClusterPhaseUnknown is unknown phase
-	ClusterPhaseUnknown ConditionType = "Unknown"
+	ClusterPhaseUnknown ConditionType = "Unknown" //nolint:unused
 )
 
 const (
@@ -57,15 +57,15 @@ const (
 	// ConditionTypeFailure indicates it's failed
 	ConditionTypeFailure ConditionType = "Failed"
 	// ConditionTypeUnknown is unknown condition
-	ConditionTypeUnknown ConditionType = "Unknown"
+	ConditionTypeUnknown ConditionType = "Unknown" //nolint:unused
 )
 
 type ConditionStatus string
 
 const (
 	ConditionTrue    ConditionStatus = "True"
-	ConditionFalse   ConditionStatus = "False"
-	ConditionUnknown ConditionStatus = "Unknown"
+	ConditionFalse   ConditionStatus = "False"   //nolint:unused
+	ConditionUnknown ConditionStatus = "Unknown" //nolint:unused
 )
 
 type ConditionReason string
@@ -77,7 +77,7 @@ const (
 	ConditionFormatChunkfilePoolReason         ConditionReason = "FormatedChunkfilePool"
 	ConditionChunkServerClusterCreatedReason   ConditionReason = "ChunkServerClusterCreated"
 	ConditionSnapShotCloneClusterCreatedReason ConditionReason = "SnapShotCloneClusterCreated"
-	ConditionClusterCreatedReason              ConditionReason = "ClusterCreated"
+	ConditionClusterCreatedReason              ConditionReason = "ClusterCreated" //nolint:unused
 	ConditionReconcileSucceeded                ConditionReason = "ReconcileSucceeded"
 	ConditionReconcileFailed                   ConditionReason = "ReconcileFailed"
 	ConditionDeletingClusterReason             ConditionReason = "Deleting"
