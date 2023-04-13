@@ -31,7 +31,6 @@ import (
 	operatorv1 "github.com/opencurve/curve-operator/api/v1"
 	"github.com/opencurve/curve-operator/pkg/clusterd"
 	"github.com/opencurve/curve-operator/pkg/controllers"
-	// +kubebuilder:scaffold:imports
 )
 
 var (
