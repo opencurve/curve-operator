@@ -40,7 +40,6 @@ var (
 
 func init() {
 	_ = clientgoscheme.AddToScheme(scheme)
-
 	_ = operatorv1.AddToScheme(scheme)
 	// +kubebuilder:scaffold:scheme
 }
@@ -102,7 +101,8 @@ func main() {
 
 	// Create context
 	context := clusterd.Context{
-		Clientset: clientSet,
+		KubeConfig: config,
+		Clientset:  clientSet,
 	}
 
 	mgr, err := ctrl.NewManager(config, ctrl.Options{
