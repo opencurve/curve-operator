@@ -21,7 +21,18 @@ func (c *Cluster) createFormatVolumeAndMount(device curvev1.DevicesSpec) ([]v1.V
 
 	// 1. Create format configmap volume and volume path
 	mode := int32(0644)
-	formatCMVolSource := &v1.ConfigMapVolumeSource{LocalObjectReference: v1.LocalObjectReference{Name: formatConfigMapName}, Items: []v1.KeyToPath{{Key: formatScriptFileDataKey, Path: formatScriptFileDataKey, Mode: &mode}}}
+	formatCMVolSource := &v1.ConfigMapVolumeSource{
+		LocalObjectReference: v1.LocalObjectReference{
+			Name: formatConfigMapName,
+		},
+		Items: []v1.KeyToPath{
+			{
+				Key:  formatScriptFileDataKey,
+				Path: formatScriptFileDataKey,
+				Mode: &mode,
+			},
+		},
+	}
 	configVol := v1.Volume{
 		Name: formatConfigMapName,
 		VolumeSource: v1.VolumeSource{
@@ -41,7 +52,6 @@ func (c *Cluster) createFormatVolumeAndMount(device curvev1.DevicesSpec) ([]v1.V
 
 	// 2. create hostpath volume and volume mount for device.MountPath
 	hostPathType := v1.HostPathDirectoryOrCreate
-
 	volumeName := strings.TrimSpace(device.MountPath)
 	volumeName = strings.TrimRight(volumeName, "/")
 	volumeNameArr := strings.Split(volumeName, "/")

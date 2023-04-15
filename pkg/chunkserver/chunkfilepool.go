@@ -12,6 +12,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	curvev1 "github.com/opencurve/curve-operator/api/v1"
+	"github.com/opencurve/curve-operator/pkg/chunkserver/script"
 	"github.com/opencurve/curve-operator/pkg/config"
 	"github.com/opencurve/curve-operator/pkg/k8sutil"
 )
@@ -25,15 +26,21 @@ const (
 	formatScriptMountPath   = "/curvebs/tools/sbin/format.sh"
 )
 
+type Job2DeviceInfo struct {
+	job      *batch.Job
+	device   *curvev1.DevicesSpec
+	nodeName string
+}
+
 // global variables
-var jobsArr []string
+var job2DeviceInfos []*Job2DeviceInfo
 var chunkserverConfigs []chunkserverConfig
 
 // startProvisioningOverNodes format device and provision chunk files
 func (c *Cluster) startProvisioningOverNodes(nodeNameIP map[string]string) error {
 	if !c.spec.Storage.UseSelectedNodes {
 		// clear slice
-		jobsArr = []string{}
+		job2DeviceInfos = []*Job2DeviceInfo{}
 		chunkserverConfigs = []chunkserverConfig{}
 
 		hostnameMap, err := k8sutil.GetNodeHostNames(c.context.Clientset)
@@ -55,6 +62,7 @@ func (c *Cluster) startProvisioningOverNodes(nodeNameIP map[string]string) error
 
 		logger.Infof("%d of the %d storage nodes are valid", len(validNodes), len(c.spec.Storage.Nodes))
 
+		// create FORMAT configmap
 		err = c.createFormatConfigMap()
 		if err != nil {
 			return errors.Wrap(err, "failed to create format ConfigMap")
@@ -111,12 +119,17 @@ func (c *Cluster) startProvisioningOverNodes(nodeNameIP map[string]string) error
 
 				job, err := c.runPrepareJob(node.Name, device)
 				if err != nil {
-					logger.Errorf("failed to create job for device %s on %s", device.Name, node.Name)
+					logger.Errorf("failed to create job for device %s on %s-%v", device.Name, node.Name, err)
 					continue // do not record the failed job in jobsArr and do not create chunkserverConfig for this device
 				}
 
+				jobInfo := &Job2DeviceInfo{
+					job,
+					&device,
+					node.Name,
+				}
 				// jobsArr record all the job that have started, to determine whether the format is completed
-				jobsArr = append(jobsArr, job.Name)
+				job2DeviceInfos = append(job2DeviceInfos, jobInfo)
 
 				// create chunkserver config for each device of every node
 				chunkserverConfig := chunkserverConfig{
@@ -158,7 +171,7 @@ func (c *Cluster) startProvisioningOverNodes(nodeNameIP map[string]string) error
 func (c *Cluster) createFormatConfigMap() error {
 	// create configmap data with only one key of "format.sh"
 	formatConfigMapData := map[string]string{
-		formatScriptFileDataKey: FORMAT,
+		formatScriptFileDataKey: script.FORMAT,
 	}
 
 	cm := &v1.ConfigMap{
@@ -222,7 +235,7 @@ func (c *Cluster) makeJob(nodeName string, device curvev1.DevicesSpec) (*batch.J
 	podSpec := v1.PodTemplateSpec{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:   podName,
-			Labels: c.getPodLabels(nodeName),
+			Labels: c.getPodLabels(nodeName, device.Name),
 		},
 		Spec: v1.PodSpec{
 			Containers: []v1.Container{
@@ -244,7 +257,7 @@ func (c *Cluster) makeJob(nodeName string, device curvev1.DevicesSpec) (*batch.J
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      jobName,
 			Namespace: c.namespacedName.Namespace,
-			Labels:    c.getPodLabels(nodeName),
+			Labels:    c.getPodLabels(nodeName, device.Name),
 		},
 		Spec: batch.JobSpec{
 			Template: podSpec,
@@ -299,10 +312,18 @@ func (c *Cluster) makeFormatContainer(device curvev1.DevicesSpec, volumeMounts [
 	return container
 }
 
-func (c *Cluster) getPodLabels(nodeName string) map[string]string {
+func (c *Cluster) getPodLabels(nodeName, deviceName string) map[string]string {
 	labels := make(map[string]string)
 	labels["app"] = PrepareJobName
 	labels["node"] = nodeName
+	s := strings.Split(deviceName, "/")
+	if len(s) > 1 {
+		deviceName = s[1]
+	} else {
+		// not occur
+		deviceName = nodeName
+	}
+	labels["device"] = deviceName
 	labels["curve_cluster"] = c.namespacedName.Namespace
 	return labels
 }

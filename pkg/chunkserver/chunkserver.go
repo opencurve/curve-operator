@@ -6,7 +6,6 @@ import (
 
 	"github.com/coreos/pkg/capnslog"
 	"github.com/pkg/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 
 	curvev1 "github.com/opencurve/curve-operator/api/v1"
@@ -81,18 +80,16 @@ func (c *Cluster) Start(nodeNameIP map[string]string) error {
 
 	// 2. wait all job finish to complete format and wait MDS election success.
 	k8sutil.UpdateCondition(context.TODO(), &c.context, c.namespacedName, curvev1.ConditionTypeFormatedReady, curvev1.ConditionTrue, curvev1.ConditionFormatingChunkfilePoolReason, "Formating chunkfilepool")
-	halfMinuteTicker := time.NewTicker(1 * time.Minute)
-	defer halfMinuteTicker.Stop()
+	oneMinuteTicker := time.NewTicker(20 * time.Second)
+	defer oneMinuteTicker.Stop()
 
 	chn := make(chan bool, 1)
 	ctx, canf := context.WithTimeout(context.Background(), time.Duration(24*60*60*time.Second))
 	defer canf()
-	c.checkJobStatus(ctx, halfMinuteTicker, chn)
+	go c.checkJobStatus(ctx, oneMinuteTicker, chn)
 
 	// block here unitl timeout(24 hours) or all jobs has been successed.
 	flag := <-chn
-
-	// not all job has completed
 	if !flag {
 		// TODO: delete all jobs that has created.
 		return errors.New("Format job is not completed in 24 hours and exit with -1")
@@ -128,40 +125,4 @@ func (c *Cluster) Start(nodeNameIP map[string]string) error {
 	k8sutil.UpdateCondition(context.TODO(), &c.context, c.namespacedName, curvev1.ConditionTypeChunkServerReady, curvev1.ConditionTrue, curvev1.ConditionChunkServerClusterCreatedReason, "Chunkserver cluster has been created")
 
 	return nil
-}
-
-// checkJobStatus go routine to check all job's status
-func (c *Cluster) checkJobStatus(ctx context.Context, ticker *time.Ticker, chn chan bool) {
-	for {
-		select {
-		case <-ticker.C:
-			logger.Info("time is up(1 minute)")
-			completed := 0
-			for _, jobName := range jobsArr {
-				job, err := c.context.Clientset.BatchV1().Jobs(c.namespacedName.Namespace).Get(jobName, metav1.GetOptions{})
-				if err != nil {
-					logger.Errorf("failed to get job %s in cluster", jobName)
-					chn <- false
-					return
-				}
-
-				if job.Status.Succeeded > 0 {
-					completed++
-					logger.Infof("job %s has successd", job.Name)
-				} else {
-					logger.Infof("job %s is running", job.Name)
-				}
-
-				if completed == len(jobsArr) {
-					logger.Info("all job has been successd, exit go routine")
-					chn <- true
-					return
-				}
-			}
-		case <-ctx.Done():
-			chn <- false
-			logger.Error("go routinue exit because check time is more than 5 mins")
-			return
-		}
-	}
 }

@@ -10,12 +10,13 @@ import (
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"github.com/opencurve/curve-operator/pkg/chunkserver/script"
 	"github.com/opencurve/curve-operator/pkg/config"
 )
 
 // startChunkServers start all chunkservers for each device of every node
 func (c *Cluster) startChunkServers() error {
-	if len(jobsArr) == 0 {
+	if len(job2DeviceInfos) == 0 {
 		logger.Errorf("no job to format device and provision chunk file")
 		return nil
 	}
@@ -25,7 +26,7 @@ func (c *Cluster) startChunkServers() error {
 		return nil
 	}
 
-	if len(jobsArr) != len(chunkserverConfigs) {
+	if len(job2DeviceInfos) != len(chunkserverConfigs) {
 		logger.Errorf("no device need to start chunkserver")
 		return errors.New("failed to start chunkserver because of job numbers is not equal with chunkserver config")
 	}
@@ -171,7 +172,7 @@ func (c *Cluster) CreateS3ConfigMap() error {
 func (c *Cluster) createStartCSConfigMap() error {
 	// generate configmap data with only one key of "format.sh"
 	startCSConfigMap := map[string]string{
-		startChunkserverScriptFileDataKey: START,
+		startChunkserverScriptFileDataKey: script.START,
 	}
 
 	cm := &v1.ConfigMap{
