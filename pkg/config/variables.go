@@ -46,6 +46,7 @@ const (
 	REGEX_VARIABLE = `\${([^${}]+)}` // ${var_name}
 )
 
+//nolint:unused
 const (
 	KIND_CURVEBS = "curvebs"
 	KIND_CURVEFS = "curvefs"
@@ -55,53 +56,6 @@ const (
 	ROLE_CHUNKSERVER   = "chunkserver"
 	ROLE_SNAPSHOTCLONE = "snapshotclone"
 	ROLE_METASERVER    = "metaserver"
-)
-
-type Var struct {
-	name     string
-	kind     []string // kind limit for register variable
-	role     []string // role limit for register variable
-	lookup   bool     // whether need to lookup host
-	resolved bool
-}
-
-var (
-	serviceVars = []Var{
-		{name: "prefix"},
-		{name: "service_id"},
-		{name: "service_role"},
-		{name: "service_host"},
-		{name: "service_host_sequence"},
-		{name: "service_replica_sequence"},
-		{name: "service_replicas_sequence"},
-		{name: "format_replica_sequence"},
-		{name: "format_replicas_sequence"},
-		{name: "service_addr"},
-		{name: "service_port"},
-		{name: "service_client_port"},
-		{name: "service_dummy_port"},
-		{name: "service_proxy_port"},
-		{name: "service_external_addr"},
-		{name: "service_external_port"},
-		{name: "log_dir"},
-		{name: "data_dir"},
-		{name: "random_uuid"},
-	}
-
-	// NOTE: we don't support cluster variable exist in topology
-	clusterVars = []Var{
-		{name: "cluster_etcd_http_addr"},
-		{name: "cluster_etcd_addr"},
-		{name: "cluster_mds_addr"},
-		{name: "cluster_mds_dummy_addr"},
-		{name: "cluster_mds_dummy_port"},
-		{name: "cluster_chunkserver_addr"},
-		{name: "cluster_snapshotclone_addr"},
-		{name: "cluster_snapshotclone_proxy_addr"},
-		{name: "cluster_snapshotclone_dummy_port"},
-		{name: "cluster_snapshotclone_nginx_upstream"},
-		{name: "cluster_metaserver_addr"},
-	}
 )
 
 type ConfigInterface interface {

@@ -6,6 +6,7 @@ import (
 	"sort"
 )
 
+//nolint:unused
 const (
 	KIND_CURVEBS     = "curvebs"
 	KIND_CURVEFS     = "curvefs"

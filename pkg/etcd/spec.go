@@ -185,33 +185,6 @@ func (c *Cluster) makeChmodDirInitContainer(etcdConfig *etcdConfig) v1.Container
 	return container
 }
 
-func (c *Cluster) makeReplaceVarContainer(nodeName string, ip string, etcdConfig *etcdConfig, init_cluster string) v1.Container {
-	container := v1.Container{
-		Name: "replace-variables",
-		// Args:            args,
-		Command:         []string{"chmod", "700", etcdConfig.DataPathMap.ContainerDataDir},
-		Image:           c.spec.CurveVersion.Image,
-		ImagePullPolicy: c.spec.CurveVersion.ImagePullPolicy,
-		VolumeMounts:    daemon.DaemonVolumeMounts("", "", etcdConfig.DataPathMap, ""),
-		Ports: []v1.ContainerPort{
-			{
-				Name:          "listen-port",
-				ContainerPort: int32(c.spec.Etcd.ClientPort),
-				HostPort:      int32(c.spec.Etcd.ClientPort),
-				Protocol:      v1.ProtocolTCP,
-			},
-			{
-				Name:          "peer-port",
-				ContainerPort: int32(c.spec.Etcd.PeerPort),
-				HostPort:      int32(c.spec.Etcd.PeerPort),
-				Protocol:      v1.ProtocolTCP,
-			},
-		},
-		Env: []v1.EnvVar{{Name: "TZ", Value: "Asia/Hangzhou"}},
-	}
-	return container
-}
-
 // makeEtcdDaemonContainer create etcd container
 func (c *Cluster) makeEtcdDaemonContainer(nodeName string, ip string, etcdConfig *etcdConfig, init_cluster string) v1.Container {
 	configFileMountPath := path.Join(config.EtcdConfigMapMountPathDir, config.EtcdConfigMapDataKey)
