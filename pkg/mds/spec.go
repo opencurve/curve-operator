@@ -17,14 +17,14 @@ import (
 
 // createOverrideMdsCM create mds-endpoints-override configmap to record mds endpoints
 func (c *Cluster) createOverrideMdsCM(nodeNameIP map[string]string) error {
-	var mds_endpoints string
+	var mdsEndpoints string
 	for _, ipAddr := range nodeNameIP {
-		mds_endpoints = fmt.Sprint(mds_endpoints, ipAddr, ":", c.spec.Mds.Port, ",")
+		mdsEndpoints = fmt.Sprint(mdsEndpoints, ipAddr, ":", c.spec.Mds.Port, ",")
 	}
-	mds_endpoints = strings.TrimRight(mds_endpoints, ",")
+	mdsEndpoints = strings.TrimRight(mdsEndpoints, ",")
 
 	mdsConfigMapData := map[string]string{
-		config.MdsOvverideConfigMapDataKey: mds_endpoints,
+		config.MdsOvverideConfigMapDataKey: mdsEndpoints,
 	}
 
 	// create mds override configMap to record the endpoints of etcd

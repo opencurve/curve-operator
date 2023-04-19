@@ -81,5 +81,5 @@ const (
 	CsClientConfigMapTemp      = "cs-conf-template"
 	SnapClientConfigMapTemp    = "snap-conf-template"
 	ToolsConfigMapTemp         = "tools-conf-template"
-	NginxCnonfigMapTemp        = "nginx-conf-template"
+	NginxConfigMapTemp         = "nginx-conf-template"
 )

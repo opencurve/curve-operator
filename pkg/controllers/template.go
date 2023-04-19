@@ -61,7 +61,7 @@ func (c *cluster) createEachConfigMap() error {
 				return err
 			}
 		case "nginx.conf":
-			configMapName = config.NginxCnonfigMapTemp
+			configMapName = config.NginxConfigMapTemp
 			delimiter = ""
 			data, err = k8sutil.ReadNginxConf(path.Join(configHostPath, name))
 			if err != nil {

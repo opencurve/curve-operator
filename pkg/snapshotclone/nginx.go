@@ -11,12 +11,12 @@ import (
 
 func (c *Cluster) createNginxConfigMap(snapConfig *snapConfig) error {
 	// 1. get mds-conf-template from cluster
-	nginxCMTemplate, err := c.context.Clientset.CoreV1().ConfigMaps(c.namespacedName.Namespace).Get(config.NginxCnonfigMapTemp, metav1.GetOptions{})
+	nginxCMTemplate, err := c.context.Clientset.CoreV1().ConfigMaps(c.namespacedName.Namespace).Get(config.NginxConfigMapTemp, metav1.GetOptions{})
 	if err != nil {
 		if kerrors.IsNotFound(err) {
-			return errors.Wrapf(err, "failed to get configmap %s from cluster", config.NginxCnonfigMapTemp)
+			return errors.Wrapf(err, "failed to get configmap %s from cluster", config.NginxConfigMapTemp)
 		}
-		return errors.Wrapf(err, "failed to get configmap %s from cluster", config.NginxCnonfigMapTemp)
+		return errors.Wrapf(err, "failed to get configmap %s from cluster", config.NginxConfigMapTemp)
 	}
 
 	// 2. read configmap data (string)
