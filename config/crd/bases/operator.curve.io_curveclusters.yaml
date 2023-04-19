@@ -68,7 +68,7 @@ spec:
                   type: string
               type: object
             etcd:
-              description: EtcdSpec
+              description: EtcdSpec is the spec of etcd
               properties:
                 clientPort:
                   type: integer
@@ -82,7 +82,7 @@ spec:
             hostDataDir:
               type: string
             mds:
-              description: MdsSpec
+              description: MdsSpec is the spec of mds
               properties:
                 config:
                   additionalProperties:
@@ -98,7 +98,7 @@ spec:
                 type: string
               type: array
             snapShotClone:
-              description: SnapShotCloneSpec
+              description: SnapShotCloneSpec is the spec of snapshot clone
               properties:
                 dummyPort:
                   type: integer
@@ -109,7 +109,7 @@ spec:
                 proxyPort:
                   type: integer
                 s3Config:
-                  description: S3Config
+                  description: S3ConfigSpec is the spec of s3 config
                   properties:
                     ak:
                       type: string
@@ -122,13 +122,13 @@ spec:
                   type: object
               type: object
             storage:
-              description: StorageScopeSpec
+              description: StorageScopeSpec is the spec of storage scope
               properties:
                 copySets:
                   type: integer
                 devices:
                   items:
-                    description: Device represents a disk to use in the cluster
+                    description: DevicesSpec represents a disk to use in the cluster
                     properties:
                       mountPath:
                         type: string
@@ -149,7 +149,8 @@ spec:
                     properties:
                       devices:
                         items:
-                          description: Device represents a disk to use in the cluster
+                          description: DevicesSpec represents a disk to use in the
+                            cluster
                           properties:
                             mountPath:
                               type: string
@@ -212,7 +213,7 @@ spec:
                 such as 'Curve Cluster Created successfully'
               type: string
             phase:
-              description: Phase is a summary of cluster state. It can be translate
+              description: Phase is a summary of cluster state. It can be translated
                 from the last conditiontype
               type: string
           type: object
