@@ -5,9 +5,11 @@ import (
 	"fmt"
 	"path"
 	"strconv"
+	"time"
 
 	"github.com/coreos/pkg/capnslog"
 	"github.com/pkg/errors"
+	appsv1 "k8s.io/api/apps/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -96,6 +98,7 @@ func (c *Cluster) Start(nodeNameIP map[string]string) error {
 
 	daemonID := 0
 	var daemonIDString string
+	deploymentsToWaitFor := make([]*appsv1.Deployment, 0)
 	for _, nodeName := range nodeNamesOrdered {
 		daemonIDString = k8sutil.IndexToName(daemonID)
 		daemonID++
@@ -148,10 +151,15 @@ func (c *Cluster) Start(nodeNameIP map[string]string) error {
 			// }
 		} else {
 			logger.Infof("Deployment %s has been created , waiting for startup", newDeployment.GetName())
-			// TODO:wait for the new deployment
-			// deploymentsToWaitFor = append(deploymentsToWaitFor, newDeployment)
+			deploymentsToWaitFor = append(deploymentsToWaitFor, newDeployment)
 		}
 		// update condition type and phase etc.
+	}
+
+	logger.Info("starting mds server")
+	if err := k8sutil.WaitForDeploymentsToStart(c.context.Clientset, 3*time.Second, 30*time.Second,
+		deploymentsToWaitFor); err != nil {
+		return err
 	}
 
 	k8sutil.UpdateCondition(context.TODO(), &c.context, c.namespacedName, curvev1.ConditionTypeMdsReady, curvev1.ConditionTrue, curvev1.ConditionMdsClusterCreatedReason, "MDS cluster has been created")

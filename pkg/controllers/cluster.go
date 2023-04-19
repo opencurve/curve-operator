@@ -85,17 +85,16 @@ func (c *cluster) reconcileCurveDaemons() error {
 	}
 	logger.Info("create config template configmap successfully")
 
-	// 2. Start etcd cluster
+	// 2. Start etcd cluster and wait it startup
 	etcds := etcd.New(c.context, c.NamespacedName, *c.Spec, c.ownerInfo, c.dataDirHostPath, c.logDirHostPath, c.confDirHostPath)
 	err = etcds.Start(nodeNameIP)
 	if err != nil {
 		return errors.Wrap(err, "failed to start curve etcd")
 	}
 
-	// wait to etcd election finished
-	time.Sleep(20 * time.Second)
+	// TODO: wait to etcd election finished
 
-	// 3. Start Mds cluster
+	// 3. Start Mds cluster and wait it startup
 	mds := mds.New(c.context, c.NamespacedName, *c.Spec, c.ownerInfo, c.dataDirHostPath, c.logDirHostPath, c.confDirHostPath)
 	err = mds.Start(nodeNameIP)
 	if err != nil {

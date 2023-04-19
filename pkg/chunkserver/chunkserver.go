@@ -106,14 +106,11 @@ func (c *Cluster) Start(nodeNameIP map[string]string) error {
 	logger.Info("create physical pool successed")
 
 	// 3. startChunkServers start all chunkservers for each device of every node
+	// 4. wait all chunkservers online before create logical pool
 	err = c.startChunkServers()
 	if err != nil {
 		return errors.Wrap(err, "failed to start chunkserver")
 	}
-
-	// 4. wait all chunkservers online before create logical pool
-	logger.Info("starting all chunkserver")
-	time.Sleep(30 * time.Second)
 
 	// 5. create logical pool
 	_, err = c.runCreatePoolJob(nodeNameIP, "logical_pool")

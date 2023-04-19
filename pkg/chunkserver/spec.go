@@ -3,9 +3,11 @@ package chunkserver
 import (
 	"path"
 	"strconv"
+	"time"
 
+	"github.com/opencurve/curve-operator/pkg/k8sutil"
 	"github.com/pkg/errors"
-	apps "k8s.io/api/apps/v1"
+	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -37,6 +39,7 @@ func (c *Cluster) startChunkServers() error {
 
 	_ = c.CreateS3ConfigMap()
 
+	deploymentsToWaitFor := make([]*appsv1.Deployment, 0)
 	for _, csConfig := range chunkserverConfigs {
 
 		err := c.createConfigMap(csConfig)
@@ -62,12 +65,16 @@ func (c *Cluster) startChunkServers() error {
 			// }
 		} else {
 			logger.Infof("Deployment %s has been created , waiting for startup", newDeployment.GetName())
-			// TODO:wait for the new deployment
-			// deploymentsToWaitFor = append(deploymentsToWaitFor, newDeployment)
+			deploymentsToWaitFor = append(deploymentsToWaitFor, newDeployment)
 		}
 		// update condition type and phase etc.
 	}
 
+	logger.Info("starting all chunkserver")
+	if err := k8sutil.WaitForDeploymentsToStart(c.context.Clientset, 3*time.Second, 30*time.Second,
+		deploymentsToWaitFor); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -249,7 +256,7 @@ func (c *Cluster) createConfigMap(csConfig chunkserverConfig) error {
 	return nil
 }
 
-func (c *Cluster) makeDeployment(csConfig *chunkserverConfig) (*apps.Deployment, error) {
+func (c *Cluster) makeDeployment(csConfig *chunkserverConfig) (*appsv1.Deployment, error) {
 	volumes := CSDaemonVolumes(csConfig)
 	vols, _ := c.createTopoAndToolVolumeAndMount()
 	volumes = append(volumes, vols...)
@@ -273,20 +280,20 @@ func (c *Cluster) makeDeployment(csConfig *chunkserverConfig) (*apps.Deployment,
 
 	replicas := int32(1)
 
-	d := &apps.Deployment{
+	d := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      csConfig.ResourceName,
 			Namespace: c.namespacedName.Namespace,
 			Labels:    c.getChunkServerPodLabels(csConfig),
 		},
-		Spec: apps.DeploymentSpec{
+		Spec: appsv1.DeploymentSpec{
 			Selector: &metav1.LabelSelector{
 				MatchLabels: c.getChunkServerPodLabels(csConfig),
 			},
 			Template: podSpec,
 			Replicas: &replicas,
-			Strategy: apps.DeploymentStrategy{
-				Type: apps.RecreateDeploymentStrategyType,
+			Strategy: appsv1.DeploymentStrategy{
+				Type: appsv1.RecreateDeploymentStrategyType,
 			},
 		},
 	}
