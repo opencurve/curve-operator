@@ -13,32 +13,15 @@ type chunkserverConfig struct {
 	ClusterSnapshotcloneAddr      string // tools.conf
 	ClusterSnapshotcloneDummyPort string // tools.conf
 
-	// ResourceName represents the name that operator gives to chunkserver resources in k8s metadata
-	ResourceName string
-
-	// The configmap corresponding to the current server
+	DataPathMap          *chunkserverDataPathMap
+	ResourceName         string
 	CurrentConfigMapName string
-
-	// location to store data in container and local host
-	DataPathMap *chunkserverDataPathMap
-
-	// device name represents the device name of the chunkserver, each device has one chunkserver.
-	DeviceName string
-
-	// node name represents the name of the node that the chunkserver is running on.
-	NodeName string
-
-	// node ip represents the ip of the node that the chunkserver is running on.
-	NodeIP string
-
-	// host sequence is the host(node) number.
-	HostSequence int
-
-	// replicas sequence represent the chunkserver replicas sequence number on the node.
-	ReplicasSequence int
-
-	// replicas represents the chunkserver replicas on the node.
-	Replicas int
+	DeviceName           string
+	NodeName             string
+	NodeIP               string
+	HostSequence         int
+	ReplicasSequence     int
+	Replicas             int
 }
 
 // chunkserverDataPathMap represents the device on host and referred Mount Path in container
@@ -143,6 +126,10 @@ func (c *chunkserverConfig) GetClusterMdsDummyPort() string {
 }
 
 func (c *chunkserverConfig) GetClusterChunkserverAddr() string {
+	return ""
+}
+
+func (c *chunkserverConfig) GetClusterMetaserverAddr() string {
 	return ""
 }
 

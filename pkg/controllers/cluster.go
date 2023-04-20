@@ -13,6 +13,7 @@ import (
 	"github.com/opencurve/curve-operator/pkg/etcd"
 	"github.com/opencurve/curve-operator/pkg/k8sutil"
 	"github.com/opencurve/curve-operator/pkg/mds"
+	"github.com/opencurve/curve-operator/pkg/metaserver"
 	"github.com/opencurve/curve-operator/pkg/snapshotclone"
 )
 
@@ -25,19 +26,18 @@ func newCluster(kind string, isUpgrade bool) *daemon.Cluster {
 	}
 }
 
-// reconcileCurveDaemons start all daemon progress of Curve
-func reconcileCurveDaemons(c *daemon.Cluster) error {
+func reconcileSharedServer(c *daemon.Cluster) (map[string]string, error) {
 	// get node name and internal ip mapping
 	nodeNameIP, err := k8sutil.GetNodeInfoMap(c.Nodes, c.Context.Clientset)
 	if err != nil {
-		return errors.Wrap(err, "failed get all nodes specified in spec nodes")
+		return nil, err
 	}
 	logger.Infof("using %v to create curve cluster", nodeNameIP)
 
-	// 1. Create a pod to get all config file from curve image
+	// create a job to get all config file from curve image
 	job, err := makeReadConfJob(c)
 	if err != nil {
-		return errors.Wrap(err, "failed to start job to read all config file from curve image")
+		return nil, err
 	}
 	logger.Info("starting read config file template job")
 
@@ -49,13 +49,13 @@ func reconcileCurveDaemons(c *daemon.Cluster) error {
 	k8sutil.CheckJobStatus(ctx, c.Context.Clientset, ticker, chn, c.Namespace, job.Name)
 	flag := <-chn
 	if !flag {
-		return errors.Errorf("failed to check job %q status", job.GetName())
+		return nil, errors.Errorf("failed to check job %q status", job.GetName())
 	}
 
 	// 2. Create ConfigMaps for all configs
 	err = createEachConfigMap(c)
 	if err != nil {
-		return errors.Wrap(err, "failed to create all config file template configmap")
+		return nil, err
 	}
 	logger.Info("create config template configmap successfully")
 
@@ -63,9 +63,8 @@ func reconcileCurveDaemons(c *daemon.Cluster) error {
 	etcds := etcd.New(c)
 	err = etcds.Start(nodeNameIP)
 	if err != nil {
-		return errors.Wrap(err, "failed to start curve etcd")
+		return nil, err
 	}
-
 	// wait to etcd election finished
 	time.Sleep(20 * time.Second)
 
@@ -73,27 +72,55 @@ func reconcileCurveDaemons(c *daemon.Cluster) error {
 	mds := mds.New(c)
 	err = mds.Start(nodeNameIP)
 	if err != nil {
-		return errors.Wrap(err, "failed to start curve mds")
+		return nil, err
 	}
 	k8sutil.UpdateCondition(context.TODO(), &c.Context, c.NamespacedName, curvev1.ConditionTypeMdsReady, curvev1.ConditionTrue, curvev1.ConditionMdsClusterCreatedReason, "MDS cluster has been created")
 
-	// 4. chunkserver
+	return nodeNameIP, nil
+}
+
+// reconcileCurveDaemons start all daemon progress of Curve
+func reconcileCurveDaemons(c *daemon.Cluster) error {
+	// shared server
+	nodeNameIP, err := reconcileSharedServer(c)
+	if err != nil {
+		return err
+	}
+	// chunkserver
 	chunkservers := chunkserver.New(c)
 	err = chunkservers.Start(nodeNameIP)
 	if err != nil {
-		return errors.Wrap(err, "failed to start curve chunkserver")
+		return err
 	}
 	k8sutil.UpdateCondition(context.TODO(), &c.Context, c.NamespacedName, curvev1.ConditionTypeChunkServerReady, curvev1.ConditionTrue, curvev1.ConditionChunkServerClusterCreatedReason, "Chunkserver cluster has been created")
 
-	// 5. snapshotclone
+	// snapshotclone
 	if c.SnapShotClone.Enable {
 		snapshotclone := snapshotclone.New(c)
 		err = snapshotclone.Start(nodeNameIP)
 		if err != nil {
-			return errors.Wrap(err, "failed to start curve snapshotclone")
+			return err
 		}
 	}
 	k8sutil.UpdateCondition(context.TODO(), &c.Context, c.NamespacedName, curvev1.ConditionTypeSnapShotCloneReady, curvev1.ConditionTrue, curvev1.ConditionSnapShotCloneClusterCreatedReason, "Snapshotclone cluster has been created")
+
+	return nil
+}
+
+// reconcileCurveDaemons start all daemon progress of Curve
+func reconcileCurveFSDaemons(c *daemon.Cluster) error {
+	// shared server
+	nodeNameIP, err := reconcileSharedServer(c)
+	if err != nil {
+		return err
+	}
+
+	// metaserver
+	metaservers := metaserver.New(c)
+	err = metaservers.Start(nodeNameIP)
+	if err != nil {
+		return err
+	}
 
 	return nil
 }

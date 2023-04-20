@@ -54,7 +54,7 @@ func (c *Cluster) createOverrideConfigMap(etcd_endpoints string, clusterEtcdAddr
 
 // createConfigMap create etcd configmap for etcd server
 func (c *Cluster) createEtcdConfigMap(etcdConfig *etcdConfig) error {
-	// 1. get etcd-conf-template from cluster
+	// get etcd-conf-template from cluster
 	etcdCMTemplate, err := c.Context.Clientset.CoreV1().ConfigMaps(c.NamespacedName.Namespace).Get(config.EtcdConfigTemp, metav1.GetOptions{})
 	if err != nil {
 		logger.Errorf("failed to get configmap [ %s ] from cluster", config.MdsConfigMapTemp)
@@ -64,18 +64,15 @@ func (c *Cluster) createEtcdConfigMap(etcdConfig *etcdConfig) error {
 		return errors.Wrapf(err, "failed to get configmap [ %s ] from cluster", config.MdsConfigMapTemp)
 	}
 
-	// 2. read configmap data (string)
+	// read configmap data (string)
 	etcdCMData := etcdCMTemplate.Data[config.EtcdConfigMapDataKey]
-	// 3. replace ${} to specific parameters
+	// replace ${} to specific parameters
 	EtcdConfigTemp, err := config.ReplaceConfigVars(etcdCMData, etcdConfig)
 	if err != nil {
 		return errors.Wrap(err, "failed to Replace etcd config template to generate a new etcd configmap to start server.")
 	}
 
-	// for debug
-	// log.Info(replacedMdsData)
-
-	// 4. create curve-etcd-conf-[a,b,...] configmap for each one deployment
+	// create curve-etcd-conf-[a,b,...] configmap for each one deployment
 	etcdConfigMapData := map[string]string{
 		config.EtcdConfigMapDataKey: EtcdConfigTemp,
 	}
@@ -93,7 +90,7 @@ func (c *Cluster) createEtcdConfigMap(etcdConfig *etcdConfig) error {
 		return errors.Wrapf(err, "failed to set owner reference for etcd configmap [ %v ]", etcdConfig.CurrentConfigMapName)
 	}
 
-	// 5. create etcd configmap in cluster
+	// create etcd configmap in cluster
 	_, err = c.Context.Clientset.CoreV1().ConfigMaps(c.NamespacedName.Namespace).Create(cm)
 	if err != nil && !kerrors.IsAlreadyExists(err) {
 		return errors.Wrapf(err, "failed to create etcd configmap %s", c.NamespacedName.Namespace)
@@ -104,10 +101,7 @@ func (c *Cluster) createEtcdConfigMap(etcdConfig *etcdConfig) error {
 
 // makeDeployment make etcd deployment to run etcd server
 func (c *Cluster) makeDeployment(nodeName string, ip string, etcdConfig *etcdConfig) (*apps.Deployment, error) {
-	volumes := daemon.DaemonVolumes(config.EtcdConfigMapDataKey, config.EtcdConfigMapMountPathDir, etcdConfig.DataPathMap, etcdConfig.CurrentConfigMapName)
-
-	// for debug
-	// logger.Infof("etcdConfig %+v", etcdConfig)
+	volumes := daemon.DaemonVolumes(config.EtcdConfigMapDataKey, etcdConfig.ConfigMapMountPath, etcdConfig.DataPathMap, etcdConfig.CurrentConfigMapName)
 
 	podSpec := v1.PodTemplateSpec{
 		ObjectMeta: metav1.ObjectMeta{
@@ -187,18 +181,23 @@ func (c *Cluster) makeChmodDirInitContainer(etcdConfig *etcdConfig) v1.Container
 
 // makeEtcdDaemonContainer create etcd container
 func (c *Cluster) makeEtcdDaemonContainer(nodeName string, ip string, etcdConfig *etcdConfig, init_cluster string) v1.Container {
+	var commandLine string
+	if c.Kind == config.KIND_CURVEBS {
+		commandLine = "/curvebs/etcd/sbin/etcd"
+	} else {
+		commandLine = "/curvefs/etcd/sbin/etcd"
+	}
+
 	configFileMountPath := path.Join(config.EtcdConfigMapMountPathDir, config.EtcdConfigMapDataKey)
 	argsConfigFileDir := fmt.Sprintf("--config-file=%s", configFileMountPath)
+
 	container := v1.Container{
 		Name: "etcd",
 		Command: []string{
-			// "/bin/bash",
-			"/curvebs/etcd/sbin/etcd",
+			commandLine,
 		},
 		Args: []string{
 			argsConfigFileDir,
-			// "-c",
-			// "while true; do echo hello; sleep 10; done",
 		},
 		Image:           c.CurveVersion.Image,
 		ImagePullPolicy: c.CurveVersion.ImagePullPolicy,
@@ -220,4 +219,13 @@ func (c *Cluster) makeEtcdDaemonContainer(nodeName string, ip string, etcdConfig
 		Env: []v1.EnvVar{{Name: "TZ", Value: "Asia/Hangzhou"}},
 	}
 	return container
+}
+
+// getLabels adds labels for etcd deployment
+func (c *Cluster) getPodLabels(etcdConfig *etcdConfig) map[string]string {
+	return map[string]string{
+		"app":           AppName,
+		"etcd":          etcdConfig.DaemonID,
+		"curve_cluster": c.Namespace,
+	}
 }

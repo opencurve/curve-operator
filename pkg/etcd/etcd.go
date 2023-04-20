@@ -25,6 +25,10 @@ const (
 	Prefix           = "/curvebs/etcd"
 	ContainerDataDir = "/curvebs/etcd/data"
 	ContainerLogDir  = "/curvebs/etcd/logs"
+
+	FSPrefix           = "/curvefs/etcd"
+	FSContainerDataDir = "/curvefs/etcd/data"
+	FSContainerLogDir  = "/curvefs/etcd/logs"
 )
 
 type Cluster struct {
@@ -41,7 +45,6 @@ func New(c *daemon.Cluster) *Cluster {
 func (c *Cluster) Start(nodeNameIP map[string]string) error {
 	var etcdEndpoints string
 	var clusterEtcdAddr string
-
 	for _, ipAddr := range nodeNameIP {
 		etcdEndpoints = fmt.Sprint(etcdEndpoints, ipAddr, ":", c.Etcd.PeerPort, ",")
 		clusterEtcdAddr = fmt.Sprint(clusterEtcdAddr, ipAddr, ":", c.Etcd.ClientPort, ",")
@@ -50,9 +53,8 @@ func (c *Cluster) Start(nodeNameIP map[string]string) error {
 	clusterEtcdAddr = strings.TrimRight(clusterEtcdAddr, ",")
 
 	// Create etcd override configmap
-	err := c.createOverrideConfigMap(etcdEndpoints, clusterEtcdAddr)
-	if err != nil {
-		return errors.Wrap(err, "failed to create etcd override configmap")
+	if err := c.createOverrideConfigMap(etcdEndpoints, clusterEtcdAddr); err != nil {
+		return err
 	}
 
 	// reorder the nodeNameIP according to the order of nodes spec defined by the user
@@ -69,7 +71,7 @@ func (c *Cluster) Start(nodeNameIP map[string]string) error {
 		}
 	}
 
-	// Won't appear generally
+	// never happen
 	if len(nodeNamesOrdered) != 3 {
 		return errors.New("Nodes spec field is not 3")
 	}
@@ -83,6 +85,19 @@ func (c *Cluster) Start(nodeNameIP map[string]string) error {
 	initial_cluster = strings.TrimRight(initial_cluster, ",")
 
 	// create ConfigMap and referred Deployment by travel all nodes that have been labeled - "app=etcd"
+	var configMapMountPath, prefix, containerDataDir, containerLogDir string
+	if c.Kind == config.KIND_CURVEBS {
+		prefix = Prefix
+		containerDataDir = ContainerDataDir
+		containerLogDir = ContainerLogDir
+		configMapMountPath = config.EtcdConfigMapMountPathDir
+	} else {
+		prefix = FSPrefix
+		containerDataDir = FSContainerDataDir
+		containerLogDir = FSContainerLogDir
+		configMapMountPath = config.FSEtcdConfigMapMountPathDir
+	}
+
 	daemonID := 0
 	replicasSequence := 0
 	var daemonIDString string
@@ -92,7 +107,7 @@ func (c *Cluster) Start(nodeNameIP map[string]string) error {
 		resourceName := fmt.Sprintf("%s-%s", AppName, daemonIDString)
 		currentConfigMapName := fmt.Sprintf("%s-%s", ConfigMapNamePrefix, daemonIDString)
 		etcdConfig := &etcdConfig{
-			Prefix:                 Prefix,
+			Prefix:                 prefix,
 			ServiceHostSequence:    strconv.Itoa(daemonID),
 			ServiceReplicaSequence: strconv.Itoa(replicasSequence),
 			ServiceAddr:            nodeNameIP[nodeName],
@@ -106,25 +121,22 @@ func (c *Cluster) Start(nodeNameIP map[string]string) error {
 			DataPathMap: config.NewDaemonDataPathMap(
 				path.Join(c.DataDirHostPath, fmt.Sprint("etcd-", daemonIDString)),
 				path.Join(c.LogDirHostPath, fmt.Sprint("etcd-", daemonIDString)),
-				ContainerDataDir,
-				ContainerLogDir,
+				containerDataDir,
+				containerLogDir,
 			),
+			ConfigMapMountPath: configMapMountPath,
 		}
 		daemonID++
 
-		// for debug
-		// logger.Infof("current node is %v", nodeName)
-
 		// create each etcd configmap for each deployment
-		err = c.createEtcdConfigMap(etcdConfig)
-		if err != nil {
-			return errors.Wrapf(err, "failed to create etcd configmap [ %v ]", config.MdsConfigMapName)
+		if err := c.createEtcdConfigMap(etcdConfig); err != nil {
+			return err
 		}
 
 		// make etcd deployment
 		d, err := c.makeDeployment(nodeName, nodeNameIP[nodeName], etcdConfig)
 		if err != nil {
-			return errors.Wrap(err, "failed to create etcd Deployment")
+			return err
 		}
 
 		newDeployment, err := c.Context.Clientset.AppsV1().Deployments(c.NamespacedName.Namespace).Create(d)

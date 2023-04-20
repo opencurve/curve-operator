@@ -15,6 +15,7 @@ import (
 	"github.com/opencurve/curve-operator/pkg/chunkserver/script"
 	"github.com/opencurve/curve-operator/pkg/config"
 	"github.com/opencurve/curve-operator/pkg/k8sutil"
+	"github.com/opencurve/curve-operator/pkg/topology"
 )
 
 const (
@@ -37,15 +38,15 @@ var job2DeviceInfos []*Job2DeviceInfo
 var chunkserverConfigs []chunkserverConfig
 
 // startProvisioningOverNodes format device and provision chunk files
-func (c *Cluster) startProvisioningOverNodes(nodeNameIP map[string]string) error {
+func (c *Cluster) startProvisioningOverNodes(nodeNameIP map[string]string) ([]*topology.DeployConfig, error) {
+	dcs := []*topology.DeployConfig{}
 	if !c.Chunkserver.UseSelectedNodes {
 		// clear slice
 		job2DeviceInfos = []*Job2DeviceInfo{}
 		chunkserverConfigs = []chunkserverConfig{}
-
 		hostnameMap, err := k8sutil.GetNodeHostNames(c.Context.Clientset)
 		if err != nil {
-			return errors.Wrap(err, "failed to get node hostnames")
+			return nil, errors.Wrap(err, "failed to get node hostnames")
 		}
 
 		var storageNodes []string
@@ -57,7 +58,7 @@ func (c *Cluster) startProvisioningOverNodes(nodeNameIP map[string]string) error
 		validNodes, _ := k8sutil.GetValidNodes(c.Context, storageNodes)
 		if len(validNodes) == 0 {
 			logger.Warningf("no valid nodes available to run chunkservers on nodes in namespace %q", c.NamespacedName.Namespace)
-			return nil
+			return nil, nil
 		}
 
 		logger.Infof("%d of the %d storage nodes are valid", len(validNodes), len(c.Chunkserver.Nodes))
@@ -65,20 +66,20 @@ func (c *Cluster) startProvisioningOverNodes(nodeNameIP map[string]string) error
 		// create FORMAT configmap
 		err = c.createFormatConfigMap()
 		if err != nil {
-			return errors.Wrap(err, "failed to create format ConfigMap")
+			return nil, errors.Wrap(err, "failed to create format ConfigMap")
 		}
 
 		// get ClusterEtcdAddr
 		etcdOverrideCM, err := c.Context.Clientset.CoreV1().ConfigMaps(c.NamespacedName.Namespace).Get(config.EtcdOverrideConfigMapName, metav1.GetOptions{})
 		if err != nil {
-			return errors.Wrap(err, "failed to get etcd override endoints configmap")
+			return nil, errors.Wrap(err, "failed to get etcd override endoints configmap")
 		}
 		clusterEtcdAddr := etcdOverrideCM.Data[config.ClusterEtcdAddr]
 
 		// get ClusterMdsAddr
 		mdsOverrideCM, err := c.Context.Clientset.CoreV1().ConfigMaps(c.NamespacedName.Namespace).Get(config.MdsOverrideConfigMapName, metav1.GetOptions{})
 		if err != nil {
-			return errors.Wrap(err, "failed to get mds override endoints configmap")
+			return nil, errors.Wrap(err, "failed to get mds override endoints configmap")
 		}
 		clusterMdsAddr := mdsOverrideCM.Data[config.MdsOvverideConfigMapDataKey]
 
@@ -105,7 +106,6 @@ func (c *Cluster) startProvisioningOverNodes(nodeNameIP map[string]string) error
 			nodeIP := nodeNameIP[node.Name]
 			portBase := c.Chunkserver.Port
 			replicasSequence := 0
-
 			// travel all device to run format job and construct chunkserverConfig
 			for _, device := range c.Chunkserver.Devices {
 				name := strings.TrimSpace(device.Name)
@@ -156,7 +156,20 @@ func (c *Cluster) startProvisioningOverNodes(nodeNameIP map[string]string) error
 					ReplicasSequence: replicasSequence,
 					Replicas:         len(c.Chunkserver.Devices),
 				}
+
+				dc := &topology.DeployConfig{
+					Kind:             c.Kind,
+					Role:             "chunkserver",
+					Copysets:         c.Chunkserver.CopySets,
+					NodeName:         node.Name,
+					NodeIP:           nodeIP,
+					Port:             portBase,
+					DeviceName:       device.Name,
+					ReplicasSequence: replicasSequence,
+					Replicas:         len(c.Chunkserver.Devices),
+				}
 				chunkserverConfigs = append(chunkserverConfigs, chunkserverConfig)
+				dcs = append(dcs, dc)
 				portBase++
 				replicasSequence++
 			}
@@ -164,12 +177,11 @@ func (c *Cluster) startProvisioningOverNodes(nodeNameIP map[string]string) error
 		}
 	}
 
-	return nil
+	return dcs, nil
 }
 
 // createConfigMap create configmap to store format.sh script
 func (c *Cluster) createFormatConfigMap() error {
-	// create configmap data with only one key of "format.sh"
 	formatConfigMapData := map[string]string{
 		formatScriptFileDataKey: script.FORMAT,
 	}
@@ -187,7 +199,6 @@ func (c *Cluster) createFormatConfigMap() error {
 		return errors.Wrapf(err, "failed to set owner reference to format configmap %q", formatConfigMapName)
 	}
 
-	// Create format.sh configmap in cluster
 	_, err = c.Context.Clientset.CoreV1().ConfigMaps(c.NamespacedName.Namespace).Create(cm)
 	if err != nil && !kerrors.IsAlreadyExists(err) {
 		return errors.Wrapf(err, "failed to create override configmap %s", c.NamespacedName.Namespace)

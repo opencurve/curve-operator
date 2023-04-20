@@ -48,6 +48,8 @@ const (
 	ConditionTypeFormatedReady ConditionType = "formatedReady"
 	// ConditionTypeChunkServerReady indicates the chunk server is ready
 	ConditionTypeChunkServerReady ConditionType = "ChunkServerReady"
+	// ConditionTypeMetaServerReady indicates the meta server is ready
+	ConditionTypeMetaServerReady ConditionType = "MetaServerReady"
 	// ConditionTypeSnapShotCloneReady indicates the snapshot clone is ready
 	ConditionTypeSnapShotCloneReady ConditionType = "SnapShotCloneReady"
 	// ConditionTypeDeleting indicates it's deleting
@@ -75,6 +77,7 @@ const (
 	ConditionMdsClusterCreatedReason           ConditionReason = "MdsClusterCreated"
 	ConditionFormatingChunkfilePoolReason      ConditionReason = "FormatingChunkfilePool"
 	ConditionFormatChunkfilePoolReason         ConditionReason = "FormatedChunkfilePool"
+	ConditionMetaServerClusterCreatedReason    ConditionReason = "MetaServerClusterCreated"
 	ConditionChunkServerClusterCreatedReason   ConditionReason = "ChunkServerClusterCreated"
 	ConditionSnapShotCloneClusterCreatedReason ConditionReason = "SnapShotCloneClusterCreated"
 	ConditionClusterCreatedReason              ConditionReason = "ClusterCreated" //nolint:unused

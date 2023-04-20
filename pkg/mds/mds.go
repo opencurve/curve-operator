@@ -25,27 +25,28 @@ const (
 	Prefix           = "/curvebs/mds"
 	ContainerDataDir = "/curvebs/mds/data"
 	ContainerLogDir  = "/curvebs/mds/logs"
+
+	FSPrefix           = "/curvefs/mds"
+	FSContainerDataDir = "/curvefs/mds/data"
+	FSContainerLogDir  = "/curvefs/mds/logs"
 )
 
 type Cluster struct {
 	*daemon.Cluster
 }
 
-var logger = capnslog.NewPackageLogger("github.com/opencurve/curve-operator", "mds")
-
 func New(c *daemon.Cluster) *Cluster {
 	return &Cluster{Cluster: c}
 }
 
+var logger = capnslog.NewPackageLogger("github.com/opencurve/curve-operator", "mds")
+
 // Start Curve mds daemon
 func (c *Cluster) Start(nodeNameIP map[string]string) error {
-	// check if the etcd override configmap exist
 	overrideCM, err := c.Context.Clientset.CoreV1().ConfigMaps(c.NamespacedName.Namespace).Get(config.EtcdOverrideConfigMapName, metav1.GetOptions{})
 	if err != nil {
-		return errors.Wrapf(err, "failed to get %s configmap from cluster", config.EtcdOverrideConfigMapName)
+		return err
 	}
-
-	// get etcd endpoints from key of "clusterEtcdAddr" of etcd-endpoints-override
 	clusterEtcdAddr := overrideCM.Data[config.ClusterEtcdAddr]
 
 	// create mds override configmap to record mds endpoints
@@ -59,7 +60,6 @@ func (c *Cluster) Start(nodeNameIP map[string]string) error {
 	// - node1 - curve-mds-a
 	// - node2  - curve-mds-b
 	// - node3 - curve-mds-c
-
 	nodeNamesOrdered := make([]string, 0)
 	for _, n := range c.Nodes {
 		for nodeName := range nodeNameIP {
@@ -69,8 +69,22 @@ func (c *Cluster) Start(nodeNameIP map[string]string) error {
 		}
 	}
 
+	// never heppend
 	if len(nodeNamesOrdered) != 3 {
 		return errors.New("Nodes spec field is not 3")
+	}
+
+	var configMapMountPath, prefix, containerDataDir, containerLogDir string
+	if c.Kind == config.KIND_CURVEBS {
+		prefix = Prefix
+		containerDataDir = ContainerDataDir
+		containerLogDir = ContainerLogDir
+		configMapMountPath = config.MdsConfigMapMountPathDir
+	} else {
+		prefix = FSPrefix
+		containerDataDir = FSContainerDataDir
+		containerLogDir = FSContainerLogDir
+		configMapMountPath = config.FSMdsConfigMapMountPathDir
 	}
 
 	daemonID := 0
@@ -78,10 +92,11 @@ func (c *Cluster) Start(nodeNameIP map[string]string) error {
 	for _, nodeName := range nodeNamesOrdered {
 		daemonIDString = k8sutil.IndexToName(daemonID)
 		daemonID++
-		// Construct mds config
 		resourceName := fmt.Sprintf("%s-%s", AppName, daemonIDString)
 		currentConfigMapName := fmt.Sprintf("%s-%s", ConfigMapNamePrefix, daemonIDString)
+
 		mdsConfig := &mdsConfig{
+			Prefix:                        prefix,
 			ServiceAddr:                   nodeNameIP[nodeName],
 			ServicePort:                   strconv.Itoa(c.Mds.Port),
 			ServiceDummyPort:              strconv.Itoa(c.Mds.DummyPort),
@@ -94,24 +109,19 @@ func (c *Cluster) Start(nodeNameIP map[string]string) error {
 			DataPathMap: config.NewDaemonDataPathMap(
 				path.Join(c.DataDirHostPath, fmt.Sprint("mds-", daemonIDString)),
 				path.Join(c.LogDirHostPath, fmt.Sprint("mds-", daemonIDString)),
-				ContainerDataDir,
-				ContainerLogDir,
+				containerDataDir,
+				containerLogDir,
 			),
+			ConfigMapMountPath: configMapMountPath,
 		}
 
-		// for debug
-		// log.Infof("current node is %v", nodeName)
-
-		// create each mds configmap for each deployment
-		err = c.createMdsConfigMap(mdsConfig)
-		if err != nil {
-			return errors.Wrapf(err, "failed to create mds configmap %q", config.MdsConfigMapName)
+		if err := c.createMdsConfigMap(mdsConfig); err != nil {
+			return err
 		}
 
-		// make mds deployment
 		d, err := c.makeDeployment(nodeName, nodeNameIP[nodeName], mdsConfig)
 		if err != nil {
-			return errors.Wrapf(err, "failed to create mds Deployment %q", mdsConfig.ResourceName)
+			return err
 		}
 
 		newDeployment, err := c.Context.Clientset.AppsV1().Deployments(c.NamespacedName.Namespace).Create(d)

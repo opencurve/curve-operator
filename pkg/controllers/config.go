@@ -8,6 +8,7 @@ import (
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"github.com/opencurve/curve-operator/pkg/config"
 	"github.com/opencurve/curve-operator/pkg/daemon"
 	"github.com/opencurve/curve-operator/pkg/k8sutil"
 )
@@ -16,6 +17,7 @@ const (
 	ReadConfigJobName    = "read-config"
 	ReadConfigVolumeName = "conf-volume"
 	ConfigMountPath      = "/curvebs/tools"
+	FSConfigMountPath    = "/curvefs/tools"
 )
 
 // makeReadConfJob
@@ -79,11 +81,17 @@ func makeReadConfJob(c *daemon.Cluster) (*batch.Job, error) {
 }
 
 func makeReadConfContainer(c *daemon.Cluster) v1.Container {
+	commandLine := ""
+	if c.Kind == config.KIND_CURVEBS {
+		commandLine = "cp /curvebs/conf/* /curvebs/tools"
+	} else if c.Kind == config.KIND_CURVEFS {
+		commandLine = "cp /curvefs/conf/* /curvefs/tools"
+	}
 	container := v1.Container{
 		Name: "readconfig",
 		Args: []string{
 			"-c",
-			"cp /curvebs/conf/* /curvebs/tools",
+			commandLine,
 		},
 		Command: []string{
 			"/bin/bash",
@@ -105,13 +113,20 @@ func makeConfigHostPathVolume(c *daemon.Cluster) []v1.Volume {
 }
 
 func makeConfigVolumeMount(c *daemon.Cluster) []v1.VolumeMount {
+	var configMountPath string
+	if c.Kind == config.KIND_CURVEBS {
+		configMountPath = ConfigMountPath
+	} else if c.Kind == config.KIND_CURVEFS {
+		configMountPath = FSConfigMountPath
+	}
 	mounts := []v1.VolumeMount{}
-	mounts = append(mounts, v1.VolumeMount{Name: ReadConfigVolumeName, MountPath: ConfigMountPath})
+	mounts = append(mounts, v1.VolumeMount{Name: ReadConfigVolumeName, MountPath: configMountPath})
 	return mounts
 }
 
 func getReadConfigJobLabel(c *daemon.Cluster) map[string]string {
 	labels := make(map[string]string)
 	labels["app"] = ReadConfigJobName
+	labels["curve"] = c.Kind
 	return labels
 }

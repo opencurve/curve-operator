@@ -22,8 +22,9 @@ type Cluster struct {
 	Mds           curvev1.MdsSpec
 	SnapShotClone curvev1.SnapShotCloneSpec
 	Chunkserver   curvev1.StorageScopeSpec
-	// metaserver    curvev1.Metaserver
+	Metaserver    curvev1.MetaServerSpec
 
+	HostDataDir     string
 	DataDirHostPath string
 	LogDirHostPath  string
 	ConfDirHostPath string

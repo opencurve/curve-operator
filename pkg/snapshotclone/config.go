@@ -12,17 +12,10 @@ type snapConfig struct {
 	ClusterEtcdAddr  string
 	ClusterMdsAddr   string
 
-	// the name that operator gives to mds resources in k8s metadata
-	ResourceName string
-
-	//
+	ResourceName         string
 	CurrentConfigMapName string
-
-	// the ID of etcd daemon ("a", "b", ...)
-	DaemonID string
-
-	// location to store data in container and local host
-	DataPathMap *config.DataPathMap
+	DaemonID             string
+	DataPathMap          *config.DataPathMap
 }
 
 func (c *snapConfig) GetPrefix() string {
@@ -111,6 +104,10 @@ func (c *snapConfig) GetClusterMdsDummyPort() string {
 }
 
 func (c *snapConfig) GetClusterChunkserverAddr() string {
+	return ""
+}
+
+func (c *snapConfig) GetClusterMetaserverAddr() string {
 	return ""
 }
 

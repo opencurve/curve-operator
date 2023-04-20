@@ -4,28 +4,23 @@ import "github.com/opencurve/curve-operator/pkg/config"
 
 // mdsConfig for a single mds
 type mdsConfig struct {
+	Prefix                        string
 	ServiceAddr                   string
 	ServicePort                   string
 	ServiceDummyPort              string
 	ClusterEtcdAddr               string
 	ClusterSnapshotcloneProxyAddr string
 
-	// the name that operator gives to mds resources in k8s metadata
-	ResourceName string
-
-	// The referred configmap name for current mds daemon
+	ResourceName         string
 	CurrentConfigMapName string
-
-	// the ID of etcd daemon ("a", "b", ...)
-	DaemonID string
-
-	// location to store data in container and local host
-	DataPathMap *config.DataPathMap
+	DaemonID             string
+	DataPathMap          *config.DataPathMap
+	ConfigMapMountPath   string
 }
 
 // mdsConfig implement ConfigInterface
 func (c *mdsConfig) GetPrefix() string {
-	return Prefix
+	return c.Prefix
 }
 
 func (c *mdsConfig) GetServiceId() string {
@@ -110,6 +105,10 @@ func (c *mdsConfig) GetClusterMdsDummyPort() string {
 }
 
 func (c *mdsConfig) GetClusterChunkserverAddr() string {
+	return ""
+}
+
+func (c *mdsConfig) GetClusterMetaserverAddr() string {
 	return ""
 }
 

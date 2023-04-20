@@ -56,9 +56,8 @@ func (c *Cluster) Start(nodeNameIP map[string]string) error {
 	}
 	clusterMdsAddr := mdsOverrideCM.Data[config.MdsOvverideConfigMapDataKey]
 
-	err = c.createStartSnapConfigMap()
-	if err != nil {
-		return errors.Wrap(err, "failed to create start snapshotclone configMap")
+	if err := c.createStartSnapConfigMap(); err != nil {
+		return err
 	}
 
 	// reorder the nodeNameIP according to the order of nodes spec defined by the user
@@ -75,8 +74,8 @@ func (c *Cluster) Start(nodeNameIP map[string]string) error {
 		}
 	}
 
+	// never happend
 	if len(nodeNamesOrdered) != 3 {
-		logger.Errorf("Nodes spec field is not 3, current nodes number is %d", len(nodeNamesOrdered))
 		return errors.New("Nodes spec field is not 3")
 	}
 
@@ -85,9 +84,9 @@ func (c *Cluster) Start(nodeNameIP map[string]string) error {
 	for _, nodeName := range nodeNamesOrdered {
 		daemonIDString = k8sutil.IndexToName(daemonID)
 		daemonID++
-		// Construct snapclone config to pass to make deployment
 		resourceName := fmt.Sprintf("%s-%s", AppName, daemonIDString)
 		currentConfigMapName := fmt.Sprintf("%s-%s", ConfigMapNamePrefix, daemonIDString)
+
 		snapConfig := &snapConfig{
 			Prefix:           Prefix,
 			ServiceAddr:      nodeNameIP[nodeName],
@@ -108,9 +107,6 @@ func (c *Cluster) Start(nodeNameIP map[string]string) error {
 			),
 		}
 
-		// for debug
-		// log.Infof("current node is %v", nodeName)
-
 		err = c.prepareConfigMap(snapConfig)
 		if err != nil {
 			return errors.Wrap(err, "failed to prepare all ConfigMaps of snapshotclone")
@@ -119,7 +115,7 @@ func (c *Cluster) Start(nodeNameIP map[string]string) error {
 		// make snapshotclone deployment
 		d, err := c.makeDeployment(nodeName, nodeNameIP[nodeName], snapConfig)
 		if err != nil {
-			return errors.Wrapf(err, "failed to create snapshotclone Deployment %q object", snapConfig.ResourceName)
+			return err
 		}
 
 		newDeployment, err := c.Context.Clientset.AppsV1().Deployments(c.NamespacedName.Namespace).Create(d)

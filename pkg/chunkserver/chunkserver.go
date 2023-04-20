@@ -10,13 +10,13 @@ import (
 	curvev1 "github.com/opencurve/curve-operator/api/v1"
 	"github.com/opencurve/curve-operator/pkg/daemon"
 	"github.com/opencurve/curve-operator/pkg/k8sutil"
+	"github.com/opencurve/curve-operator/pkg/topology"
 )
 
 const (
 	AppName             = "curve-chunkserver"
 	ConfigMapNamePrefix = "curve-chunkserver-conf"
 
-	// ContainerPath is the mount path of data and log
 	Prefix                      = "/curvebs/chunkserver"
 	ChunkserverContainerDataDir = "/curvebs/chunkserver/data"
 	ChunkserverContainerLogDir  = "/curvebs/chunkserver/logs"
@@ -51,13 +51,13 @@ func (c *Cluster) Start(nodeNameIP map[string]string) error {
 
 	logger.Info("starting to prepare the chunk file")
 
-	// 1. startProvisioningOverNodes format device and prepare chunk files
-	err := c.startProvisioningOverNodes(nodeNameIP)
+	// startProvisioningOverNodes format device and prepare chunk files
+	dcs, err := c.startProvisioningOverNodes(nodeNameIP)
 	if err != nil {
-		return errors.Wrap(err, "failed to provision chunkfilepool")
+		return err
 	}
 
-	// 2. wait all job finish to complete format and wait MDS election success.
+	// wait all job finish to complete format and wait MDS election success.
 	k8sutil.UpdateCondition(context.TODO(), &c.Context, c.NamespacedName, curvev1.ConditionTypeFormatedReady, curvev1.ConditionTrue, curvev1.ConditionFormatingChunkfilePoolReason, "Formating chunkfilepool")
 	oneMinuteTicker := time.NewTicker(20 * time.Second)
 	defer oneMinuteTicker.Stop()
@@ -77,27 +77,37 @@ func (c *Cluster) Start(nodeNameIP map[string]string) error {
 
 	logger.Info("all jobs run completed in 24 hours")
 
-	// 2. create physical pool
-	_, err = c.runCreatePoolJob(nodeNameIP, "physical_pool")
+	// create tool ConfigMap
+	if err := c.createToolConfigMap(); err != nil {
+		return err
+	}
+
+	// create topology ConfigMap
+	if err := topology.CreateTopoConfigMap(c.Cluster, dcs); err != nil {
+		return err
+	}
+
+	// create physical pool
+	_, err = topology.RunCreatePoolJob(c.Cluster, dcs, topology.PYHSICAL_POOL)
 	if err != nil {
-		return errors.Wrap(err, "failed to create physical pool")
+		return err
 	}
 	logger.Info("create physical pool successed")
 
-	// 3. startChunkServers start all chunkservers for each device of every node
+	// start all chunkservers for each device of every node
 	err = c.startChunkServers()
 	if err != nil {
-		return errors.Wrap(err, "failed to start chunkserver")
+		return err
 	}
 
-	// 4. wait all chunkservers online before create logical pool
+	// wait all chunkservers online before create logical pool
 	logger.Info("starting all chunkserver")
 	time.Sleep(30 * time.Second)
 
-	// 5. create logical pool
-	_, err = c.runCreatePoolJob(nodeNameIP, "logical_pool")
+	// create logical pool
+	_, err = topology.RunCreatePoolJob(c.Cluster, dcs, topology.LOGICAL_POOL)
 	if err != nil {
-		return errors.Wrap(err, "failed to create physical pool")
+		return err
 	}
 	logger.Info("create logical pool successed")
 

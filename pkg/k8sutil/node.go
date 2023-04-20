@@ -81,8 +81,14 @@ func GetValidNodes(c clusterd.Context, storageNodes []string) ([]v1.Node, error)
 	return nodes, nil
 }
 
-func GetValidDaemonHosts(c clusterd.Context, curveCluster *curvev1.CurveCluster) ([]v1.Node, error) {
-	daemonHosts := curveCluster.Spec.Nodes
+func GetValidDaemonHosts(c clusterd.Context, cluster *curvev1.CurveCluster) ([]v1.Node, error) {
+	daemonHosts := cluster.Spec.Nodes
+	validDaemonHosts, err := GetValidNodes(c, daemonHosts)
+	return validDaemonHosts, err
+}
+
+func GetValidFSDaemonHosts(c clusterd.Context, cluster *curvev1.Curvefs) ([]v1.Node, error) {
+	daemonHosts := cluster.Spec.Nodes
 	validDaemonHosts, err := GetValidNodes(c, daemonHosts)
 	return validDaemonHosts, err
 }

@@ -19,7 +19,7 @@ func (c *Cluster) createFormatVolumeAndMount(device curvev1.DevicesSpec) ([]v1.V
 	vols := []v1.Volume{}
 	mounts := []v1.VolumeMount{}
 
-	// 1. Create format configmap volume and volume path
+	// Create format configmap volume and volume path
 	mode := int32(0644)
 	formatCMVolSource := &v1.ConfigMapVolumeSource{
 		LocalObjectReference: v1.LocalObjectReference{
@@ -50,7 +50,7 @@ func (c *Cluster) createFormatVolumeAndMount(device curvev1.DevicesSpec) ([]v1.V
 	vols = append(vols, configVol)
 	mounts = append(mounts, formatCMVolumeMount)
 
-	// 2. create hostpath volume and volume mount for device.MountPath
+	// create hostpath volume and volume mount for device.MountPath
 	hostPathType := v1.HostPathDirectoryOrCreate
 	volumeName := strings.TrimSpace(device.MountPath)
 	volumeName = strings.TrimRight(volumeName, "/")
@@ -63,7 +63,7 @@ func (c *Cluster) createFormatVolumeAndMount(device curvev1.DevicesSpec) ([]v1.V
 	vols = append(vols, v1.Volume{Name: tmpVolumeName, VolumeSource: src})
 	mounts = append(mounts, v1.VolumeMount{Name: tmpVolumeName, MountPath: ChunkserverContainerDataDir})
 
-	// 3. Create hostpath volume and volume mount for '/dev'
+	// Create hostpath volume and volume mount for '/dev'
 	src = v1.VolumeSource{HostPath: &v1.HostPathVolumeSource{Path: "/dev"}}
 	vols = append(vols, v1.Volume{Name: "devices", VolumeSource: src})
 	mounts = append(mounts, v1.VolumeMount{Name: "devices", MountPath: "/dev"})
@@ -72,11 +72,6 @@ func (c *Cluster) createFormatVolumeAndMount(device curvev1.DevicesSpec) ([]v1.V
 }
 
 // DaemonVolumes returns the pod volumes used only by chunkserver
-
-// configMapDataKey = config.ChunkserverConfigMapDataKey ("chunkserver.conf")
-// configMapMountPathDir = config.ChunkserverConfigMapMountPathDir ("/curvebs/chunkserver/conf")
-// curConfigMapName = config.ChunkserverConfigMapName ("curve-chunkserver-conf")
-
 func CSDaemonVolumes(csConfig *chunkserverConfig) []v1.Volume {
 	vols := []v1.Volume{}
 
@@ -191,71 +186,6 @@ func CSConfigConfigMapVolumeAndMount(csConfig *chunkserverConfig) ([]v1.Volume, 
 		SubPath:   config.ChunkserverConfigMapDataKey,
 	}
 	mounts = append(mounts, m)
-
-	return vols, mounts
-}
-
-// createTopoAndToolVolumeAndMount creates volumes and volumeMounts for topo and tool
-func (c *Cluster) createTopoAndToolVolumeAndMount() ([]v1.Volume, []v1.VolumeMount) {
-	vols := []v1.Volume{}
-	mounts := []v1.VolumeMount{}
-
-	// 1. Create topology configmap volume and volume mount("/curvebs/tools/conf/topology.json")
-	mode := int32(0644)
-	topoConfigMapVolSource := &v1.ConfigMapVolumeSource{
-		LocalObjectReference: v1.LocalObjectReference{
-			Name: config.TopoJsonConfigMapName,
-		},
-		Items: []v1.KeyToPath{
-			{
-				Key:  config.TopoJsonConfigmapDataKey,
-				Path: config.TopoJsonConfigmapDataKey,
-				Mode: &mode,
-			},
-		},
-	}
-	topoConfigVol := v1.Volume{
-		Name: config.TopoJsonConfigMapName,
-		VolumeSource: v1.VolumeSource{
-			ConfigMap: topoConfigMapVolSource,
-		},
-	}
-	vols = append(vols, topoConfigVol)
-
-	topoMount := v1.VolumeMount{
-		Name:      config.TopoJsonConfigMapName,
-		ReadOnly:  true, // should be no reason to write to the config in pods, so enforce this
-		MountPath: config.TopoJsonConfigmapMountPathDir,
-	}
-	mounts = append(mounts, topoMount)
-
-	// 2. Create tools configmap volume and volume mount("/etc/curve/tools.conf")
-	toolConfigMapVolSource := &v1.ConfigMapVolumeSource{
-		LocalObjectReference: v1.LocalObjectReference{
-			Name: config.ToolsConfigMapName,
-		},
-		Items: []v1.KeyToPath{
-			{
-				Key:  config.ToolsConfigMapDataKey,
-				Path: config.ToolsConfigMapDataKey,
-				Mode: &mode,
-			},
-		},
-	}
-	toolConfigVol := v1.Volume{
-		Name: config.ToolsConfigMapName,
-		VolumeSource: v1.VolumeSource{
-			ConfigMap: toolConfigMapVolSource,
-		},
-	}
-	vols = append(vols, toolConfigVol)
-
-	toolMount := v1.VolumeMount{
-		Name:      config.ToolsConfigMapName,
-		ReadOnly:  true, // should be no reason to write to the config in pods, so enforce this
-		MountPath: config.ToolsConfigMapMountPathDir,
-	}
-	mounts = append(mounts, toolMount)
 
 	return vols, mounts
 }

@@ -126,6 +126,15 @@ func main() {
 		setupLog.Error(err, "unable to create controller", "controller", "CurveCluster")
 		os.Exit(1)
 	}
+	if err = (controllers.NewCurvefsReconciler(
+		mgr.GetClient(),
+		ctrl.Log.WithName("controllers").WithName("Curvefs"),
+		mgr.GetScheme(),
+		context,
+	)).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "Curvefs")
+		os.Exit(1)
+	}
 	// +kubebuilder:scaffold:builder
 
 	setupLog.Info("starting manager")

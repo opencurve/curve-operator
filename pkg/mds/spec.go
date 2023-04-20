@@ -18,17 +18,20 @@ import (
 // createOverrideMdsCM create mds-endpoints-override configmap to record mds endpoints
 func (c *Cluster) createOverrideMdsCM(nodeNameIP map[string]string) error {
 	var mds_endpoints string
+	var clusterMdsDummyAddr string
 	for _, ipAddr := range nodeNameIP {
 		mds_endpoints = fmt.Sprint(mds_endpoints, ipAddr, ":", c.Mds.Port, ",")
+		clusterMdsDummyAddr = fmt.Sprint(clusterMdsDummyAddr, ipAddr, ":", c.Mds.DummyPort, ",")
 	}
 	mds_endpoints = strings.TrimRight(mds_endpoints, ",")
+	clusterMdsDummyAddr = strings.TrimRight(clusterMdsDummyAddr, ",")
 
 	mdsConfigMapData := map[string]string{
 		config.MdsOvverideConfigMapDataKey: mds_endpoints,
+		config.ClusterMdsDummyAddr:         clusterMdsDummyAddr,
 	}
 
 	// create mds override configMap to record the endpoints of etcd
-	// mds-endpoints-override configmap only has one "mdsEndpoints" key that the value is mds cluster endpoints
 	mdsOverrideCM := &v1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      config.MdsOverrideConfigMapName,
@@ -62,28 +65,23 @@ func (c *Cluster) createOverrideMdsCM(nodeNameIP map[string]string) error {
 
 // createConfigMap create mds configmap for mds server
 func (c *Cluster) createMdsConfigMap(mdsConfig *mdsConfig) error {
-	// 1. get mds-conf-template from cluster
 	mdsCMTemplate, err := c.Context.Clientset.CoreV1().ConfigMaps(c.NamespacedName.Namespace).Get(config.MdsConfigMapTemp, metav1.GetOptions{})
 	if err != nil {
-		logger.Errorf("failed to get configmap %s from cluster", config.MdsConfigMapTemp)
 		if kerrors.IsNotFound(err) {
 			return errors.Wrapf(err, "failed to get configmap %s from cluster", config.MdsConfigMapTemp)
 		}
 		return errors.Wrapf(err, "failed to get configmap %s from cluster", config.MdsConfigMapTemp)
 	}
 
-	// 2. read configmap data (string)
+	// read configmap data (string)
 	mdsCMData := mdsCMTemplate.Data[config.MdsConfigMapDataKey]
-	// 3. replace ${} to specific parameters
+	// replace ${} to specific parameters
 	replacedMdsData, err := config.ReplaceConfigVars(mdsCMData, mdsConfig)
 	if err != nil {
 		return errors.Wrap(err, "failed to Replace mds config template to generate a new mds configmap to start server.")
 	}
 
-	// for debug
-	// log.Info(replacedMdsData)
-
-	// 4. create curve-mds-conf-[a,b,...] configmap for each one deployment
+	// create curve-mds-conf-[a,b,...] configmap for each one deployment
 	mdsConfigMapData := map[string]string{
 		config.MdsConfigMapDataKey: replacedMdsData,
 	}
@@ -101,7 +99,7 @@ func (c *Cluster) createMdsConfigMap(mdsConfig *mdsConfig) error {
 		return errors.Wrapf(err, "failed to set owner reference to mds configmap %q", config.MdsConfigMapName)
 	}
 
-	// 5. create mds configmap in cluster
+	// create mds configmap in cluster
 	_, err = c.Context.Clientset.CoreV1().ConfigMaps(c.NamespacedName.Namespace).Create(cm)
 	if err != nil && !kerrors.IsAlreadyExists(err) {
 		return errors.Wrapf(err, "failed to create mds configmap %s", c.NamespacedName.Namespace)
@@ -112,10 +110,7 @@ func (c *Cluster) createMdsConfigMap(mdsConfig *mdsConfig) error {
 
 // makeDeployment make mds deployment to run mds daemon
 func (c *Cluster) makeDeployment(nodeName string, nodeIP string, mdsConfig *mdsConfig) (*apps.Deployment, error) {
-	volumes := daemon.DaemonVolumes(config.MdsConfigMapDataKey, config.MdsConfigMapMountPathDir, mdsConfig.DataPathMap, mdsConfig.CurrentConfigMapName)
-
-	// for debug
-	// log.Infof("mdsConfig %+v", mdsConfig)
+	volumes := daemon.DaemonVolumes(config.MdsConfigMapDataKey, mdsConfig.ConfigMapMountPath, mdsConfig.DataPathMap, mdsConfig.CurrentConfigMapName)
 
 	podSpec := v1.PodTemplateSpec{
 		ObjectMeta: metav1.ObjectMeta{
@@ -165,20 +160,27 @@ func (c *Cluster) makeDeployment(nodeName string, nodeIP string, mdsConfig *mdsC
 
 // makeMdsDaemonContainer create mds container
 func (c *Cluster) makeMdsDaemonContainer(nodeIP string, mdsConfig *mdsConfig) v1.Container {
-	configFileMountPath := path.Join(config.MdsConfigMapMountPathDir, config.MdsConfigMapDataKey)
+	var commandLine string
+	if c.Kind == config.KIND_CURVEBS {
+		commandLine = "/curvebs/mds/sbin/curvebs-mds"
+	} else {
+		commandLine = "/curvefs/mds/sbin/curvefs-mds"
+	}
+
+	configFileMountPath := path.Join(mdsConfig.ConfigMapMountPath, config.MdsConfigMapDataKey)
 	argsConfigFileDir := fmt.Sprintf("--confPath=%s", configFileMountPath)
 
 	container := v1.Container{
 		Name: "mds",
 		Command: []string{
-			"/curvebs/mds/sbin/curvebs-mds",
+			commandLine,
 		},
 		Args: []string{
 			argsConfigFileDir,
 		},
 		Image:           c.CurveVersion.Image,
 		ImagePullPolicy: c.CurveVersion.ImagePullPolicy,
-		VolumeMounts:    daemon.DaemonVolumeMounts(config.MdsConfigMapDataKey, config.MdsConfigMapMountPathDir, mdsConfig.DataPathMap, mdsConfig.CurrentConfigMapName),
+		VolumeMounts:    daemon.DaemonVolumeMounts(config.MdsConfigMapDataKey, mdsConfig.ConfigMapMountPath, mdsConfig.DataPathMap, mdsConfig.CurrentConfigMapName),
 		Ports: []v1.ContainerPort{
 			{
 				Name:          "listen-port",
@@ -197,4 +199,13 @@ func (c *Cluster) makeMdsDaemonContainer(nodeIP string, mdsConfig *mdsConfig) v1
 	}
 
 	return container
+}
+
+// getLabels Add labels for mds deployment
+func (c *Cluster) getPodLabels(mdsConfig *mdsConfig) map[string]string {
+	labels := make(map[string]string)
+	labels["app"] = AppName
+	labels["mds"] = mdsConfig.DaemonID
+	labels["curve_cluster"] = c.Namespace
+	return labels
 }

@@ -1,0 +1,199 @@
+
+---
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.2.5
+  creationTimestamp: null
+  name: curvefs.operator.curve.io
+spec:
+  additionalPrinterColumns:
+  - JSONPath: .spec.hostDataDir
+    name: HostDataDir
+    type: string
+  - JSONPath: .spec.curveVersion.image
+    name: Version
+    type: string
+  - JSONPath: .status.phase
+    name: Phase
+    type: string
+  group: operator.curve.io
+  names:
+    kind: Curvefs
+    listKind: CurvefsList
+    plural: curvefs
+    singular: curvefs
+  scope: Namespaced
+  subresources:
+    status: {}
+  validation:
+    openAPIV3Schema:
+      description: Curvefs is the Schema for the curvefsclusters API
+      properties:
+        apiVersion:
+          description: 'APIVersion defines the versioned schema of this representation
+            of an object. Servers should convert recognized schemas to the latest
+            internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+          type: string
+        kind:
+          description: 'Kind is a string value representing the REST resource this
+            object represents. Servers may infer this from the endpoint the client
+            submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+          type: string
+        metadata:
+          type: object
+        spec:
+          description: CurvefsSpec defines the desired state of Curvefs
+          properties:
+            cleanupConfirm:
+              description: Indicates user intent when deleting a cluster; blocks orchestration
+                and should not be set if cluster deletion is not imminent.
+              nullable: true
+              type: string
+            curveVersion:
+              description: CurveVersionSpec represents the settings for the Curve
+                version
+              properties:
+                image:
+                  type: string
+                imagePullPolicy:
+                  description: PullPolicy describes a policy for if/when to pull a
+                    container image
+                  enum:
+                  - IfNotPresent
+                  - Always
+                  - Never
+                  - ""
+                  type: string
+              type: object
+            etcd:
+              description: EtcdSpec is the spec of etcd
+              properties:
+                clientPort:
+                  type: integer
+                config:
+                  additionalProperties:
+                    type: string
+                  type: object
+                peerPort:
+                  type: integer
+              type: object
+            hostDataDir:
+              type: string
+            mds:
+              description: MdsSpec is the spec of mds
+              properties:
+                config:
+                  additionalProperties:
+                    type: string
+                  type: object
+                dummyPort:
+                  type: integer
+                port:
+                  type: integer
+              type: object
+            metaserver:
+              description: MdsSpec is the spec of mds
+              properties:
+                config:
+                  additionalProperties:
+                    type: string
+                  type: object
+                copySets:
+                  type: integer
+                externalPort:
+                  type: integer
+                port:
+                  type: integer
+              type: object
+            nodes:
+              items:
+                type: string
+              type: array
+            snapShotClone:
+              description: SnapShotCloneSpec is the spec of snapshot clone
+              properties:
+                dummyPort:
+                  type: integer
+                enable:
+                  type: boolean
+                port:
+                  type: integer
+                proxyPort:
+                  type: integer
+                s3Config:
+                  description: S3ConfigSpec is the spec of s3 config
+                  properties:
+                    ak:
+                      type: string
+                    bucketName:
+                      type: string
+                    nosAddress:
+                      type: string
+                    sk:
+                      type: string
+                  type: object
+              type: object
+          type: object
+        status:
+          description: CurvefsStatus defines the observed state of Curvefs
+          properties:
+            conditions:
+              description: Condition contains current service state of cluster such
+                as progressing/Ready/Failure...
+              items:
+                properties:
+                  lastTransitionTime:
+                    description: LastTransitionTime specifies last time the condition
+                      transitioned from one status to another.
+                    format: date-time
+                    type: string
+                  message:
+                    description: Message is a human readable message indicating details
+                      about last transition.
+                    type: string
+                  observedGeneration:
+                    description: ObservedGeneration
+                    format: int64
+                    type: integer
+                  reason:
+                    description: Reason is a unique, one-word, CamelCase reason for
+                      the condition's last transition.
+                    type: string
+                  status:
+                    description: Status is the status of condition Can be True, False
+                      or Unknown.
+                    type: string
+                  type:
+                    description: Type is the type of condition.
+                    type: string
+                type: object
+              type: array
+            curveVersion:
+              description: CurveVersion shows curve version info on status field
+              properties:
+                image:
+                  type: string
+              type: object
+            message:
+              description: Message shows summary message of cluster from ClusterState
+                such as 'Curve Cluster Created successfully'
+              type: string
+            phase:
+              description: Phase is a summary of cluster state. It can be translated
+                from the last conditiontype
+              type: string
+          type: object
+      type: object
+  version: v1
+  versions:
+  - name: v1
+    served: true
+    storage: true
+status:
+  acceptedNames:
+    kind: ""
+    plural: ""
+  conditions: []
+  storedVersions: []

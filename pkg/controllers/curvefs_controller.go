@@ -24,7 +24,6 @@ import (
 	"github.com/pkg/errors"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
@@ -37,29 +36,22 @@ import (
 	"github.com/opencurve/curve-operator/pkg/k8sutil"
 )
 
-// ClusterController controls an instance of a Curve Cluster
-type ClusterController struct {
-	context        clusterd.Context
-	namespacedName types.NamespacedName
-	clusterMap     map[string]*daemon.Cluster
-}
-
-// CurveClusterReconciler reconciles a CurveCluster object
-type CurveClusterReconciler struct {
-	Client client.Client
+// CurvefsReconciler reconciles a Curvefs object
+type CurvefsReconciler struct {
+	client.Client
 	Log    logr.Logger
 	Scheme *runtime.Scheme
 
 	ClusterController *ClusterController
 }
 
-func NewCurveClusterReconciler(
+func NewCurvefsReconciler(
 	client client.Client,
 	log logr.Logger,
 	scheme *runtime.Scheme,
 	context clusterd.Context,
-) *CurveClusterReconciler {
-	return &CurveClusterReconciler{
+) *CurvefsReconciler {
+	return &CurvefsReconciler{
 		Client: client,
 		Log:    log,
 		Scheme: scheme,
@@ -70,8 +62,8 @@ func NewCurveClusterReconciler(
 	}
 }
 
-// +kubebuilder:rbac:groups=operator.curve.io,resources=curveclusters,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups=operator.curve.io,resources=curveclusters/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=operator.curve.io,resources=curvefs,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=operator.curve.io,resources=curvefs/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=core,resources=pods,verbs=get;list;watch;delete
 // +kubebuilder:rbac:groups=core,resources=nodes,verbs=get;list;watch;update;patch
 // +kubebuilder:rbac:groups=core,resources=configmaps,verbs=get;list;watch;create;update;patch;delete
@@ -79,44 +71,40 @@ func NewCurveClusterReconciler(
 // +kubebuilder:rbac:groups=apps,resources=deployments,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=batch,resources=jobs,verbs=get;list;watch;create;update;patch;delete
 
-func (r *CurveClusterReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
+func (r *CurvefsReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	ctx := context.Background()
-	log := r.Log.WithValues("curvecluster", req.NamespacedName)
+	log := r.Log.WithValues("curvefscluster", req.NamespacedName)
 
-	log.Info("reconcileing CurveCluster")
+	log.Info("reconcileing CurvefsCluster")
 
 	r.ClusterController.context.Client = r.Client
 	r.ClusterController.namespacedName = req.NamespacedName
 
-	// Fetch the curveCluster instance
-	var curveCluster curvev1.CurveCluster
-	err := r.Client.Get(ctx, req.NamespacedName, &curveCluster)
+	var curvefsCluster curvev1.Curvefs
+	err := r.Client.Get(ctx, req.NamespacedName, &curvefsCluster)
 	if err != nil {
 		if kerrors.IsNotFound(err) {
-			// Arrive it represent the cluster has been delete
-			log.Error(err, "curveCluster resource not found. Ignoring since object must be deleted.")
+			log.Error(err, "curvefs resource not found. Ignoring since object must be deleted.")
 			return reconcile.Result{}, nil
 		}
-		// Error reading the object - requeue the request.
-		return reconcile.Result{}, errors.Wrap(err, "failed to get curveCluster")
+		return reconcile.Result{}, errors.Wrap(err, "failed to get curvefs Cluster")
 	}
 
 	// Set a finalizer so we can do cleanup before the object goes away
-	err = AddFinalizerIfNotPresent(context.Background(), r.Client, &curveCluster)
+	err = AddFinalizerIfNotPresent(context.Background(), r.Client, &curvefsCluster)
 	if err != nil {
 		return reconcile.Result{}, errors.Wrap(err, "failed to add finalizer")
 	}
 
 	// Delete: the CR was deleted
-	if !curveCluster.GetDeletionTimestamp().IsZero() {
-		return r.reconcileDelete(&curveCluster)
+	if !curvefsCluster.GetDeletionTimestamp().IsZero() {
+		return r.reconcileCurvefsDelete(&curvefsCluster)
 	}
 
-	ownerInfo := k8sutil.NewOwnerInfo(&curveCluster, r.Scheme)
-	// reconcileCurveCluster func to run reconcile curve cluster
-	if err := r.ClusterController.reconcileCurveCluster(&curveCluster, ownerInfo); err != nil {
+	ownerInfo := k8sutil.NewOwnerInfo(&curvefsCluster, r.Scheme)
+	if err := r.ClusterController.reconcileCurvefsCluster(&curvefsCluster, ownerInfo); err != nil {
 		k8sutil.UpdateCondition(context.TODO(), &r.ClusterController.context, r.ClusterController.namespacedName, curvev1.ConditionTypeFailure, curvev1.ConditionTrue, curvev1.ConditionReconcileFailed, "Reconcile curvecluster failed")
-		return reconcile.Result{}, errors.Wrapf(err, "failed to reconcile cluster %q", curveCluster.Name)
+		return reconcile.Result{}, errors.Wrapf(err, "failed to reconcile cluster %q", curvefsCluster.Name)
 	}
 
 	k8sutil.UpdateCondition(context.TODO(), &r.ClusterController.context, r.ClusterController.namespacedName, curvev1.ConditionTypeClusterReady, curvev1.ConditionTrue, curvev1.ConditionReconcileSucceeded, "Reconcile curvecluster successed")
@@ -125,40 +113,37 @@ func (r *CurveClusterReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error
 }
 
 // reconcileDelete
-func (r *CurveClusterReconciler) reconcileDelete(curveCluster *curvev1.CurveCluster) (reconcile.Result, error) {
-	log.Log.Info("Delete the cluster CR now", "namespace", curveCluster.ObjectMeta.Name)
+func (r *CurvefsReconciler) reconcileCurvefsDelete(curvefsCluster *curvev1.Curvefs) (reconcile.Result, error) {
+	log.Log.Info("Delete the cluster CR now", "namespace", curvefsCluster.ObjectMeta.Name)
 	k8sutil.UpdateCondition(context.TODO(), &r.ClusterController.context, r.ClusterController.namespacedName, curvev1.ConditionTypeDeleting, curvev1.ConditionTrue, curvev1.ConditionDeletingClusterReason, "Reconcile curvecluster deleting")
 
-	if curveCluster.Spec.CleanupConfirm == "Confirm" || curveCluster.Spec.CleanupConfirm == "confirm" {
-		daemonHosts, _ := k8sutil.GetValidDaemonHosts(r.ClusterController.context, curveCluster)
-		chunkserverHosts, _ := k8sutil.GetValidChunkserverHosts(r.ClusterController.context, curveCluster)
-		nodesForJob := k8sutil.MergeNodesOfDaemonAndChunk(daemonHosts, chunkserverHosts)
-
-		go r.ClusterController.startClusterCleanUp(r.ClusterController.context, curveCluster.Namespace, nodesForJob)
+	daemonHosts, _ := k8sutil.GetValidFSDaemonHosts(r.ClusterController.context, curvefsCluster)
+	if curvefsCluster.Spec.CleanupConfirm == "Confirm" || curvefsCluster.Spec.CleanupConfirm == "confirm" {
+		go r.ClusterController.startClusterCleanUp(r.ClusterController.context, curvefsCluster.Namespace, daemonHosts)
 	}
 
 	// Delete it from clusterMap
-	if _, ok := r.ClusterController.clusterMap[curveCluster.Namespace]; ok {
-		delete(r.ClusterController.clusterMap, curveCluster.Namespace)
+	if _, ok := r.ClusterController.clusterMap[curvefsCluster.Namespace]; ok {
+		delete(r.ClusterController.clusterMap, curvefsCluster.Namespace)
 	}
 	// Remove finalizers
-	err := removeFinalizer(r.Client, r.ClusterController.namespacedName, curveCluster, "")
+	err := removeFinalizer(r.Client, r.ClusterController.namespacedName, curvefsCluster, "")
 	if err != nil {
 		return reconcile.Result{}, errors.Wrap(err, "failed to remove curvecluster cr finalizers")
 	}
 
-	logger.Infof("curve cluster %v deleted", curveCluster.Name)
+	logger.Infof("curve cluster %v deleted", curvefsCluster.Name)
 
 	return reconcile.Result{}, nil
 }
 
 // reconcileCurveCluster
-func (c *ClusterController) reconcileCurveCluster(clusterObj *curvev1.CurveCluster, ownerInfo *k8sutil.OwnerInfo) error {
+func (c *ClusterController) reconcileCurvefsCluster(clusterObj *curvev1.Curvefs, ownerInfo *k8sutil.OwnerInfo) error {
 	// one cr cluster in one namespace is allowed
 	cluster, ok := c.clusterMap[clusterObj.Namespace]
 	if !ok {
 		logger.Info("A new Cluster will be created!!!")
-		cluster = newCluster(config.KIND_CURVEBS, false)
+		cluster = newCluster(config.KIND_CURVEFS, false)
 		// TODO: update cluster spec if the cluster has already exist!
 	} else {
 		logger.Info("Cluster has been exist but need configured but we don't apply it now, you need delete it and recreate it!!!", "namespace", cluster.Namespace)
@@ -177,52 +162,23 @@ func (c *ClusterController) reconcileCurveCluster(clusterObj *curvev1.CurveClust
 	cluster.Etcd = clusterObj.Spec.Etcd
 	cluster.Mds = clusterObj.Spec.Mds
 	cluster.SnapShotClone = clusterObj.Spec.SnapShotClone
-	cluster.Chunkserver = clusterObj.Spec.Storage
+	cluster.Metaserver = clusterObj.Spec.MetaServer
 
 	cluster.HostDataDir = clusterObj.Spec.HostDataDir
 	cluster.DataDirHostPath = path.Join(clusterObj.Spec.HostDataDir, "data")
 	cluster.LogDirHostPath = path.Join(clusterObj.Spec.HostDataDir, "logs")
 	cluster.ConfDirHostPath = path.Join(clusterObj.Spec.HostDataDir, "conf")
+
 	c.clusterMap[cluster.Namespace] = cluster
 
-	log.Log.Info("reconcileing CurveCluster in namespace", "namespace", cluster.Namespace)
+	log.Log.Info("reconcileing Curve FS Cluster in namespace", "namespace", cluster.Namespace)
 
+	// Start the main Curve cluster orchestration
 	return c.initCluster(cluster)
 }
 
-// initCluster initialize cluster info
-func (c *ClusterController) initCluster(cluster *daemon.Cluster) error {
-	err := preClusterStartValidation(cluster)
-	if err != nil {
-		return errors.Wrap(err, "failed to preforem validation before cluster creation")
-	}
-	if cluster.Kind == config.KIND_CURVEBS {
-		err = reconcileCurveDaemons(cluster)
-	} else {
-		err = reconcileCurveFSDaemons(cluster)
-	}
-	if err != nil {
-		return nil
-	}
-
-	return nil
-}
-
-// preClusterStartValidation Cluster Spec validation
-func preClusterStartValidation(cluster *daemon.Cluster) error {
-	// Assert the node num is 3
-	nodesNum := len(cluster.Nodes)
-	if nodesNum < 3 {
-		return errors.Errorf("nodes count shoule at least 3, cannot start cluster %d", len(cluster.Nodes))
-	} else if nodesNum > 3 {
-		return errors.Errorf("nodes count more than 3, cannot start cluster temporary %d", len(cluster.Nodes))
-	}
-
-	return nil
-}
-
-func (r *CurveClusterReconciler) SetupWithManager(mgr ctrl.Manager) error {
+func (r *CurvefsReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&curvev1.CurveCluster{}).
+		For(&curvev1.Curvefs{}).
 		Complete(r)
 }

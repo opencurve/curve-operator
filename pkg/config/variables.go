@@ -48,9 +48,6 @@ const (
 
 //nolint:unused
 const (
-	KIND_CURVEBS = "curvebs"
-	KIND_CURVEFS = "curvefs"
-
 	ROLE_ETCD          = "etcd"
 	ROLE_MDS           = "mds"
 	ROLE_CHUNKSERVER   = "chunkserver"
@@ -82,6 +79,7 @@ type ConfigInterface interface {
 	GetClusterMdsDummyAddr() string
 	GetClusterMdsDummyPort() string
 	GetClusterChunkserverAddr() string
+	GetClusterMetaserverAddr() string
 	GetClusterSnapshotcloneAddr() string
 	GetClusterSnapshotcloneProxyAddr() string
 	GetClusterSnapshotcloneDummyPort() string
@@ -134,6 +132,8 @@ func getValue(name string, dc ConfigInterface) string {
 		return dc.GetClusterMdsDummyPort()
 	case "cluster_chunkserver_addr":
 		return dc.GetClusterChunkserverAddr()
+	case "cluster_metaserver_addr":
+		return dc.GetClusterMetaserverAddr()
 	case "cluster_snapshotclone_addr":
 		return dc.GetClusterSnapshotcloneAddr()
 	case "cluster_snapshotclone_proxy_addr":
@@ -155,8 +155,6 @@ func ReplaceConfigVars(confStr string, c ConfigInterface) (string, error) {
 	}
 
 	matches := r.ReplaceAllStringFunc(confStr, func(keyName string) string {
-		// for debug
-		// logger.Info(keyName)
 		return getValue(keyName[2:len(keyName)-1], c)
 	})
 
