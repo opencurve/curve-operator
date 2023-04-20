@@ -6,6 +6,6 @@ func (c *Cluster) getPodLabels(etcdConfig *etcdConfig) map[string]string {
 		"app":             AppName,
 		"etcd":            etcdConfig.DaemonID,
 		"curve_daemon_id": etcdConfig.DaemonID,
-		"curve_cluster":   c.namespacedName.Namespace,
+		"curve_cluster":   c.NamespacedName.Namespace,
 	}
 }

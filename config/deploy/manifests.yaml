@@ -3,7 +3,7 @@ kind: Namespace
 metadata:
   labels:
     control-plane: curve-operator
-  name: curvebs
+  name: curve
 ---
 apiVersion: apiextensions.k8s.io/v1beta1
 kind: CustomResourceDefinition
@@ -239,13 +239,13 @@ apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: curve-operator
-  namespace: curvebs
+  namespace: curve
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
   name: leader-election-role
-  namespace: curvebs
+  namespace: curve
 rules:
 - apiGroups:
   - ""
@@ -371,7 +371,7 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
   name: leader-election-rolebinding
-  namespace: curvebs
+  namespace: curve
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role
@@ -379,7 +379,7 @@ roleRef:
 subjects:
 - kind: ServiceAccount
   name: default
-  namespace: curvebs
+  namespace: curve
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
@@ -392,7 +392,7 @@ roleRef:
 subjects:
 - kind: ServiceAccount
   name: curve-operator
-  namespace: curvebs
+  namespace: curve
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -401,7 +401,7 @@ metadata:
     control-plane: curve-operator
     curve: operator
   name: curve-operator
-  namespace: curvebs
+  namespace: curve
 spec:
   replicas: 1
   selector:

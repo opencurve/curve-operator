@@ -8,6 +8,7 @@ import (
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"github.com/opencurve/curve-operator/pkg/daemon"
 	"github.com/opencurve/curve-operator/pkg/k8sutil"
 )
 
@@ -18,16 +19,16 @@ const (
 )
 
 // makeReadConfJob
-func (c *cluster) makeReadConfJob() (*batch.Job, error) {
+func makeReadConfJob(c *daemon.Cluster) (*batch.Job, error) {
 	var nodeName string
-	pods, err := c.context.Clientset.CoreV1().Pods(c.NameSpace).List(metav1.ListOptions{
+	pods, err := c.Context.Clientset.CoreV1().Pods(c.Namespace).List(metav1.ListOptions{
 		LabelSelector: "curve=operator",
 	})
 	if err != nil || len(pods.Items) != 1 {
 		logger.Error("failed to get pod information by curve=operator label")
 		// return &batch.Job{}, errors.Wrap(err, "failed to get curve-operator pod information")
 		// for test, it will not appear because the operator must be dispatched to a certain ground
-		nodeName = c.Spec.Nodes[0]
+		nodeName = c.Nodes[0]
 	} else {
 		nodeName = pods.Items[0].Spec.NodeName
 	}
@@ -36,18 +37,18 @@ func (c *cluster) makeReadConfJob() (*batch.Job, error) {
 	podSpec := v1.PodTemplateSpec{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:   ReadConfigJobName,
-			Labels: c.getReadConfigJobLabel(),
+			Labels: getReadConfigJobLabel(c),
 		},
 		Spec: v1.PodSpec{
 			Containers: []v1.Container{
-				c.makeReadConfContainer(),
+				makeReadConfContainer(c),
 			},
 			// for test set
 			NodeName:      nodeName,
 			RestartPolicy: v1.RestartPolicyOnFailure,
 			HostNetwork:   true,
 			DNSPolicy:     v1.DNSClusterFirstWithHostNet,
-			Volumes:       c.makeConfigHostPathVolume(),
+			Volumes:       makeConfigHostPathVolume(c),
 		},
 	}
 
@@ -55,7 +56,7 @@ func (c *cluster) makeReadConfJob() (*batch.Job, error) {
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      ReadConfigJobName,
 			Namespace: c.NamespacedName.Namespace,
-			Labels:    c.getReadConfigJobLabel(),
+			Labels:    getReadConfigJobLabel(c),
 		},
 		Spec: batch.JobSpec{
 			Template: podSpec,
@@ -63,12 +64,12 @@ func (c *cluster) makeReadConfJob() (*batch.Job, error) {
 	}
 
 	// set ownerReference
-	err = c.ownerInfo.SetControllerReference(job)
+	err = c.OwnerInfo.SetControllerReference(job)
 	if err != nil {
 		return &batch.Job{}, errors.Wrapf(err, "failed to set owner reference to %q job", job.GetName())
 	}
 
-	err = k8sutil.RunReplaceableJob(context.TODO(), c.context.Clientset, job, true)
+	err = k8sutil.RunReplaceableJob(context.TODO(), c.Context.Clientset, job, true)
 	if err != nil {
 		return &batch.Job{}, errors.Wrapf(err, "failed to run read config job %s", job.GetName())
 	}
@@ -77,7 +78,7 @@ func (c *cluster) makeReadConfJob() (*batch.Job, error) {
 	return job, nil
 }
 
-func (c *cluster) makeReadConfContainer() v1.Container {
+func makeReadConfContainer(c *daemon.Cluster) v1.Container {
 	container := v1.Container{
 		Name: "readconfig",
 		Args: []string{
@@ -87,29 +88,29 @@ func (c *cluster) makeReadConfContainer() v1.Container {
 		Command: []string{
 			"/bin/bash",
 		},
-		Image:           c.Spec.CurveVersion.Image,
-		ImagePullPolicy: c.Spec.CurveVersion.ImagePullPolicy,
-		VolumeMounts:    c.makeConfigVolumeMount(),
+		Image:           c.CurveVersion.Image,
+		ImagePullPolicy: c.CurveVersion.ImagePullPolicy,
+		VolumeMounts:    makeConfigVolumeMount(c),
 	}
 
 	return container
 }
 
-func (c *cluster) makeConfigHostPathVolume() []v1.Volume {
+func makeConfigHostPathVolume(c *daemon.Cluster) []v1.Volume {
 	vols := []v1.Volume{}
 	hostPathType := v1.HostPathDirectoryOrCreate
-	src := v1.VolumeSource{HostPath: &v1.HostPathVolumeSource{Path: c.confDirHostPath, Type: &hostPathType}}
+	src := v1.VolumeSource{HostPath: &v1.HostPathVolumeSource{Path: c.ConfDirHostPath, Type: &hostPathType}}
 	vols = append(vols, v1.Volume{Name: ReadConfigVolumeName, VolumeSource: src})
 	return vols
 }
 
-func (c *cluster) makeConfigVolumeMount() []v1.VolumeMount {
+func makeConfigVolumeMount(c *daemon.Cluster) []v1.VolumeMount {
 	mounts := []v1.VolumeMount{}
 	mounts = append(mounts, v1.VolumeMount{Name: ReadConfigVolumeName, MountPath: ConfigMountPath})
 	return mounts
 }
 
-func (c *cluster) getReadConfigJobLabel() map[string]string {
+func getReadConfigJobLabel(c *daemon.Cluster) map[string]string {
 	labels := make(map[string]string)
 	labels["app"] = ReadConfigJobName
 	return labels

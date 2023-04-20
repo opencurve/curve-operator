@@ -6,6 +6,6 @@ func (c *Cluster) getPodLabels(mdsConfig *mdsConfig) map[string]string {
 	labels["app"] = AppName
 	labels["mds"] = mdsConfig.DaemonID
 	labels["curve_daemon_id"] = mdsConfig.DaemonID
-	labels["curve_cluster"] = c.namespacedName.Namespace
+	labels["curve_cluster"] = c.NamespacedName.Namespace
 	return labels
 }

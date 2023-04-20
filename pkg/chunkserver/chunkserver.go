@@ -6,10 +6,9 @@ import (
 
 	"github.com/coreos/pkg/capnslog"
 	"github.com/pkg/errors"
-	"k8s.io/apimachinery/pkg/types"
 
 	curvev1 "github.com/opencurve/curve-operator/api/v1"
-	"github.com/opencurve/curve-operator/pkg/clusterd"
+	"github.com/opencurve/curve-operator/pkg/daemon"
 	"github.com/opencurve/curve-operator/pkg/k8sutil"
 )
 
@@ -29,44 +28,24 @@ const (
 )
 
 type Cluster struct {
-	context         clusterd.Context
-	namespacedName  types.NamespacedName
-	spec            curvev1.CurveClusterSpec
-	dataDirHostPath string
-	logDirHostPath  string
-	confDirHostPath string
-	ownerInfo       *k8sutil.OwnerInfo
+	*daemon.Cluster
 }
 
 var logger = capnslog.NewPackageLogger("github.com/opencurve/curve-operator", "chunkserver")
 
-func New(context clusterd.Context,
-	namespacedName types.NamespacedName,
-	spec curvev1.CurveClusterSpec,
-	ownerInfo *k8sutil.OwnerInfo,
-	dataDirHostPath string,
-	logDirHostPath string,
-	confDirHostPath string) *Cluster {
-	return &Cluster{
-		context:         context,
-		namespacedName:  namespacedName,
-		spec:            spec,
-		dataDirHostPath: dataDirHostPath,
-		logDirHostPath:  logDirHostPath,
-		confDirHostPath: confDirHostPath,
-		ownerInfo:       ownerInfo,
-	}
+func New(c *daemon.Cluster) *Cluster {
+	return &Cluster{Cluster: c}
 }
 
 // Start begins the chunkserver daemon
 func (c *Cluster) Start(nodeNameIP map[string]string) error {
-	logger.Infof("start running chunkserver in namespace %q", c.namespacedName.Namespace)
+	logger.Infof("start running chunkserver in namespace %q", c.NamespacedName.Namespace)
 
-	if !c.spec.Storage.UseSelectedNodes && (len(c.spec.Storage.Nodes) == 0 || len(c.spec.Storage.Devices) == 0) {
+	if !c.Chunkserver.UseSelectedNodes && (len(c.Chunkserver.Nodes) == 0 || len(c.Chunkserver.Devices) == 0) {
 		return errors.New("useSelectedNodes is set to false but no node specified")
 	}
 
-	if c.spec.Storage.UseSelectedNodes && len(c.spec.Storage.SelectedNodes) == 0 {
+	if c.Chunkserver.UseSelectedNodes && len(c.Chunkserver.SelectedNodes) == 0 {
 		return errors.New("useSelectedNodes is set to false but selectedNodes not be specified")
 	}
 
@@ -79,7 +58,7 @@ func (c *Cluster) Start(nodeNameIP map[string]string) error {
 	}
 
 	// 2. wait all job finish to complete format and wait MDS election success.
-	k8sutil.UpdateCondition(context.TODO(), &c.context, c.namespacedName, curvev1.ConditionTypeFormatedReady, curvev1.ConditionTrue, curvev1.ConditionFormatingChunkfilePoolReason, "Formating chunkfilepool")
+	k8sutil.UpdateCondition(context.TODO(), &c.Context, c.NamespacedName, curvev1.ConditionTypeFormatedReady, curvev1.ConditionTrue, curvev1.ConditionFormatingChunkfilePoolReason, "Formating chunkfilepool")
 	oneMinuteTicker := time.NewTicker(20 * time.Second)
 	defer oneMinuteTicker.Stop()
 
@@ -94,7 +73,7 @@ func (c *Cluster) Start(nodeNameIP map[string]string) error {
 		// TODO: delete all jobs that has created.
 		return errors.New("Format job is not completed in 24 hours and exit with -1")
 	}
-	k8sutil.UpdateCondition(context.TODO(), &c.context, c.namespacedName, curvev1.ConditionTypeFormatedReady, curvev1.ConditionTrue, curvev1.ConditionFormatChunkfilePoolReason, "Formating chunkfilepool successed")
+	k8sutil.UpdateCondition(context.TODO(), &c.Context, c.NamespacedName, curvev1.ConditionTypeFormatedReady, curvev1.ConditionTrue, curvev1.ConditionFormatChunkfilePoolReason, "Formating chunkfilepool successed")
 
 	logger.Info("all jobs run completed in 24 hours")
 
@@ -122,7 +101,7 @@ func (c *Cluster) Start(nodeNameIP map[string]string) error {
 	}
 	logger.Info("create logical pool successed")
 
-	k8sutil.UpdateCondition(context.TODO(), &c.context, c.namespacedName, curvev1.ConditionTypeChunkServerReady, curvev1.ConditionTrue, curvev1.ConditionChunkServerClusterCreatedReason, "Chunkserver cluster has been created")
+	k8sutil.UpdateCondition(context.TODO(), &c.Context, c.NamespacedName, curvev1.ConditionTypeChunkServerReady, curvev1.ConditionTrue, curvev1.ConditionChunkServerClusterCreatedReason, "Chunkserver cluster has been created")
 
 	return nil
 }

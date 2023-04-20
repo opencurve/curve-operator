@@ -20,10 +20,10 @@ import (
 var logger = capnslog.NewPackageLogger("github.com/opencurve/curve-operator", "k8sutil")
 
 // getNodeInfoMap get node ip by node name that user specified and return a mapping of nodeName:nodeIP
-func GetNodeInfoMap(c *curvev1.CurveClusterSpec, clientset kubernetes.Interface) (map[string]string, error) {
+func GetNodeInfoMap(nodes []string, clientset kubernetes.Interface) (map[string]string, error) {
 	nodeNameIP := make(map[string]string)
 
-	for _, nodeName := range c.Nodes {
+	for _, nodeName := range nodes {
 		n, err := clientset.CoreV1().Nodes().Get(nodeName, metav1.GetOptions{})
 		if err != nil {
 			return nil, errors.Wrapf(err, "failed to find node %s from cluster", nodeName)

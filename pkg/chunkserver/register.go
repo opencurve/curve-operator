@@ -40,7 +40,7 @@ func (c *Cluster) runCreatePoolJob(nodeNameIP map[string]string, poolType string
 	}
 
 	// check whether job is exist
-	existingJob, err := c.context.Clientset.BatchV1().Jobs(job.Namespace).Get(job.Name, metav1.GetOptions{})
+	existingJob, err := c.Context.Clientset.BatchV1().Jobs(job.Namespace).Get(job.Name, metav1.GetOptions{})
 	if err != nil && !kerrors.IsNotFound(err) {
 		logger.Warningf("failed to detect job %s. %+v", job.Name, err)
 	} else if err == nil {
@@ -52,7 +52,7 @@ func (c *Cluster) runCreatePoolJob(nodeNameIP map[string]string, poolType string
 	}
 
 	// job is not found or job is not active status, so create or recreate it here
-	_, err = c.context.Clientset.BatchV1().Jobs(job.Namespace).Create(job)
+	_, err = c.Context.Clientset.BatchV1().Jobs(job.Namespace).Create(job)
 
 	logger.Infof("creaded job to generate %s", poolType)
 
@@ -82,7 +82,7 @@ func (c *Cluster) makeCreatePoolJob(poolType string, jobName string) (*batch.Job
 	job := &batch.Job{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      jobName,
-			Namespace: c.namespacedName.Namespace,
+			Namespace: c.NamespacedName.Namespace,
 			Labels:    c.getRegisterJobLabel(poolType),
 		},
 		Spec: batch.JobSpec{
@@ -91,7 +91,7 @@ func (c *Cluster) makeCreatePoolJob(poolType string, jobName string) (*batch.Job
 	}
 
 	// set ownerReference
-	err := c.ownerInfo.SetControllerReference(job)
+	err := c.OwnerInfo.SetControllerReference(job)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to set owner reference to mon deployment %q", job.Name)
 	}
@@ -127,8 +127,8 @@ func (c *Cluster) makeCreatePoolContainer(poolType string, mounts []v1.VolumeMou
 			"/curvebs/tools/sbin/curvebs-tool",
 			// "/bin/sh",
 		},
-		Image:           c.spec.CurveVersion.Image,
-		ImagePullPolicy: c.spec.CurveVersion.ImagePullPolicy,
+		Image:           c.CurveVersion.Image,
+		ImagePullPolicy: c.CurveVersion.ImagePullPolicy,
 		VolumeMounts:    mounts,
 		SecurityContext: &v1.SecurityContext{
 			Privileged:             &privileged,
@@ -153,20 +153,20 @@ func (c *Cluster) createTopoConfigMap() error {
 	cm := &v1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      config.TopoJsonConfigMapName,
-			Namespace: c.namespacedName.Namespace,
+			Namespace: c.NamespacedName.Namespace,
 		},
 		Data: topoConfigMap,
 	}
 
-	err := c.ownerInfo.SetControllerReference(cm)
+	err := c.OwnerInfo.SetControllerReference(cm)
 	if err != nil {
 		return errors.Wrapf(err, "failed to set owner reference to topology.json configmap %q", config.TopoJsonConfigMapName)
 	}
 
 	// Create topology-json-conf configmap in cluster
-	_, err = c.context.Clientset.CoreV1().ConfigMaps(c.namespacedName.Namespace).Create(cm)
+	_, err = c.Context.Clientset.CoreV1().ConfigMaps(c.NamespacedName.Namespace).Create(cm)
 	if err != nil && !kerrors.IsAlreadyExists(err) {
-		return errors.Wrapf(err, "failed to create topology-json-conf configmap in namespace %s", c.namespacedName.Namespace)
+		return errors.Wrapf(err, "failed to create topology-json-conf configmap in namespace %s", c.NamespacedName.Namespace)
 	}
 	return nil
 }
@@ -174,7 +174,7 @@ func (c *Cluster) createTopoConfigMap() error {
 // create tools.conf configmap
 func (c *Cluster) createToolConfigMap(nodeNameIP map[string]string) error {
 	// 1. get mds-conf-template from cluster
-	toolsCMTemplate, err := c.context.Clientset.CoreV1().ConfigMaps(c.namespacedName.Namespace).Get(config.ToolsConfigMapTemp, metav1.GetOptions{})
+	toolsCMTemplate, err := c.Context.Clientset.CoreV1().ConfigMaps(c.NamespacedName.Namespace).Get(config.ToolsConfigMapTemp, metav1.GetOptions{})
 	if err != nil {
 		logger.Errorf("failed to get configmap %s from cluster", config.ToolsConfigMapTemp)
 		if kerrors.IsNotFound(err) {
@@ -195,20 +195,20 @@ func (c *Cluster) createToolConfigMap(nodeNameIP map[string]string) error {
 	cm := &v1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      config.ToolsConfigMapName,
-			Namespace: c.namespacedName.Namespace,
+			Namespace: c.NamespacedName.Namespace,
 		},
 		Data: toolConfigMap,
 	}
 
-	err = c.ownerInfo.SetControllerReference(cm)
+	err = c.OwnerInfo.SetControllerReference(cm)
 	if err != nil {
 		return errors.Wrapf(err, "failed to set owner reference to tools.conf configmap %q", config.ToolsConfigMapName)
 	}
 
 	// Create topology-json-conf configmap in cluster
-	_, err = c.context.Clientset.CoreV1().ConfigMaps(c.namespacedName.Namespace).Create(cm)
+	_, err = c.Context.Clientset.CoreV1().ConfigMaps(c.NamespacedName.Namespace).Create(cm)
 	if err != nil && !kerrors.IsAlreadyExists(err) {
-		return errors.Wrapf(err, "failed to create tools-conf configmap in namespace %s", c.namespacedName.Namespace)
+		return errors.Wrapf(err, "failed to create tools-conf configmap in namespace %s", c.NamespacedName.Namespace)
 	}
 
 	return nil

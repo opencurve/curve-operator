@@ -10,11 +10,10 @@ import (
 	"github.com/coreos/pkg/capnslog"
 	"github.com/pkg/errors"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/types"
 
 	curvev1 "github.com/opencurve/curve-operator/api/v1"
-	"github.com/opencurve/curve-operator/pkg/clusterd"
 	"github.com/opencurve/curve-operator/pkg/config"
+	"github.com/opencurve/curve-operator/pkg/daemon"
 	"github.com/opencurve/curve-operator/pkg/k8sutil"
 )
 
@@ -29,27 +28,13 @@ const (
 )
 
 type Cluster struct {
-	context         clusterd.Context
-	namespacedName  types.NamespacedName
-	spec            curvev1.CurveClusterSpec
-	dataDirHostPath string
-	logDirHostPath  string
-	confDirHostPath string
-	ownerInfo       *k8sutil.OwnerInfo
+	*daemon.Cluster
 }
 
 var logger = capnslog.NewPackageLogger("github.com/opencurve/curve-operator", "etcd")
 
-func New(context clusterd.Context, namespacedName types.NamespacedName, spec curvev1.CurveClusterSpec, ownerInfo *k8sutil.OwnerInfo, dataDirHostPath, logDirHostPath, confDirHostPath string) *Cluster {
-	return &Cluster{
-		context:         context,
-		namespacedName:  namespacedName,
-		spec:            spec,
-		ownerInfo:       ownerInfo,
-		dataDirHostPath: dataDirHostPath,
-		logDirHostPath:  logDirHostPath,
-		confDirHostPath: confDirHostPath,
-	}
+func New(c *daemon.Cluster) *Cluster {
+	return &Cluster{Cluster: c}
 }
 
 // Start begins the process of running a cluster of curve etcds.
@@ -58,8 +43,8 @@ func (c *Cluster) Start(nodeNameIP map[string]string) error {
 	var clusterEtcdAddr string
 
 	for _, ipAddr := range nodeNameIP {
-		etcdEndpoints = fmt.Sprint(etcdEndpoints, ipAddr, ":", c.spec.Etcd.PeerPort, ",")
-		clusterEtcdAddr = fmt.Sprint(clusterEtcdAddr, ipAddr, ":", c.spec.Etcd.ClientPort, ",")
+		etcdEndpoints = fmt.Sprint(etcdEndpoints, ipAddr, ":", c.Etcd.PeerPort, ",")
+		clusterEtcdAddr = fmt.Sprint(clusterEtcdAddr, ipAddr, ":", c.Etcd.ClientPort, ",")
 	}
 	etcdEndpoints = strings.TrimRight(etcdEndpoints, ",")
 	clusterEtcdAddr = strings.TrimRight(clusterEtcdAddr, ",")
@@ -76,7 +61,7 @@ func (c *Cluster) Start(nodeNameIP map[string]string) error {
 	// - node2  - curve-etcd-b
 	// - node3 - curve-etcd-c
 	nodeNamesOrdered := make([]string, 0)
-	for _, n := range c.spec.Nodes {
+	for _, n := range c.Nodes {
 		for nodeName := range nodeNameIP {
 			if n == nodeName {
 				nodeNamesOrdered = append(nodeNamesOrdered, nodeName)
@@ -92,7 +77,7 @@ func (c *Cluster) Start(nodeNameIP map[string]string) error {
 	hostId := 0
 	var initial_cluster string
 	for _, nodeName := range nodeNamesOrdered {
-		initial_cluster = fmt.Sprint(initial_cluster, "etcd", strconv.Itoa(hostId), "0", "=http://", nodeNameIP[nodeName], ":", c.spec.Etcd.PeerPort, ",")
+		initial_cluster = fmt.Sprint(initial_cluster, "etcd", strconv.Itoa(hostId), "0", "=http://", nodeNameIP[nodeName], ":", c.Etcd.PeerPort, ",")
 		hostId++
 	}
 	initial_cluster = strings.TrimRight(initial_cluster, ",")
@@ -111,16 +96,16 @@ func (c *Cluster) Start(nodeNameIP map[string]string) error {
 			ServiceHostSequence:    strconv.Itoa(daemonID),
 			ServiceReplicaSequence: strconv.Itoa(replicasSequence),
 			ServiceAddr:            nodeNameIP[nodeName],
-			ServicePort:            strconv.Itoa(c.spec.Etcd.PeerPort),
-			ServiceClientPort:      strconv.Itoa(c.spec.Etcd.ClientPort),
+			ServicePort:            strconv.Itoa(c.Etcd.PeerPort),
+			ServiceClientPort:      strconv.Itoa(c.Etcd.ClientPort),
 			ClusterEtcdHttpAddr:    initial_cluster,
 
 			DaemonID:             daemonIDString,
 			CurrentConfigMapName: currentConfigMapName,
 			ResourceName:         resourceName,
 			DataPathMap: config.NewDaemonDataPathMap(
-				path.Join(c.dataDirHostPath, fmt.Sprint("etcd-", daemonIDString)),
-				path.Join(c.logDirHostPath, fmt.Sprint("etcd-", daemonIDString)),
+				path.Join(c.DataDirHostPath, fmt.Sprint("etcd-", daemonIDString)),
+				path.Join(c.LogDirHostPath, fmt.Sprint("etcd-", daemonIDString)),
 				ContainerDataDir,
 				ContainerLogDir,
 			),
@@ -142,7 +127,7 @@ func (c *Cluster) Start(nodeNameIP map[string]string) error {
 			return errors.Wrap(err, "failed to create etcd Deployment")
 		}
 
-		newDeployment, err := c.context.Clientset.AppsV1().Deployments(c.namespacedName.Namespace).Create(d)
+		newDeployment, err := c.Context.Clientset.AppsV1().Deployments(c.NamespacedName.Namespace).Create(d)
 		if err != nil {
 			if !kerrors.IsAlreadyExists(err) {
 				return errors.Wrapf(err, "failed to create etcd deployment %s", resourceName)
@@ -161,7 +146,7 @@ func (c *Cluster) Start(nodeNameIP map[string]string) error {
 		// update condition type and phase etc.
 	}
 
-	k8sutil.UpdateCondition(context.TODO(), &c.context, c.namespacedName, curvev1.ConditionTypeEtcdReady, curvev1.ConditionTrue, curvev1.ConditionEtcdClusterCreatedReason, "Etcd cluster has been created")
+	k8sutil.UpdateCondition(context.TODO(), &c.Context, c.NamespacedName, curvev1.ConditionTypeEtcdReady, curvev1.ConditionTrue, curvev1.ConditionEtcdClusterCreatedReason, "Etcd cluster has been created")
 
 	return nil
 }

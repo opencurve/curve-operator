@@ -4,7 +4,7 @@ metadata:
   name: my-cluster
   # The namespace to deploy CurveBS cluster. 
   # Curve operator is deployed in this namespace,Do not modify if not necessary
-  namespace: curvebs
+  namespace: curve
 spec:
   # The container image used to launch the Curve daemon pods(etcd, mds, chunkserver, snapshotclone).
   # v1.2 is Pacific and v1.3 is not tested.

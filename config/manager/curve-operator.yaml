@@ -3,19 +3,19 @@ kind: Namespace
 metadata:
   labels:
     control-plane: curve-operator
-  name: curvebs
+  name: curve
 ---
 apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: curve-operator
-  namespace: curvebs
+  namespace: curve
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: curve-operator
-  namespace: curvebs
+  namespace: curve
   labels:
     control-plane: curve-operator
     curve: operator

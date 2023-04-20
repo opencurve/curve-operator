@@ -127,8 +127,8 @@ func (c *Cluster) createLogicalPool(logicalPool string) (LogicalPool, []Server) 
 
 	// ensure the number of copysets on one node
 	copysetsPerChunkserver := DEFAULT_CHUNKSERVER_COPYSETS
-	if c.spec.Storage.CopySets != 0 {
-		copysetsPerChunkserver = c.spec.Storage.CopySets
+	if c.Chunkserver.CopySets != 0 {
+		copysetsPerChunkserver = c.Chunkserver.CopySets
 	}
 	// !important
 	SortDeployConfigs()

@@ -11,12 +11,13 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/opencurve/curve-operator/pkg/config"
+	"github.com/opencurve/curve-operator/pkg/daemon"
 	"github.com/opencurve/curve-operator/pkg/k8sutil"
 )
 
 // createEachConfigMap
-func (c *cluster) createEachConfigMap() error {
-	configHostPath := c.confDirHostPath
+func createEachConfigMap(c *daemon.Cluster) error {
+	configHostPath := c.ConfDirHostPath
 	rd, err := ioutil.ReadDir(configHostPath)
 	if err != nil {
 		return errors.Wrapf(err, "failed to read dir %s", configHostPath)
@@ -88,7 +89,7 @@ func (c *cluster) createEachConfigMap() error {
 		}
 
 		// create configmap for each one configmap
-		err = c.createConfigMap(configMapName, name, data, delimiter)
+		err = createConfigMap(c, configMapName, name, data, delimiter)
 		if err != nil {
 			return err
 		}
@@ -97,7 +98,7 @@ func (c *cluster) createEachConfigMap() error {
 }
 
 // createConfigMap create configmap template
-func (c *cluster) createConfigMap(configMapName string, configMapDataKey string, data map[string]string, delimiter string) error {
+func createConfigMap(c *daemon.Cluster, configMapName string, configMapDataKey string, data map[string]string, delimiter string) error {
 	var configMapVal string
 	configMapData := make(map[string]string)
 	if configMapDataKey != "s3.conf" && configMapDataKey != "chunkserver.conf" {
@@ -129,7 +130,7 @@ func (c *cluster) createConfigMap(configMapName string, configMapDataKey string,
 		Data: configMapData,
 	}
 
-	err := c.ownerInfo.SetControllerReference(cm)
+	err := c.OwnerInfo.SetControllerReference(cm)
 	if err != nil {
 		return errors.Wrapf(err, "failed to set owner reference to configmap %q", configMapName)
 	}
@@ -138,7 +139,7 @@ func (c *cluster) createConfigMap(configMapName string, configMapDataKey string,
 	// log.Infof("namespace=%v", c.namespacedName.Namespace)
 
 	// create configmap in cluster
-	_, err = c.context.Clientset.CoreV1().ConfigMaps(c.NamespacedName.Namespace).Create(cm)
+	_, err = c.Context.Clientset.CoreV1().ConfigMaps(c.NamespacedName.Namespace).Create(cm)
 	if err != nil && !kerrors.IsAlreadyExists(err) {
 		return errors.Wrapf(err, "failed to create configmap %s", configMapName)
 	}

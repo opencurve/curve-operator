@@ -19,7 +19,7 @@ import (
 func (c *Cluster) createOverrideMdsCM(nodeNameIP map[string]string) error {
 	var mds_endpoints string
 	for _, ipAddr := range nodeNameIP {
-		mds_endpoints = fmt.Sprint(mds_endpoints, ipAddr, ":", c.spec.Mds.Port, ",")
+		mds_endpoints = fmt.Sprint(mds_endpoints, ipAddr, ":", c.Mds.Port, ",")
 	}
 	mds_endpoints = strings.TrimRight(mds_endpoints, ",")
 
@@ -32,25 +32,25 @@ func (c *Cluster) createOverrideMdsCM(nodeNameIP map[string]string) error {
 	mdsOverrideCM := &v1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      config.MdsOverrideConfigMapName,
-			Namespace: c.namespacedName.Namespace,
+			Namespace: c.NamespacedName.Namespace,
 		},
 		Data: mdsConfigMapData,
 	}
 
-	err := c.ownerInfo.SetControllerReference(mdsOverrideCM)
+	err := c.OwnerInfo.SetControllerReference(mdsOverrideCM)
 	if err != nil {
 		return errors.Wrapf(err, "failed to set owner reference to mds override configmap %q", config.MdsOverrideConfigMapName)
 	}
 
-	_, err = c.context.Clientset.CoreV1().ConfigMaps(c.namespacedName.Namespace).Create(mdsOverrideCM)
+	_, err = c.Context.Clientset.CoreV1().ConfigMaps(c.NamespacedName.Namespace).Create(mdsOverrideCM)
 	if err != nil {
 		if !kerrors.IsAlreadyExists(err) {
-			return errors.Wrapf(err, "failed to create override configmap %s", c.namespacedName.Namespace)
+			return errors.Wrapf(err, "failed to create override configmap %s", c.NamespacedName.Namespace)
 		}
 		logger.Infof("ConfigMap for override mds endpoints %s already exists. updating if needed", config.MdsOverrideConfigMapName)
 
 		// TODO:Update the daemon Deployment
-		// if err := updateDeploymentAndWait(c.context, c.clusterInfo, d, config.MgrType, mgrConfig.DaemonID, c.spec.SkipUpgradeChecks, false); err != nil {
+		// if err := updateDeploymentAndWait(c.Context, c.clusterInfo, d, config.MgrType, mgrConfig.DaemonID, c.spec.SkipUpgradeChecks, false); err != nil {
 		// 	logger.Errorf("failed to update mgr deployment %q. %v", resourceName, err)
 		// }
 	} else {
@@ -63,7 +63,7 @@ func (c *Cluster) createOverrideMdsCM(nodeNameIP map[string]string) error {
 // createConfigMap create mds configmap for mds server
 func (c *Cluster) createMdsConfigMap(mdsConfig *mdsConfig) error {
 	// 1. get mds-conf-template from cluster
-	mdsCMTemplate, err := c.context.Clientset.CoreV1().ConfigMaps(c.namespacedName.Namespace).Get(config.MdsConfigMapTemp, metav1.GetOptions{})
+	mdsCMTemplate, err := c.Context.Clientset.CoreV1().ConfigMaps(c.NamespacedName.Namespace).Get(config.MdsConfigMapTemp, metav1.GetOptions{})
 	if err != nil {
 		logger.Errorf("failed to get configmap %s from cluster", config.MdsConfigMapTemp)
 		if kerrors.IsNotFound(err) {
@@ -91,20 +91,20 @@ func (c *Cluster) createMdsConfigMap(mdsConfig *mdsConfig) error {
 	cm := &v1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      mdsConfig.CurrentConfigMapName,
-			Namespace: c.namespacedName.Namespace,
+			Namespace: c.NamespacedName.Namespace,
 		},
 		Data: mdsConfigMapData,
 	}
 
-	err = c.ownerInfo.SetControllerReference(cm)
+	err = c.OwnerInfo.SetControllerReference(cm)
 	if err != nil {
 		return errors.Wrapf(err, "failed to set owner reference to mds configmap %q", config.MdsConfigMapName)
 	}
 
 	// 5. create mds configmap in cluster
-	_, err = c.context.Clientset.CoreV1().ConfigMaps(c.namespacedName.Namespace).Create(cm)
+	_, err = c.Context.Clientset.CoreV1().ConfigMaps(c.NamespacedName.Namespace).Create(cm)
 	if err != nil && !kerrors.IsAlreadyExists(err) {
-		return errors.Wrapf(err, "failed to create mds configmap %s", c.namespacedName.Namespace)
+		return errors.Wrapf(err, "failed to create mds configmap %s", c.NamespacedName.Namespace)
 	}
 
 	return nil
@@ -139,7 +139,7 @@ func (c *Cluster) makeDeployment(nodeName string, nodeIP string, mdsConfig *mdsC
 	d := &apps.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      mdsConfig.ResourceName,
-			Namespace: c.namespacedName.Namespace,
+			Namespace: c.NamespacedName.Namespace,
 			Labels:    c.getPodLabels(mdsConfig),
 		},
 		Spec: apps.DeploymentSpec{
@@ -155,7 +155,7 @@ func (c *Cluster) makeDeployment(nodeName string, nodeIP string, mdsConfig *mdsC
 	}
 
 	// set ownerReference
-	err := c.ownerInfo.SetControllerReference(d)
+	err := c.OwnerInfo.SetControllerReference(d)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to set owner reference to mon deployment %q", d.Name)
 	}
@@ -176,20 +176,20 @@ func (c *Cluster) makeMdsDaemonContainer(nodeIP string, mdsConfig *mdsConfig) v1
 		Args: []string{
 			argsConfigFileDir,
 		},
-		Image:           c.spec.CurveVersion.Image,
-		ImagePullPolicy: c.spec.CurveVersion.ImagePullPolicy,
+		Image:           c.CurveVersion.Image,
+		ImagePullPolicy: c.CurveVersion.ImagePullPolicy,
 		VolumeMounts:    daemon.DaemonVolumeMounts(config.MdsConfigMapDataKey, config.MdsConfigMapMountPathDir, mdsConfig.DataPathMap, mdsConfig.CurrentConfigMapName),
 		Ports: []v1.ContainerPort{
 			{
 				Name:          "listen-port",
-				ContainerPort: int32(c.spec.Mds.Port),
-				HostPort:      int32(c.spec.Mds.Port),
+				ContainerPort: int32(c.Mds.Port),
+				HostPort:      int32(c.Mds.Port),
 				Protocol:      v1.ProtocolTCP,
 			},
 			{
 				Name:          "dummy-port",
-				ContainerPort: int32(c.spec.Mds.DummyPort),
-				HostPort:      int32(c.spec.Mds.DummyPort),
+				ContainerPort: int32(c.Mds.DummyPort),
+				HostPort:      int32(c.Mds.DummyPort),
 				Protocol:      v1.ProtocolTCP,
 			},
 		},

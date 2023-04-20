@@ -11,7 +11,7 @@ import (
 
 func (c *Cluster) createNginxConfigMap(snapConfig *snapConfig) error {
 	// 1. get mds-conf-template from cluster
-	nginxCMTemplate, err := c.context.Clientset.CoreV1().ConfigMaps(c.namespacedName.Namespace).Get(config.NginxCnonfigMapTemp, metav1.GetOptions{})
+	nginxCMTemplate, err := c.Context.Clientset.CoreV1().ConfigMaps(c.NamespacedName.Namespace).Get(config.NginxCnonfigMapTemp, metav1.GetOptions{})
 	if err != nil {
 		if kerrors.IsNotFound(err) {
 			return errors.Wrapf(err, "failed to get configmap %s from cluster", config.NginxCnonfigMapTemp)
@@ -34,23 +34,23 @@ func (c *Cluster) createNginxConfigMap(snapConfig *snapConfig) error {
 	cm := &v1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      config.NginxConfigMapName,
-			Namespace: c.namespacedName.Namespace,
+			Namespace: c.NamespacedName.Namespace,
 		},
 		Data: nginxConfigMap,
 	}
 
-	err = c.ownerInfo.SetControllerReference(cm)
+	err = c.OwnerInfo.SetControllerReference(cm)
 	if err != nil {
 		return errors.Wrapf(err, "failed to set owner reference to nginx.conf configmap %q", config.NginxConfigMapName)
 	}
 
 	// for debug
-	// log.Infof("namespace=%v", c.namespacedName.Namespace)
+	// log.Infof("namespace=%v", c.NamespacedName.Namespace)
 
 	// create nginx configmap in cluster
-	_, err = c.context.Clientset.CoreV1().ConfigMaps(c.namespacedName.Namespace).Create(cm)
+	_, err = c.Context.Clientset.CoreV1().ConfigMaps(c.NamespacedName.Namespace).Create(cm)
 	if err != nil && !kerrors.IsAlreadyExists(err) {
-		return errors.Wrapf(err, "failed to create nginx configmap %s", c.namespacedName.Namespace)
+		return errors.Wrapf(err, "failed to create nginx configmap %s", c.NamespacedName.Namespace)
 	}
 
 	return nil
