@@ -22,7 +22,7 @@ const (
 	AppName             = "curve-mds"
 	ConfigMapNamePrefix = "curve-mds-conf"
 
-	// ContainerPath is the mount path of data and log
+	// Prefix is the mount path of data and log
 	Prefix           = "/curvebs/mds"
 	ContainerDataDir = "/curvebs/mds/data"
 	ContainerLogDir  = "/curvebs/mds/logs"
