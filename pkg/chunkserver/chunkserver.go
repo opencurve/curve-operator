@@ -58,7 +58,7 @@ func (c *Cluster) Start(nodeNameIP map[string]string) error {
 	}
 
 	// wait all job finish to complete format and wait MDS election success.
-	k8sutil.UpdateCondition(context.TODO(), &c.Context, c.NamespacedName, curvev1.ConditionTypeFormatedReady, curvev1.ConditionTrue, curvev1.ConditionFormatingChunkfilePoolReason, "Formating chunkfilepool")
+	k8sutil.UpdateStatusCondition(c.Kind, context.TODO(), &c.Context, c.NamespacedName, curvev1.ConditionTypeFormatedReady, curvev1.ConditionTrue, curvev1.ConditionFormatingChunkfilePoolReason, "Formating chunkfilepool")
 	oneMinuteTicker := time.NewTicker(20 * time.Second)
 	defer oneMinuteTicker.Stop()
 
@@ -73,7 +73,7 @@ func (c *Cluster) Start(nodeNameIP map[string]string) error {
 		// TODO: delete all jobs that has created.
 		return errors.New("Format job is not completed in 24 hours and exit with -1")
 	}
-	k8sutil.UpdateCondition(context.TODO(), &c.Context, c.NamespacedName, curvev1.ConditionTypeFormatedReady, curvev1.ConditionTrue, curvev1.ConditionFormatChunkfilePoolReason, "Formating chunkfilepool successed")
+	k8sutil.UpdateStatusCondition(c.Kind, context.TODO(), &c.Context, c.NamespacedName, curvev1.ConditionTypeFormatedReady, curvev1.ConditionTrue, curvev1.ConditionFormatChunkfilePoolReason, "Formating chunkfilepool successed")
 
 	logger.Info("all jobs run completed in 24 hours")
 
@@ -111,7 +111,7 @@ func (c *Cluster) Start(nodeNameIP map[string]string) error {
 	}
 	logger.Info("create logical pool successed")
 
-	k8sutil.UpdateCondition(context.TODO(), &c.Context, c.NamespacedName, curvev1.ConditionTypeChunkServerReady, curvev1.ConditionTrue, curvev1.ConditionChunkServerClusterCreatedReason, "Chunkserver cluster has been created")
+	k8sutil.UpdateStatusCondition(c.Kind, context.TODO(), &c.Context, c.NamespacedName, curvev1.ConditionTypeChunkServerReady, curvev1.ConditionTrue, curvev1.ConditionChunkServerClusterCreatedReason, "Chunkserver cluster has been created")
 
 	return nil
 }

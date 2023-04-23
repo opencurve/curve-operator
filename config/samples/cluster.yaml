@@ -29,12 +29,12 @@ spec:
   etcd:
     # Port for listening to partner communication. 
     # Etcd member accept incoming requests from its peers on a specific scheme://IP:port combination and the IP is host ip because we use hostnetwork:true.
-    peerPort: 23891
+    peerPort: 23800
     # clientPort for listening server port.
-    clientPort: 23791
+    clientPort: 23790
   mds:
-    port: 23970
-    dummyPort: 23960
+    port: 16700
+    dummyPort: 17700
   storage:
     # useSelectedNodes is to control whether to use individual nodes and their configured devices can be specified as well.
     # This field is not implemented at present and is must set false here.

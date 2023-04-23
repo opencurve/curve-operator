@@ -3,7 +3,6 @@ package controllers
 import (
 	"context"
 
-	"github.com/pkg/errors"
 	batch "k8s.io/api/batch/v1"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -29,7 +28,8 @@ func makeReadConfJob(c *daemon.Cluster) (*batch.Job, error) {
 	if err != nil || len(pods.Items) != 1 {
 		logger.Error("failed to get pod information by curve=operator label")
 		// return &batch.Job{}, errors.Wrap(err, "failed to get curve-operator pod information")
-		// for test, it will not appear because the operator must be dispatched to a certain ground
+		// for test
+		// it will not appear because the operator must be scheduled to a certain node by kube-scheduler
 		nodeName = c.Nodes[0]
 	} else {
 		nodeName = pods.Items[0].Spec.NodeName
@@ -68,12 +68,12 @@ func makeReadConfJob(c *daemon.Cluster) (*batch.Job, error) {
 	// set ownerReference
 	err = c.OwnerInfo.SetControllerReference(job)
 	if err != nil {
-		return &batch.Job{}, errors.Wrapf(err, "failed to set owner reference to %q job", job.GetName())
+		return &batch.Job{}, err
 	}
 
 	err = k8sutil.RunReplaceableJob(context.TODO(), c.Context.Clientset, job, true)
 	if err != nil {
-		return &batch.Job{}, errors.Wrapf(err, "failed to run read config job %s", job.GetName())
+		return &batch.Job{}, err
 	}
 	logger.Infof("starting read config job %q", job.GetName())
 

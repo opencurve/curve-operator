@@ -39,7 +39,7 @@ func New(c *daemon.Cluster) *Cluster {
 var logger = capnslog.NewPackageLogger("github.com/opencurve/curve-operator", "metaserver")
 
 func (c *Cluster) Start(nodeNameIP map[string]string) error {
-	msConfigs, dcs, err := c.gainConfigs(nodeNameIP)
+	msConfigs, dcs, err := c.buildConfigs(nodeNameIP)
 	if err != nil {
 		return err
 	}
@@ -91,12 +91,12 @@ func (c *Cluster) Start(nodeNameIP map[string]string) error {
 		return err
 	}
 
-	k8sutil.UpdateCondition(context.TODO(), &c.Context, c.NamespacedName, curvev1.ConditionTypeMetaServerReady, curvev1.ConditionTrue, curvev1.ConditionMetaServerClusterCreatedReason, "MetaServer cluster has been created")
+	k8sutil.UpdateStatusCondition(c.Kind, context.TODO(), &c.Context, c.NamespacedName, curvev1.ConditionTypeMetaServerReady, curvev1.ConditionTrue, curvev1.ConditionMetaServerClusterCreatedReason, "MetaServer cluster has been created")
 	return nil
 }
 
 // Start Curve metaserver daemon
-func (c *Cluster) gainConfigs(nodeNameIP map[string]string) ([]*metaserverConfig, []*topology.DeployConfig, error) {
+func (c *Cluster) buildConfigs(nodeNameIP map[string]string) ([]*metaserverConfig, []*topology.DeployConfig, error) {
 	logger.Infof("starting to run metaserver in namespace %q", c.NamespacedName.Namespace)
 
 	// get ClusterEtcdAddr

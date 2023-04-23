@@ -73,9 +73,9 @@ func NewCurvefsReconciler(
 
 func (r *CurvefsReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	ctx := context.Background()
-	log := r.Log.WithValues("curvefscluster", req.NamespacedName)
+	logger := r.Log.WithValues("curve FS cluster", req.NamespacedName)
 
-	log.Info("reconcileing CurvefsCluster")
+	logger.Info("reconcileing CurvefsCluster")
 
 	r.ClusterController.context.Client = r.Client
 	r.ClusterController.namespacedName = req.NamespacedName
@@ -84,7 +84,7 @@ func (r *CurvefsReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	err := r.Client.Get(ctx, req.NamespacedName, &curvefsCluster)
 	if err != nil {
 		if kerrors.IsNotFound(err) {
-			log.Error(err, "curvefs resource not found. Ignoring since object must be deleted.")
+			logger.Error(err, "curvefs resource not found. Ignoring since object must be deleted.")
 			return reconcile.Result{}, nil
 		}
 		return reconcile.Result{}, errors.Wrap(err, "failed to get curvefs Cluster")
@@ -103,11 +103,11 @@ func (r *CurvefsReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 
 	ownerInfo := k8sutil.NewOwnerInfo(&curvefsCluster, r.Scheme)
 	if err := r.ClusterController.reconcileCurvefsCluster(&curvefsCluster, ownerInfo); err != nil {
-		k8sutil.UpdateCondition(context.TODO(), &r.ClusterController.context, r.ClusterController.namespacedName, curvev1.ConditionTypeFailure, curvev1.ConditionTrue, curvev1.ConditionReconcileFailed, "Reconcile curvecluster failed")
+		k8sutil.UpdateFSCondition(context.TODO(), &r.ClusterController.context, r.ClusterController.namespacedName, curvev1.ConditionTypeFailure, curvev1.ConditionTrue, curvev1.ConditionReconcileFailed, "Reconcile curvecluster failed")
 		return reconcile.Result{}, errors.Wrapf(err, "failed to reconcile cluster %q", curvefsCluster.Name)
 	}
 
-	k8sutil.UpdateCondition(context.TODO(), &r.ClusterController.context, r.ClusterController.namespacedName, curvev1.ConditionTypeClusterReady, curvev1.ConditionTrue, curvev1.ConditionReconcileSucceeded, "Reconcile curvecluster successed")
+	k8sutil.UpdateFSCondition(context.TODO(), &r.ClusterController.context, r.ClusterController.namespacedName, curvev1.ConditionTypeClusterReady, curvev1.ConditionTrue, curvev1.ConditionReconcileSucceeded, "Reconcile curvecluster successed")
 
 	return ctrl.Result{}, nil
 }
@@ -115,7 +115,7 @@ func (r *CurvefsReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 // reconcileDelete
 func (r *CurvefsReconciler) reconcileCurvefsDelete(curvefsCluster *curvev1.Curvefs) (reconcile.Result, error) {
 	log.Log.Info("Delete the cluster CR now", "namespace", curvefsCluster.ObjectMeta.Name)
-	k8sutil.UpdateCondition(context.TODO(), &r.ClusterController.context, r.ClusterController.namespacedName, curvev1.ConditionTypeDeleting, curvev1.ConditionTrue, curvev1.ConditionDeletingClusterReason, "Reconcile curvecluster deleting")
+	k8sutil.UpdateFSCondition(context.TODO(), &r.ClusterController.context, r.ClusterController.namespacedName, curvev1.ConditionTypeDeleting, curvev1.ConditionTrue, curvev1.ConditionDeletingClusterReason, "Reconcile curvecluster deleting")
 
 	daemonHosts, _ := k8sutil.GetValidFSDaemonHosts(r.ClusterController.context, curvefsCluster)
 	if curvefsCluster.Spec.CleanupConfirm == "Confirm" || curvefsCluster.Spec.CleanupConfirm == "confirm" {

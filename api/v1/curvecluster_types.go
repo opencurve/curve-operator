@@ -110,9 +110,6 @@ type ClusterVersion struct {
 
 // CurveClusterSpec defines the desired state of CurveCluster
 type CurveClusterSpec struct {
-	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
-
 	// +optional
 	CurveVersion CurveVersionSpec `json:"curveVersion,omitempty"`
 
@@ -169,7 +166,7 @@ type CurveCluster struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec   *CurveClusterSpec  `json:"spec,omitempty"`
+	Spec   CurveClusterSpec   `json:"spec,omitempty"`
 	Status CurveClusterStatus `json:"status,omitempty"`
 }
 

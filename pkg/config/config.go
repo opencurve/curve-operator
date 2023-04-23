@@ -5,6 +5,11 @@ import "github.com/coreos/pkg/capnslog"
 var logger = capnslog.NewPackageLogger("github.com/opencurve/curve-operator", "config")
 
 const (
+	KIND_CURVEBS = "curvebs"
+	KIND_CURVEFS = "curvefs"
+)
+
+const (
 	// configmap to record the endpoints of etcd
 	EtcdOverrideConfigMapName    = "etcd-endpoints-override"
 	EtcdOvverideConfigMapDataKey = "etcdEndpoints"
@@ -91,11 +96,6 @@ const (
 	CsClientConfigMapTemp      = "cs-conf-template"
 	SnapClientConfigMapTemp    = "snap-conf-template"
 	ToolsConfigMapTemp         = "tools-conf-template"
-	NginxCnonfigMapTemp        = "nginx-conf-template"
+	NginxConfigMapTemp         = "nginx-conf-template"
 	MetaserverConfigMapTemp    = "metaserver-conf-template"
-)
-
-const (
-	KIND_CURVEBS = "curvebs"
-	KIND_CURVEFS = "curvefs"
 )

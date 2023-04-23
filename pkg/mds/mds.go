@@ -21,7 +21,7 @@ const (
 	AppName             = "curve-mds"
 	ConfigMapNamePrefix = "curve-mds-conf"
 
-	// ContainerPath is the mount path of data and log
+	// Prefix is the mount path of data and log
 	Prefix           = "/curvebs/mds"
 	ContainerDataDir = "/curvebs/mds/data"
 	ContainerLogDir  = "/curvebs/mds/logs"
@@ -143,7 +143,7 @@ func (c *Cluster) Start(nodeNameIP map[string]string) error {
 		// update condition type and phase etc.
 	}
 
-	k8sutil.UpdateCondition(context.TODO(), &c.Context, c.NamespacedName, curvev1.ConditionTypeMdsReady, curvev1.ConditionTrue, curvev1.ConditionMdsClusterCreatedReason, "MDS cluster has been created")
+	k8sutil.UpdateStatusCondition(c.Kind, context.TODO(), &c.Context, c.NamespacedName, curvev1.ConditionTypeMdsReady, curvev1.ConditionTrue, curvev1.ConditionMdsClusterCreatedReason, "MDS cluster has been created")
 
 	return nil
 }

@@ -59,26 +59,6 @@ func NewOperatorOptions() (*OperatorOptions, error) {
 }
 
 func main() {
-	// opts, err := NewOperatorOptions()
-	// if err != nil {
-	// 	fmt.Fprintf(os.Stderr, "error: %v\n", err)
-	// 	os.Exit(1)
-	// }
-	// cmd := cobra.Command{
-	// 	Use:  "curve-operator",
-	// 	Long: `curve-operator is daemon that operator curve cluster on Kubernetes`,
-	// 	Run: func(cmd *cobra.Command, args []string) {
-	// 		setupLog.Error(opts.Run(), "failed to run curve-operator")
-	// 		os.Exit(1)
-	// 	},
-	// }
-	// opts.AddFlags(cmd.Flags())
-
-	// if err := cmd.Execute(); err != nil {
-	// 	fmt.Fprintf(os.Stderr, "error: %v\n", err)
-	// 	os.Exit(1)
-	// }
-
 	var metricsAddr string
 	var enableLeaderElection bool
 	flag.StringVar(&metricsAddr, "metrics-addr", ":8080", "The address the metric endpoint binds to.")
