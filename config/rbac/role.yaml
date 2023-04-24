@@ -73,6 +73,17 @@ rules:
   - list
   - watch
 - apiGroups:
+  - ""
+  resources:
+  - pods/exec
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - update
+  - watch
+- apiGroups:
   - operator.curve.io
   resources:
   - curveclusters
