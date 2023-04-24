@@ -48,11 +48,11 @@ spec:
     proxyPort: 8084
     s3Config:
       # Access Key for the S3 service. Uploading snapshots
-      ak: minioadmin
+      ak: storage@Netease
       # Access Key for the S3 service. Uploading snapshots
-      sk: minioadmin
+      sk: storage_mgm@163.com
       # S3 service address
-      nosAddress: http://59.111.93.76:9001
+      nosAddress: http://59.111.93.76:9003
       # S3 service bucket name to store snapshots
       bucketName: curvefs
 

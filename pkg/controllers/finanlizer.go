@@ -28,12 +28,12 @@ func removeFinalizer(client client.Client, name types.NamespacedName, obj runtim
 	if finalizer == "" {
 		err = RemoveFinalizer(context.Background(), client, obj, name)
 		if err != nil {
-			return errors.Wrap(err, "failed to remove finalizer")
+			return err
 		}
 	} else {
 		err = RemoveFinalizerWithName(context.Background(), client, obj, name, finalizer)
 		if err != nil {
-			return errors.Wrapf(err, "failed to remove finalizer %q", finalizer)
+			return err
 		}
 	}
 	return nil

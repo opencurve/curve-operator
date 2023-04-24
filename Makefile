@@ -3,7 +3,7 @@
 IMG ?= harbor.cloud.netease.com/curve/curve-operator
 # Image tag to use all building/pushing image targets
 # TAG ?= $(shell git rev-parse --short HEAD)
-TAG ?= v1.0.0
+TAG ?= v1.0.1
 # Produce CRDs that work back to Kubernetes 1.11 (no version conversion)
 CRD_OPTIONS ?= "crd:trivialVersions=true"
 

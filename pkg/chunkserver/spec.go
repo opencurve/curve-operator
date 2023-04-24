@@ -69,7 +69,7 @@ func (c *Cluster) startChunkServers() error {
 
 // createConfigMap create chunkserver configmap for chunkserver server
 func (c *Cluster) createConfigMap(csConfig chunkserverConfig) error {
-	// 1. get mds-conf-template from cluster
+	// get mds-conf-template from cluster
 	chunkserverCMTemplate, err := c.Context.Clientset.CoreV1().ConfigMaps(c.NamespacedName.Namespace).Get(config.ChunkServerConfigMapTemp, metav1.GetOptions{})
 	if err != nil {
 		logger.Errorf("failed to get configmap %s from cluster", config.ChunkServerConfigMapTemp)
@@ -79,13 +79,13 @@ func (c *Cluster) createConfigMap(csConfig chunkserverConfig) error {
 		return errors.Wrapf(err, "failed to get configmap %s from cluster", config.ChunkServerConfigMapTemp)
 	}
 
-	// 2. read configmap data (string)
+	// read configmap data (string)
 	var chunkserverData string
 	for k, v := range chunkserverCMTemplate.Data {
 		chunkserverData += k + "=" + v + "\n"
 	}
 
-	// 3. replace ${} to specific parameters
+	// replace ${} to specific parameters
 	replacedChunkServerData, err := config.ReplaceConfigVars(chunkserverData, &csConfig)
 	if err != nil {
 		return err

@@ -71,6 +71,7 @@ func (c *Cluster) Start(nodeNameIP map[string]string) error {
 	flag := <-chn
 	if !flag {
 		// TODO: delete all jobs that has created.
+		logger.Error("Format job is not completed in 24 hours and exit with -1")
 		return errors.New("Format job is not completed in 24 hours and exit with -1")
 	}
 	k8sutil.UpdateStatusCondition(c.Kind, context.TODO(), &c.Context, c.NamespacedName, curvev1.ConditionTypeFormatedReady, curvev1.ConditionTrue, curvev1.ConditionFormatChunkfilePoolReason, "Formating chunkfilepool successed")

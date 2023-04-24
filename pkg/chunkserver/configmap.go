@@ -10,7 +10,7 @@ import (
 )
 
 func (c *Cluster) createToolConfigMap() error {
-	// 1. get mds-conf-template from cluster
+	// get mds-conf-template from cluster
 	toolsCMTemplate, err := c.Context.Clientset.CoreV1().ConfigMaps(c.Namespace).Get(config.ToolsConfigMapTemp, metav1.GetOptions{})
 	if err != nil {
 		logger.Errorf("failed to get configmap %s from cluster", config.ToolsConfigMapTemp)

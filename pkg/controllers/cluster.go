@@ -33,18 +33,13 @@ func reconcileSharedServer(c *daemon.Cluster) (map[string]string, error) {
 	}
 	logger.Infof("using %v to create curve cluster", nodeNameIP)
 
-	// create a job to get all config file from curve image
-	job, err := makeReadConfJob(c)
+	err = createSyncDeployment(c)
 	if err != nil {
 		return nil, err
 	}
+	time.Sleep(20 * time.Second)
 
-	if err := k8sutil.WaitForJobCompletion(context.Background(), c.Context.Clientset, job, 5*time.Minute); err != nil {
-		return nil, err
-	}
-
-	// Create ConfigMaps for all configs
-	err = createEachConfigMap(c)
+	err = createConfigMapTemplate(c)
 	if err != nil {
 		return nil, err
 	}

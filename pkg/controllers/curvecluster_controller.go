@@ -105,7 +105,7 @@ func (r *CurveClusterReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error
 	// Set a finalizer so we can do cleanup before the object goes away
 	err = AddFinalizerIfNotPresent(context.Background(), r.Client, &curveCluster)
 	if err != nil {
-		return reconcile.Result{}, errors.Wrap(err, "failed to add finalizer")
+		return reconcile.Result{}, err
 	}
 
 	// Delete: the CR was deleted
@@ -158,11 +158,11 @@ func (c *ClusterController) reconcileCurveCluster(clusterObj *curvev1.CurveClust
 	// one cr cluster in one namespace is allowed
 	cluster, ok := c.clusterMap[clusterObj.Namespace]
 	if !ok {
-		logger.Info("A new Cluster will be created!!!")
+		logger.Info("A new curve BS Cluster will be created!!!")
 		cluster = newCluster(config.KIND_CURVEBS, false)
 		// TODO: update cluster spec if the cluster has already exist!
 	} else {
-		logger.Info("Cluster has been exist but need configured but we don't apply it now, you need delete it and recreate it!!!", "namespace", cluster.Namespace)
+		logger.Info("Cluster has been exist but need configured but we don't apply it now, you need delete it and recreate it!!!namespace=%q", cluster.Namespace)
 		return nil
 	}
 

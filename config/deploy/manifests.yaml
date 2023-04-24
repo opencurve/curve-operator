@@ -648,7 +648,7 @@ spec:
         - --enable-leader-election
         command:
         - ./curve-operator
-        image: harbor.cloud.netease.com/curve/curve-operator:v1.0.0
+        image: harbor.cloud.netease.com/curve/curve-operator:v1.0.1
         name: curve-operator
         resources:
           limits:

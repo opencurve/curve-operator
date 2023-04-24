@@ -65,6 +65,7 @@ func NewCurvefsReconciler(
 // +kubebuilder:rbac:groups=operator.curve.io,resources=curvefs,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=operator.curve.io,resources=curvefs/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=core,resources=pods,verbs=get;list;watch;delete
+// +kubebuilder:rbac:groups=core,resources=pods/exec,verbs=create;update;get;list;watch;delete
 // +kubebuilder:rbac:groups=core,resources=nodes,verbs=get;list;watch;update;patch
 // +kubebuilder:rbac:groups=core,resources=configmaps,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=core,resources=events,verbs=get;list;watch;create;update;patch
@@ -93,7 +94,7 @@ func (r *CurvefsReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	// Set a finalizer so we can do cleanup before the object goes away
 	err = AddFinalizerIfNotPresent(context.Background(), r.Client, &curvefsCluster)
 	if err != nil {
-		return reconcile.Result{}, errors.Wrap(err, "failed to add finalizer")
+		return reconcile.Result{}, err
 	}
 
 	// Delete: the CR was deleted
@@ -129,7 +130,7 @@ func (r *CurvefsReconciler) reconcileCurvefsDelete(curvefsCluster *curvev1.Curve
 	// Remove finalizers
 	err := removeFinalizer(r.Client, r.ClusterController.namespacedName, curvefsCluster, "")
 	if err != nil {
-		return reconcile.Result{}, errors.Wrap(err, "failed to remove curvecluster cr finalizers")
+		return reconcile.Result{}, errors.Wrap(err, "failed to remove curve fs cluster cr finalizers")
 	}
 
 	logger.Infof("curve cluster %v deleted", curvefsCluster.Name)
@@ -142,11 +143,11 @@ func (c *ClusterController) reconcileCurvefsCluster(clusterObj *curvev1.Curvefs,
 	// one cr cluster in one namespace is allowed
 	cluster, ok := c.clusterMap[clusterObj.Namespace]
 	if !ok {
-		logger.Info("A new Cluster will be created!!!")
+		logger.Info("A new curve FS Cluster will be created!!!")
 		cluster = newCluster(config.KIND_CURVEFS, false)
 		// TODO: update cluster spec if the cluster has already exist!
 	} else {
-		logger.Info("Cluster has been exist but need configured but we don't apply it now, you need delete it and recreate it!!!", "namespace", cluster.Namespace)
+		logger.Info("Cluster has been exist but need configured but we don't apply it now, you need delete it and recreate it!!!namespace=%q", cluster.Namespace)
 		return nil
 	}
 
