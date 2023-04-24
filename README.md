@@ -8,7 +8,7 @@ The curve-operator project helps deploy a Curve cluster orchestrated by Kubernet
 
 ## Prerequisite
 
-* Kubernetes 1.19+
+* Kubernetes 1.19,1.20
 * Three-nodes cluster(stand-alone deployment is not supported at persent)
 
 ## Install and Deploy
