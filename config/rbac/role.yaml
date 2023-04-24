@@ -103,3 +103,23 @@ rules:
   - get
   - patch
   - update
+- apiGroups:
+  - operator.curve.io
+  resources:
+  - curvefs
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - operator.curve.io
+  resources:
+  - curvefs/status
+  verbs:
+  - get
+  - patch
+  - update

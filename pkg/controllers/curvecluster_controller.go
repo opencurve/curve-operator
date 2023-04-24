@@ -32,6 +32,8 @@ import (
 
 	curvev1 "github.com/opencurve/curve-operator/api/v1"
 	"github.com/opencurve/curve-operator/pkg/clusterd"
+	"github.com/opencurve/curve-operator/pkg/config"
+	"github.com/opencurve/curve-operator/pkg/daemon"
 	"github.com/opencurve/curve-operator/pkg/k8sutil"
 )
 
@@ -39,7 +41,7 @@ import (
 type ClusterController struct {
 	context        clusterd.Context
 	namespacedName types.NamespacedName
-	clusterMap     map[string]*cluster
+	clusterMap     map[string]*daemon.Cluster
 }
 
 // CurveClusterReconciler reconciles a CurveCluster object
@@ -57,14 +59,13 @@ func NewCurveClusterReconciler(
 	scheme *runtime.Scheme,
 	context clusterd.Context,
 ) *CurveClusterReconciler {
-
 	return &CurveClusterReconciler{
 		Client: client,
 		Log:    log,
 		Scheme: scheme,
 		ClusterController: &ClusterController{
 			context:    context,
-			clusterMap: make(map[string]*cluster),
+			clusterMap: make(map[string]*daemon.Cluster),
 		},
 	}
 }
@@ -83,7 +84,6 @@ func (r *CurveClusterReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error
 	ctx := context.Background()
 	log := r.Log.WithValues("curvecluster", req.NamespacedName)
 
-	// your logic here
 	log.Info("reconcileing CurveCluster")
 
 	r.ClusterController.context.Client = r.Client
@@ -105,7 +105,7 @@ func (r *CurveClusterReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error
 	// Set a finalizer so we can do cleanup before the object goes away
 	err = AddFinalizerIfNotPresent(context.Background(), r.Client, &curveCluster)
 	if err != nil {
-		return reconcile.Result{}, errors.Wrap(err, "failed to add finalizer")
+		return reconcile.Result{}, err
 	}
 
 	// Delete: the CR was deleted
@@ -135,7 +135,7 @@ func (r *CurveClusterReconciler) reconcileDelete(curveCluster *curvev1.CurveClus
 		chunkserverHosts, _ := k8sutil.GetValidChunkserverHosts(r.ClusterController.context, curveCluster)
 		nodesForJob := k8sutil.MergeNodesOfDaemonAndChunk(daemonHosts, chunkserverHosts)
 
-		go r.ClusterController.startClusterCleanUp(r.ClusterController.context, curveCluster, nodesForJob)
+		go r.ClusterController.startClusterCleanUp(r.ClusterController.context, curveCluster.Namespace, nodesForJob)
 	}
 
 	// Delete it from clusterMap
@@ -143,7 +143,7 @@ func (r *CurveClusterReconciler) reconcileDelete(curveCluster *curvev1.CurveClus
 		delete(r.ClusterController.clusterMap, curveCluster.Namespace)
 	}
 	// Remove finalizers
-	err := r.removeFinalizer(r.Client, r.ClusterController.namespacedName, curveCluster, "")
+	err := removeFinalizer(r.Client, r.ClusterController.namespacedName, curveCluster, "")
 	if err != nil {
 		return reconcile.Result{}, errors.Wrap(err, "failed to remove curvecluster cr finalizers")
 	}
@@ -158,56 +158,65 @@ func (c *ClusterController) reconcileCurveCluster(clusterObj *curvev1.CurveClust
 	// one cr cluster in one namespace is allowed
 	cluster, ok := c.clusterMap[clusterObj.Namespace]
 	if !ok {
-		logger.Info("A new Cluster will be created!!!")
-		cluster = newCluster(c.context, clusterObj, ownerInfo)
+		logger.Info("A new curve BS Cluster will be created!!!")
+		cluster = newCluster(config.KIND_CURVEBS, false)
 		// TODO: update cluster spec if the cluster has already exist!
 	} else {
-		logger.Info("Cluster has been exist but need configured but we don't apply it now, you need delete it and recreate it!!!", "namespace", cluster.NameSpace)
+		logger.Info("Cluster has been exist but need configured but we don't apply it now, you need delete it and recreate it!!!namespace=%q", cluster.Namespace)
 		return nil
 	}
 
 	// Set the context and NameSpacedName
-	cluster.context = c.context
+	cluster.Context = c.context
+	cluster.Namespace = c.namespacedName.Namespace
 	cluster.NamespacedName = c.namespacedName
-	cluster.NameSpace = c.namespacedName.Namespace
+	cluster.ObservedGeneration = clusterObj.ObjectMeta.Generation
+	cluster.OwnerInfo = ownerInfo
 	// Set the spec
-	cluster.Spec = clusterObj.Spec
-	cluster.dataDirHostPath = path.Join(clusterObj.Spec.HostDataDir, "data")
-	cluster.logDirHostPath = path.Join(clusterObj.Spec.HostDataDir, "logs")
-	cluster.confDirHostPath = path.Join(clusterObj.Spec.HostDataDir, "conf")
+	cluster.Nodes = clusterObj.Spec.Nodes
+	cluster.CurveVersion = clusterObj.Spec.CurveVersion
+	cluster.Etcd = clusterObj.Spec.Etcd
+	cluster.Mds = clusterObj.Spec.Mds
+	cluster.SnapShotClone = clusterObj.Spec.SnapShotClone
+	cluster.Chunkserver = clusterObj.Spec.Storage
 
-	// updating observedGeneration in cluster if it's not the first reconcile
-	cluster.observedGeneration = clusterObj.ObjectMeta.Generation
+	cluster.HostDataDir = clusterObj.Spec.HostDataDir
+	cluster.DataDirHostPath = path.Join(clusterObj.Spec.HostDataDir, "data")
+	cluster.LogDirHostPath = path.Join(clusterObj.Spec.HostDataDir, "logs")
+	cluster.ConfDirHostPath = path.Join(clusterObj.Spec.HostDataDir, "conf")
+	c.clusterMap[cluster.Namespace] = cluster
 
-	c.clusterMap[cluster.NameSpace] = cluster
+	log.Log.Info("reconcileing CurveCluster in namespace", "namespace", cluster.Namespace)
 
-	log.Log.Info("reconcileing CurveCluster in namespace", "namespace", cluster.NameSpace)
-
-	// Start the main Curve cluster orchestration
 	return c.initCluster(cluster)
 }
 
 // initCluster initialize cluster info
-func (c *ClusterController) initCluster(cluster *cluster) error {
+func (c *ClusterController) initCluster(cluster *daemon.Cluster) error {
 	err := preClusterStartValidation(cluster)
 	if err != nil {
 		return errors.Wrap(err, "failed to preforem validation before cluster creation")
 	}
-	err = cluster.reconcileCurveDaemons()
-	if err != nil {
-		return errors.Wrap(err, "failed to create cluster")
+	if cluster.Kind == config.KIND_CURVEBS {
+		err = reconcileCurveDaemons(cluster)
+	} else {
+		err = reconcileCurveFSDaemons(cluster)
 	}
+	if err != nil {
+		return nil
+	}
+
 	return nil
 }
 
 // preClusterStartValidation Cluster Spec validation
-func preClusterStartValidation(cluster *cluster) error {
+func preClusterStartValidation(cluster *daemon.Cluster) error {
 	// Assert the node num is 3
-	nodesNum := len(cluster.Spec.Nodes)
+	nodesNum := len(cluster.Nodes)
 	if nodesNum < 3 {
-		return errors.Errorf("nodes count shoule at least 3, cannot start cluster %d", len(cluster.Spec.Nodes))
+		return errors.Errorf("nodes count shoule at least 3, cannot start cluster %d", len(cluster.Nodes))
 	} else if nodesNum > 3 {
-		return errors.Errorf("nodes count more than 3, cannot start cluster temporary %d", len(cluster.Spec.Nodes))
+		return errors.Errorf("nodes count more than 3, cannot start cluster temporary %d", len(cluster.Nodes))
 	}
 
 	return nil

@@ -48,6 +48,8 @@ const (
 	ConditionTypeFormatedReady ConditionType = "formatedReady"
 	// ConditionTypeChunkServerReady indicates the chunk server is ready
 	ConditionTypeChunkServerReady ConditionType = "ChunkServerReady"
+	// ConditionTypeMetaServerReady indicates the meta server is ready
+	ConditionTypeMetaServerReady ConditionType = "MetaServerReady"
 	// ConditionTypeSnapShotCloneReady indicates the snapshot clone is ready
 	ConditionTypeSnapShotCloneReady ConditionType = "SnapShotCloneReady"
 	// ConditionTypeDeleting indicates it's deleting
@@ -75,6 +77,7 @@ const (
 	ConditionMdsClusterCreatedReason           ConditionReason = "MdsClusterCreated"
 	ConditionFormatingChunkfilePoolReason      ConditionReason = "FormatingChunkfilePool"
 	ConditionFormatChunkfilePoolReason         ConditionReason = "FormatedChunkfilePool"
+	ConditionMetaServerClusterCreatedReason    ConditionReason = "MetaServerClusterCreated"
 	ConditionChunkServerClusterCreatedReason   ConditionReason = "ChunkServerClusterCreated"
 	ConditionSnapShotCloneClusterCreatedReason ConditionReason = "SnapShotCloneClusterCreated"
 	ConditionClusterCreatedReason              ConditionReason = "ClusterCreated" //nolint:unused
@@ -107,9 +110,6 @@ type ClusterVersion struct {
 
 // CurveClusterSpec defines the desired state of CurveCluster
 type CurveClusterSpec struct {
-	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
-
 	// +optional
 	CurveVersion CurveVersionSpec `json:"curveVersion,omitempty"`
 
@@ -166,7 +166,7 @@ type CurveCluster struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec   *CurveClusterSpec  `json:"spec,omitempty"`
+	Spec   CurveClusterSpec   `json:"spec,omitempty"`
 	Status CurveClusterStatus `json:"status,omitempty"`
 }
 

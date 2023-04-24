@@ -4,4 +4,7 @@ resources:
 - group: operator
   kind: CurveCluster
   version: v1
+- group: operator
+  kind: Curvefs
+  version: v1
 version: "2"

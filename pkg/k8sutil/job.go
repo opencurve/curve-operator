@@ -8,6 +8,7 @@ import (
 	batch "k8s.io/api/batch/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
 )
 
@@ -77,30 +78,28 @@ func DeleteBatchJob(ctx context.Context, clientset kubernetes.Interface, namespa
 	return nil
 }
 
-// CheckJobStatus go routine to check job status
-func CheckJobStatus(ctx context.Context, clientSet kubernetes.Interface, ticker *time.Ticker, chn chan bool, namespace string, jobName string) {
-	for {
-		select {
-		case <-ticker.C:
-			logger.Info("time is up")
-
-			job, err := clientSet.BatchV1().Jobs(namespace).Get(jobName, metav1.GetOptions{})
-			if err != nil {
-				logger.Errorf("failed to get job %s in cluster", jobName)
-				chn <- false
-				return
-			}
-
-			if job.Status.Succeeded > 0 {
-				logger.Infof("job %s has successd", job.Name)
-				chn <- true
-				return
-			}
-			logger.Infof("job %s is running", job.Name)
-		case <-ctx.Done():
-			chn <- false
-			logger.Error("go routinue exit because check time is more than 5 mins")
-			return
+// WaitForJobCompletion waits for a job to reach the completed state.
+// Assumes that only one pod needs to complete.
+func WaitForJobCompletion(ctx context.Context, clientset kubernetes.Interface, job *batch.Job, timeout time.Duration) error {
+	logger.Infof("waiting for job %s to complete...", job.Name)
+	return wait.Poll(5*time.Second, timeout, func() (bool, error) {
+		job, err := clientset.BatchV1().Jobs(job.Namespace).Get(job.Name, metav1.GetOptions{})
+		if err != nil {
+			return false, fmt.Errorf("failed to detect job %s. %+v", job.Name, err)
 		}
-	}
+
+		// if the job is still running, allow it to continue to completion
+		if job.Status.Active > 0 {
+			logger.Debugf("job is still running. Status=%+v", job.Status)
+			return false, nil
+		}
+		if job.Status.Failed > 0 {
+			return false, fmt.Errorf("job %s failed", job.Name)
+		}
+		if job.Status.Succeeded > 0 {
+			return true, nil
+		}
+		logger.Debugf("job is still initializing")
+		return false, nil
+	})
 }

@@ -15,7 +15,7 @@ import (
 	curvev1 "github.com/opencurve/curve-operator/api/v1"
 )
 
-func (r *CurveClusterReconciler) removeFinalizer(client client.Client, name types.NamespacedName, obj runtime.Object, finalizer string) error {
+func removeFinalizer(client client.Client, name types.NamespacedName, obj runtime.Object, finalizer string) error {
 	err := client.Get(context.Background(), name, obj)
 	if err != nil {
 		if kerrors.IsNotFound(err) {
@@ -28,12 +28,12 @@ func (r *CurveClusterReconciler) removeFinalizer(client client.Client, name type
 	if finalizer == "" {
 		err = RemoveFinalizer(context.Background(), client, obj, name)
 		if err != nil {
-			return errors.Wrap(err, "failed to remove finalizer")
+			return err
 		}
 	} else {
 		err = RemoveFinalizerWithName(context.Background(), client, obj, name, finalizer)
 		if err != nil {
-			return errors.Wrapf(err, "failed to remove finalizer %q", finalizer)
+			return err
 		}
 	}
 	return nil

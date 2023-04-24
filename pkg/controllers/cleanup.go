@@ -12,12 +12,13 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
 
-	curvev1 "github.com/opencurve/curve-operator/api/v1"
 	"github.com/opencurve/curve-operator/pkg/chunkserver"
 	"github.com/opencurve/curve-operator/pkg/clusterd"
+	"github.com/opencurve/curve-operator/pkg/daemon"
 	"github.com/opencurve/curve-operator/pkg/etcd"
 	"github.com/opencurve/curve-operator/pkg/k8sutil"
 	"github.com/opencurve/curve-operator/pkg/mds"
+	"github.com/opencurve/curve-operator/pkg/topology"
 )
 
 const (
@@ -29,34 +30,34 @@ const (
 )
 
 // startClusterCleanUp start job to clean hostpath
-func (c *ClusterController) startClusterCleanUp(ctx clusterd.Context, cluster *curvev1.CurveCluster, nodesForJob []v1.Node) {
+func (c *ClusterController) startClusterCleanUp(ctx clusterd.Context, namespace string, nodesForJob []v1.Node) {
 	if len(nodesForJob) == 0 {
 		logger.Info("No nodes to cleanup")
 		return
 	}
 
-	logger.Infof("starting clean up for cluster %q", cluster.Name)
+	logger.Infof("starting clean up for cluster %q", namespace)
 
-	err := c.waitForCurveDaemonCleanUp(context.TODO(), cluster, clusterCleanUpPolicyRetryInterval)
+	err := c.waitForCurveDaemonCleanUp(context.TODO(), namespace, clusterCleanUpPolicyRetryInterval)
 	if err != nil {
 		logger.Errorf("failed to wait till curve daemons are destroyed. %v", err)
 		return
 	}
 
-	c.startCleanUpJobs(cluster, nodesForJob)
+	c.startCleanUpJobs(namespace, nodesForJob)
 }
 
-func (c *ClusterController) startCleanUpJobs(cluster *curvev1.CurveCluster, nodesForJob []v1.Node) {
+func (c *ClusterController) startCleanUpJobs(namespace string, nodesForJob []v1.Node) {
 	for _, node := range nodesForJob {
 		logger.Infof("starting clean up job on node %q", node.Name)
 		jobName := k8sutil.TruncateNodeNameForJob("cluster-cleanup-job-%s", node.Name)
 		labels := getCleanupLabels("cleanup", c.namespacedName.Namespace)
-		podSpec := c.cleanUpJobTemplateSpec(cluster)
+		podSpec := c.cleanUpJobTemplateSpec(c.clusterMap[namespace])
 		podSpec.Spec.NodeName = node.Name
 		job := &batch.Job{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      jobName,
-				Namespace: cluster.Namespace,
+				Namespace: namespace,
 				Labels:    labels,
 			},
 			Spec: batch.JobSpec{
@@ -72,9 +73,9 @@ func (c *ClusterController) startCleanUpJobs(cluster *curvev1.CurveCluster, node
 	}
 }
 
-func (c *ClusterController) cleanUpJobTemplateSpec(cluster *curvev1.CurveCluster) v1.PodTemplateSpec {
+func (c *ClusterController) cleanUpJobTemplateSpec(cluster *daemon.Cluster) v1.PodTemplateSpec {
 	volumes := []v1.Volume{}
-	dataHostPathVolume := v1.Volume{Name: dataVolumeName, VolumeSource: v1.VolumeSource{HostPath: &v1.HostPathVolumeSource{Path: cluster.Spec.HostDataDir}}}
+	dataHostPathVolume := v1.Volume{Name: dataVolumeName, VolumeSource: v1.VolumeSource{HostPath: &v1.HostPathVolumeSource{Path: cluster.HostDataDir}}}
 	volumes = append(volumes, dataHostPathVolume)
 
 	podSpec := v1.PodTemplateSpec{
@@ -93,24 +94,24 @@ func (c *ClusterController) cleanUpJobTemplateSpec(cluster *curvev1.CurveCluster
 	return podSpec
 }
 
-func (c *ClusterController) cleanUpJobContainer(cluster *curvev1.CurveCluster) v1.Container {
+func (c *ClusterController) cleanUpJobContainer(cluster *daemon.Cluster) v1.Container {
 	volumeMounts := []v1.VolumeMount{}
 	envVars := []v1.EnvVar{}
 
-	dataHhostPathVolumeMount := v1.VolumeMount{Name: dataVolumeName, MountPath: cluster.Spec.HostDataDir}
+	dataHhostPathVolumeMount := v1.VolumeMount{Name: dataVolumeName, MountPath: cluster.HostDataDir}
 	volumeMounts = append(volumeMounts, dataHhostPathVolumeMount)
 
 	securityContext := k8sutil.PrivilegedContext(true)
 
 	envVars = append(envVars, []v1.EnvVar{
-		{Name: dataDirHostPathEnv, Value: strings.TrimRight(cluster.Spec.HostDataDir, "/")},
+		{Name: dataDirHostPathEnv, Value: strings.TrimRight(cluster.HostDataDir, "/")},
 	}...)
 
 	commandLine := `rm -rf $(CURVE_DATA_DIR_HOST_PATH)/*;`
 	return v1.Container{
 		Name:            "host-cleanup",
-		Image:           cluster.Spec.CurveVersion.Image,
-		ImagePullPolicy: cluster.Spec.CurveVersion.ImagePullPolicy,
+		Image:           cluster.CurveVersion.Image,
+		ImagePullPolicy: cluster.CurveVersion.ImagePullPolicy,
 		Command: []string{
 			"/bin/bash",
 			"-c",
@@ -124,8 +125,8 @@ func (c *ClusterController) cleanUpJobContainer(cluster *curvev1.CurveCluster) v
 	}
 }
 
-func (c *ClusterController) waitForCurveDaemonCleanUp(context context.Context, cluster *curvev1.CurveCluster, retryInterval time.Duration) error {
-	logger.Infof("waiting for all the curve daemons to be cleaned up in the cluster %q", cluster.Namespace)
+func (c *ClusterController) waitForCurveDaemonCleanUp(context context.Context, namespace string, retryInterval time.Duration) error {
+	logger.Infof("waiting for all the curve daemons to be cleaned up in the cluster %q", namespace)
 	// 3 minutes(5s * 60)
 	maxRetryTime := 60
 	retryCount := 0
@@ -133,7 +134,7 @@ func (c *ClusterController) waitForCurveDaemonCleanUp(context context.Context, c
 		retryCount++
 		select {
 		case <-time.After(retryInterval):
-			curveHosts, err := c.getCurveNodes(cluster.Namespace)
+			curveHosts, err := c.getCurveNodes(namespace)
 			if err != nil {
 				return errors.Wrap(err, "failed to list curve daemon nodes")
 			}
@@ -149,7 +150,7 @@ func (c *ClusterController) waitForCurveDaemonCleanUp(context context.Context, c
 			}
 
 			logger.Debugf("waiting for curve daemons in cluster %q to be cleaned up. Retrying in %q",
-				cluster.Namespace, retryInterval.String())
+				namespace, retryInterval.String())
 		case <-context.Done():
 			return errors.Errorf("cancelling the host cleanup job. %s", context.Err())
 		}
@@ -158,7 +159,7 @@ func (c *ClusterController) waitForCurveDaemonCleanUp(context context.Context, c
 
 // getCurveNodes get all the node names where curve daemons are running
 func (c *ClusterController) getCurveNodes(namespace string) ([]string, error) {
-	curveAppNames := []string{etcd.AppName, mds.AppName, chunkserver.AppName, chunkserver.PrepareJobName, chunkserver.RegisterJobName}
+	curveAppNames := []string{etcd.AppName, mds.AppName, chunkserver.AppName, chunkserver.PrepareJobName, topology.JOB_PYHSICAL_POOL, topology.JOB_LOGICAL_POOL, SyncConfigDeployment}
 	nodeNameList := sets.NewString()
 	hostNameList := []string{}
 	var b strings.Builder

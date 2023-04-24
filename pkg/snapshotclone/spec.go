@@ -16,7 +16,7 @@ import (
 // prepareConfigMap
 func (c *Cluster) prepareConfigMap(snapConfig *snapConfig) error {
 	// 1. get s3 configmap that must has been created by chunkserver
-	_, err := c.context.Clientset.CoreV1().ConfigMaps(c.namespacedName.Namespace).Get(config.S3ConfigMapName, metav1.GetOptions{})
+	_, err := c.Context.Clientset.CoreV1().ConfigMaps(c.NamespacedName.Namespace).Get(config.S3ConfigMapName, metav1.GetOptions{})
 	if err != nil {
 		return errors.Wrapf(err, "failed to get %s configmap from cluster", config.S3ConfigMapName)
 	}
@@ -48,7 +48,7 @@ func (c *Cluster) prepareConfigMap(snapConfig *snapConfig) error {
 // createSnapClientConf
 func (c *Cluster) createSnapClientConfigMap(snapConfig *snapConfig) error {
 	// 1. get ...-conf-template from cluster
-	snapClientCMTemplate, err := c.context.Clientset.CoreV1().ConfigMaps(c.namespacedName.Namespace).Get(config.SnapClientConfigMapTemp, metav1.GetOptions{})
+	snapClientCMTemplate, err := c.Context.Clientset.CoreV1().ConfigMaps(c.NamespacedName.Namespace).Get(config.SnapClientConfigMapTemp, metav1.GetOptions{})
 	if err != nil {
 		logger.Errorf("failed to get configmap %s from cluster", config.SnapClientConfigMapTemp)
 		if kerrors.IsNotFound(err) {
@@ -76,20 +76,20 @@ func (c *Cluster) createSnapClientConfigMap(snapConfig *snapConfig) error {
 	cm := &v1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      config.SnapClientConfigMapName,
-			Namespace: c.namespacedName.Namespace,
+			Namespace: c.NamespacedName.Namespace,
 		},
 		Data: snapClientConfigMap,
 	}
 
-	err = c.ownerInfo.SetControllerReference(cm)
+	err = c.OwnerInfo.SetControllerReference(cm)
 	if err != nil {
 		return errors.Wrapf(err, "failed to set owner reference to snap_client.conf configmap %q", config.SnapClientConfigMapName)
 	}
 
 	// Create cs_client configmap in cluster
-	_, err = c.context.Clientset.CoreV1().ConfigMaps(c.namespacedName.Namespace).Create(cm)
+	_, err = c.Context.Clientset.CoreV1().ConfigMaps(c.NamespacedName.Namespace).Create(cm)
 	if err != nil && !kerrors.IsAlreadyExists(err) {
-		return errors.Wrapf(err, "failed to create snap_client configmap %s", c.namespacedName.Namespace)
+		return errors.Wrapf(err, "failed to create snap_client configmap %s", c.NamespacedName.Namespace)
 	}
 
 	return nil
@@ -97,7 +97,7 @@ func (c *Cluster) createSnapClientConfigMap(snapConfig *snapConfig) error {
 
 func (c *Cluster) createSnapShotCloneConfigMap(snapConfig *snapConfig) error {
 	// 1. get snapshotclone-conf-template from cluster
-	snapShotCloneCMTemplate, err := c.context.Clientset.CoreV1().ConfigMaps(c.namespacedName.Namespace).Get(config.SnapShotCloneConfigMapTemp, metav1.GetOptions{})
+	snapShotCloneCMTemplate, err := c.Context.Clientset.CoreV1().ConfigMaps(c.NamespacedName.Namespace).Get(config.SnapShotCloneConfigMapTemp, metav1.GetOptions{})
 	if err != nil {
 		logger.Errorf("failed to get configmap %s from cluster", config.SnapShotCloneConfigMapTemp)
 		if kerrors.IsNotFound(err) {
@@ -122,20 +122,20 @@ func (c *Cluster) createSnapShotCloneConfigMap(snapConfig *snapConfig) error {
 	cm := &v1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      snapConfig.CurrentConfigMapName,
-			Namespace: c.namespacedName.Namespace,
+			Namespace: c.NamespacedName.Namespace,
 		},
 		Data: snapCloneConfigMap,
 	}
 
-	err = c.ownerInfo.SetControllerReference(cm)
+	err = c.OwnerInfo.SetControllerReference(cm)
 	if err != nil {
 		return errors.Wrapf(err, "failed to set owner reference to snapshotclone.conf configmap %q", config.SnapShotCloneConfigMapName)
 	}
 
 	// Create cs_client configmap in cluster
-	_, err = c.context.Clientset.CoreV1().ConfigMaps(c.namespacedName.Namespace).Create(cm)
+	_, err = c.Context.Clientset.CoreV1().ConfigMaps(c.NamespacedName.Namespace).Create(cm)
 	if err != nil && !kerrors.IsAlreadyExists(err) {
-		return errors.Wrapf(err, "failed to create snap_client configmap %s", c.namespacedName.Namespace)
+		return errors.Wrapf(err, "failed to create snap_client configmap %s", c.NamespacedName.Namespace)
 	}
 
 	return nil
@@ -177,7 +177,7 @@ func (c *Cluster) makeDeployment(nodeName string, nodeIP string, snapConfig *sna
 	d := &apps.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      snapConfig.ResourceName,
-			Namespace: c.namespacedName.Namespace,
+			Namespace: c.NamespacedName.Namespace,
 			Labels:    c.getPodLabels(snapConfig),
 		},
 		Spec: apps.DeploymentSpec{
@@ -193,7 +193,7 @@ func (c *Cluster) makeDeployment(nodeName string, nodeIP string, snapConfig *sna
 	}
 
 	// set ownerReference
-	err := c.ownerInfo.SetControllerReference(d)
+	err := c.OwnerInfo.SetControllerReference(d)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to set owner reference to chunkserver deployment %q", d.Name)
 	}
@@ -222,8 +222,8 @@ func (c *Cluster) makeSnapshotDaemonContainer(nodeIP string, snapConfig *snapCon
 			argsNginxConf,
 			argsConfigFileDir,
 		},
-		Image:           c.spec.CurveVersion.Image,
-		ImagePullPolicy: c.spec.CurveVersion.ImagePullPolicy,
+		Image:           c.CurveVersion.Image,
+		ImagePullPolicy: c.CurveVersion.ImagePullPolicy,
 		VolumeMounts:    SnapDaemonVolumeMounts(snapConfig),
 		SecurityContext: &v1.SecurityContext{
 			Privileged:             &privileged,
@@ -234,20 +234,20 @@ func (c *Cluster) makeSnapshotDaemonContainer(nodeIP string, snapConfig *snapCon
 		Ports: []v1.ContainerPort{
 			{
 				Name:          "listen-port",
-				ContainerPort: int32(c.spec.SnapShotClone.Port),
-				HostPort:      int32(c.spec.SnapShotClone.Port),
+				ContainerPort: int32(c.SnapShotClone.Port),
+				HostPort:      int32(c.SnapShotClone.Port),
 				Protocol:      v1.ProtocolTCP,
 			},
 			{
 				Name:          "dummy-port",
-				ContainerPort: int32(c.spec.SnapShotClone.DummyPort),
-				HostPort:      int32(c.spec.SnapShotClone.DummyPort),
+				ContainerPort: int32(c.SnapShotClone.DummyPort),
+				HostPort:      int32(c.SnapShotClone.DummyPort),
 				Protocol:      v1.ProtocolTCP,
 			},
 			{
 				Name:          "proxy-port",
-				ContainerPort: int32(c.spec.SnapShotClone.ProxyPort),
-				HostPort:      int32(c.spec.SnapShotClone.ProxyPort),
+				ContainerPort: int32(c.SnapShotClone.ProxyPort),
+				HostPort:      int32(c.SnapShotClone.ProxyPort),
 				Protocol:      v1.ProtocolTCP,
 			},
 		},
@@ -255,4 +255,14 @@ func (c *Cluster) makeSnapshotDaemonContainer(nodeIP string, snapConfig *snapCon
 	}
 
 	return container
+}
+
+// getLabels Add labels for mds deployment
+func (c *Cluster) getPodLabels(snapConfig *snapConfig) map[string]string {
+	labels := make(map[string]string)
+	labels["app"] = AppName
+	labels["snapshotclone"] = snapConfig.DaemonID
+	labels["curve_daemon_id"] = snapConfig.DaemonID
+	labels["curve_cluster"] = c.NamespacedName.Namespace
+	return labels
 }

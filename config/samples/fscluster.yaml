@@ -1,0 +1,59 @@
+apiVersion: operator.curve.io/v1
+kind: Curvefs
+metadata:
+  name: my-fscluster
+  # The namespace to deploy CurveBS cluster. 
+  # Curve operator is deployed in this namespace,Do not modify if not necessary
+  namespace: curve
+spec:
+  # The container image used to launch the Curve daemon pods(etcd, mds, chunkserver, snapshotclone).
+  # v1.2 is Pacific and v1.3 is not tested.
+  curveVersion:
+    image: opencurvedocker/curvefs:latest
+    # Container image pull policy, 
+    # By default the pull policy of all containers in that pod will be set to IfNotPresent if it is not explicitly specified and no modification necessary.
+    imagePullPolicy: IfNotPresent
+  # The K8s cluster nodes name in cluster that prepare to deploy Curve daemon pods(etcd, mds, snapshotclone).
+  # Three nodes must be configured here for a three-replica protocol, and don't support stand-alone deployment at present.
+  # So, you must configure and only configure three nodes here. If it contain master plane node, that you must untaint it to allow scheduled.
+  # - node1 -> etcd-a, mds-a, snapshotclone-a
+  # - node2 -> etcd-b, mds-b, snapshotclone-b
+  # - node3 -> etcd-c, mds-c, snapshotclone-c
+  nodes:
+  - curve-operator-node1
+  - curve-operator-node2
+  - curve-operator-node3
+  # DataDirHostPath and LogDirHostPath where data files and log files will be persisted on host machine. Must be specified.
+  # If you reinstall the cluster, make surce that you delete this directory from each host.
+  hostDataDir: /curvefs
+  etcd:
+    # Port for listening to partner communication. 
+    # Etcd member accept incoming requests from its peers on a specific scheme://IP:port combination and the IP is host ip because we use hostnetwork:true.
+    peerPort: 23800
+    # clientPort for listening server port.
+    clientPort: 23790
+  mds:
+    port: 16700
+    dummyPort: 17700
+  metaserver:
+    port: 16800
+    externalPort: 17800
+    copySets: 100
+  snapShotClone:
+    # set false if there is no S3 service available temporarily or don't need to use the snapshot clone service
+    # Make sure s3 service exist if enable is set true
+    enable: true
+    port: 5555
+    dummyPort: 8083
+    proxyPort: 8084
+    s3Config:
+      # Access Key for the S3 service. Uploading snapshots
+      ak: storage@Netease
+      # Access Key for the S3 service. Uploading snapshots
+      sk: storage_mgm@163.com
+      # S3 service address
+      nosAddress: http://59.111.93.76:9003
+      # S3 service bucket name to store snapshots
+      bucketName: curvefs
+
+

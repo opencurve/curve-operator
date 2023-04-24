@@ -5,6 +5,11 @@ import "github.com/coreos/pkg/capnslog"
 var logger = capnslog.NewPackageLogger("github.com/opencurve/curve-operator", "config")
 
 const (
+	KIND_CURVEBS = "curvebs"
+	KIND_CURVEFS = "curvefs"
+)
+
+const (
 	// configmap to record the endpoints of etcd
 	EtcdOverrideConfigMapName    = "etcd-endpoints-override"
 	EtcdOvverideConfigMapDataKey = "etcdEndpoints"
@@ -13,12 +18,15 @@ const (
 	// configmap to record the endpoints of mds
 	MdsOverrideConfigMapName    = "mds-endpoints-override"
 	MdsOvverideConfigMapDataKey = "mdsEndpoints"
+	ClusterMdsDummyAddr         = "clusterMdsDummyAddr"
 
 	// configuration
 	// etcd.conf - it not be used
-	EtcdConfigMapName         = "curve-etcd-conf"
-	EtcdConfigMapDataKey      = "etcd.conf"
-	EtcdConfigMapMountPathDir = "/curvebs/etcd/conf"
+	EtcdConfigMapName           = "curve-etcd-conf"
+	EtcdConfigMapDataKey        = "etcd.conf"
+	EtcdConfigMapMountPathDir   = "/curvebs/etcd/conf"
+	FSEtcdConfigMapMountPathDir = "/curvefs/etcd/conf"
+	FSMdsConfigMapMountPathDir  = "/curvefs/mds/conf"
 
 	// mds.conf
 	MdsConfigMapName         = "curve-mds-config"
@@ -42,14 +50,16 @@ const (
 	S3ConfigMapMountSnapPathDir = "/curvebs/snapshotclone/conf"
 
 	// topology.json
-	TopoJsonConfigMapName         = "topology-json-conf"
-	TopoJsonConfigmapDataKey      = "topology.json"
-	TopoJsonConfigmapMountPathDir = "/curvebs/tools/conf"
+	TopoJsonConfigMapName           = "topology-json-conf"
+	TopoJsonConfigmapDataKey        = "topology.json"
+	TopoJsonConfigmapMountPathDir   = "/curvebs/tools/conf"
+	FSTopoJsonConfigmapMountPathDir = "/curvefs/tools/conf"
 
 	// tools.conf
-	ToolsConfigMapName         = "tools-conf"
-	ToolsConfigMapDataKey      = "tools.conf"
-	ToolsConfigMapMountPathDir = "/etc/curve"
+	ToolsConfigMapName           = "tools-conf"
+	ToolsConfigMapDataKey        = "tools.conf"
+	ToolsConfigMapMountPathDir   = "/etc/curve"
+	FSToolsConfigMapMountPathDir = "/etc/curvefs"
 
 	// snap_client.conf
 	SnapClientConfigMapName      = "snap-client-conf"
@@ -70,6 +80,11 @@ const (
 	StartSnapConfigMap          = "start-snap-conf"
 	StartSnapConfigMapDataKey   = "start_snap.sh"
 	StartSnapConfigMapMountPath = "/curvebs/tools/sbin/start_snap.sh"
+
+	// metaserver.conf
+	MetaServerConfigMapName      = "metaserver-conf"
+	MetaServerConfigMapDataKey   = "metaserver.conf"
+	MetaServerConfigMapMountPath = "/curvefs/metaserver/conf"
 )
 
 const (
@@ -82,4 +97,5 @@ const (
 	SnapClientConfigMapTemp    = "snap-conf-template"
 	ToolsConfigMapTemp         = "tools-conf-template"
 	NginxConfigMapTemp         = "nginx-conf-template"
+	MetaserverConfigMapTemp    = "metaserver-conf-template"
 )

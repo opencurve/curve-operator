@@ -53,7 +53,7 @@ func (c *Cluster) getJob2DeviceFormatProgress(chn chan bool) ([]device2Use, erro
 		watchedJob := watchedJob2DeviceInfo.job
 		watchedNodeName := watchedJob2DeviceInfo.nodeName
 		wathedDevice := watchedJob2DeviceInfo.device
-		job, err := c.context.Clientset.BatchV1().Jobs(c.namespacedName.Namespace).Get(watchedJob.Name, metav1.GetOptions{})
+		job, err := c.Context.Clientset.BatchV1().Jobs(c.NamespacedName.Namespace).Get(watchedJob.Name, metav1.GetOptions{})
 		if err != nil {
 			return []device2Use{}, errors.Wrapf(err, "failed to get job %q in cluster", watchedJob.Name)
 		}
@@ -74,7 +74,7 @@ func (c *Cluster) getJob2DeviceFormatProgress(chn chan bool) ([]device2Use, erro
 			labelSelector = append(labelSelector, k+"="+v)
 		}
 		selector := strings.Join(labelSelector, ",")
-		podList, _ := c.context.Clientset.CoreV1().Pods(watchedJob.Namespace).List(metav1.ListOptions{
+		podList, _ := c.Context.Clientset.CoreV1().Pods(watchedJob.Namespace).List(metav1.ListOptions{
 			LabelSelector: selector,
 		})
 		if len(podList.Items) < 1 {
@@ -100,7 +100,7 @@ func (c *Cluster) getDevUsedbyExecRequest(pod *v1.Pod, nodeName, deviceName stri
 		execOut bytes.Buffer
 		execErr bytes.Buffer
 	)
-	req := c.context.Clientset.CoreV1().RESTClient().Post().
+	req := c.Context.Clientset.CoreV1().RESTClient().Post().
 		Resource("pods").
 		Name(pod.Name).
 		Namespace(pod.Namespace).
@@ -112,7 +112,7 @@ func (c *Cluster) getDevUsedbyExecRequest(pod *v1.Pod, nodeName, deviceName stri
 		Stderr:    true,
 	}, scheme.ParameterCodec)
 
-	exec, err := remotecommand.NewSPDYExecutor(c.context.KubeConfig, "POST", req.URL())
+	exec, err := remotecommand.NewSPDYExecutor(c.Context.KubeConfig, "POST", req.URL())
 	if err != nil {
 		return device2Use{}, fmt.Errorf("failed to init executor: %v", err)
 	}

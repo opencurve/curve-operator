@@ -15,17 +15,11 @@ type etcdConfig struct {
 	ServiceClientPort      string
 	ClusterEtcdHttpAddr    string
 
-	// the name that operator gives to etcd resources in k8s metadata
-	ResourceName string
-
-	//
+	ResourceName         string
 	CurrentConfigMapName string
-
-	// the ID of etcd daemon ("a", "b", ...)
-	DaemonID string
-
-	// location to store data in container and local host
-	DataPathMap *config.DataPathMap
+	DaemonID             string
+	ConfigMapMountPath   string
+	DataPathMap          *config.DataPathMap
 }
 
 func (c *etcdConfig) GetPrefix() string                  { return Prefix }
@@ -51,6 +45,7 @@ func (c *etcdConfig) GetClusterMdsAddr() string                    { return "" }
 func (c *etcdConfig) GetClusterMdsDummyAddr() string               { return "" }
 func (c *etcdConfig) GetClusterMdsDummyPort() string               { return "" }
 func (c *etcdConfig) GetClusterChunkserverAddr() string            { return "" }
+func (c *etcdConfig) GetClusterMetaserverAddr() string             { return "" }
 func (c *etcdConfig) GetClusterSnapshotcloneAddr() string          { return "" }
 func (c *etcdConfig) GetClusterSnapshotcloneProxyAddr() string     { return "" }
 func (c *etcdConfig) GetClusterSnapshotcloneDummyPort() string     { return "" }

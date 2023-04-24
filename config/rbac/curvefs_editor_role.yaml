@@ -1,0 +1,24 @@
+# permissions for end users to edit curvefs.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: curvefs-editor-role
+rules:
+- apiGroups:
+  - operator.curve.io
+  resources:
+  - curvefs
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - operator.curve.io
+  resources:
+  - curvefs/status
+  verbs:
+  - get

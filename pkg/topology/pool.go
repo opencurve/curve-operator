@@ -1,15 +1,14 @@
-package chunkserver
+package topology
 
 import (
 	"encoding/json"
 	"fmt"
 	"sort"
+
+	"github.com/opencurve/curve-operator/pkg/config"
 )
 
-//nolint:unused
 const (
-	KIND_CURVEBS     = "curvebs"
-	KIND_CURVEFS     = "curvefs"
 	ROLE_CHUNKSERVER = "chunkserver"
 	ROLE_METASERVER  = "metaserver"
 
@@ -19,8 +18,6 @@ const (
 	DEFAULT_TYPE                 = 0
 	DEFAULT_SCATTER_WIDTH        = 0
 )
-
-// Generate topology.json file below from curveadm
 
 /*
  * curvebs_cluster_topo:
@@ -99,42 +96,38 @@ func genNextZone(zones int) func() string {
 	}
 }
 
-func formatName(dc *chunkserverConfig) string {
+func formatName(dc *DeployConfig) string {
 	return fmt.Sprintf("%s_%d", dc.NodeName, dc.ReplicasSequence)
 }
 
 // we should sort the "dcs" for generate correct zone number
-func SortDeployConfigs() {
-	sort.Slice(chunkserverConfigs, func(i, j int) bool {
-		csServer1, csServer2 := chunkserverConfigs[i], chunkserverConfigs[j]
-
-		if csServer1.HostSequence == csServer2.HostSequence {
-			return csServer1.ReplicasSequence < csServer2.ReplicasSequence
+func SortDeployConfigs(dcs []*DeployConfig) {
+	sort.Slice(dcs, func(i, j int) bool {
+		dc1, dc2 := dcs[i], dcs[j]
+		if dc1.Role == dc2.Role {
+			if dc1.HostSequence == dc2.HostSequence {
+				return dc1.ReplicasSequence < dc2.ReplicasSequence
+			}
+			return dc1.HostSequence < dc2.HostSequence
 		}
-
-		return csServer1.HostSequence < csServer2.HostSequence
+		return dc1.Role < dc2.Role
 	})
 }
 
 // createLogicalPool
-func (c *Cluster) createLogicalPool(logicalPool string) (LogicalPool, []Server) {
+func createLogicalPool(dcs []*DeployConfig, logicalPool string) (LogicalPool, []Server) {
 	var zone string
 	copysets := 0
 	servers := []Server{}
 	zones := DEFAULT_ZONES_PER_POOL
 	nextZone := genNextZone(zones)
 	physicalPool := logicalPool
-
-	// ensure the number of copysets on one node
-	copysetsPerChunkserver := DEFAULT_CHUNKSERVER_COPYSETS
-	if c.spec.Storage.CopySets != 0 {
-		copysetsPerChunkserver = c.spec.Storage.CopySets
-	}
+	kind := dcs[0].Kind
 	// !important
-	SortDeployConfigs()
+	SortDeployConfigs(dcs)
 
-	for _, csConfig := range chunkserverConfigs {
-		if csConfig.ReplicasSequence == 0 {
+	for _, dc := range dcs {
+		if dc.ReplicasSequence == 0 {
 			zone = nextZone()
 		}
 
@@ -143,29 +136,31 @@ func (c *Cluster) createLogicalPool(logicalPool string) (LogicalPool, []Server) 
 		// set internal port and external port to 0 for let MDS
 		// attribute them as services on the same machine.
 		// see issue: https://github.com/opencurve/curve/issues/1441
-		internalPort := csConfig.Port
-		externalPort := csConfig.Port
-		if csConfig.Replicas > 1 {
+		internalPort := dc.Port
+		externalPort := dc.Port
+		if dc.Replicas > 1 {
 			internalPort = 0
 			externalPort = 0
 		}
 
 		// json Server field
 		server := Server{
-			Name:         formatName(&csConfig),
-			InternalIp:   csConfig.NodeIP,
+			Name:         formatName(dc),
+			InternalIp:   dc.NodeIP,
 			InternalPort: internalPort,
-			ExternalIp:   csConfig.NodeIP,
+			ExternalIp:   dc.NodeIP,
 			ExternalPort: externalPort,
 			Zone:         zone,
 		}
-
-		server.PhysicalPool = physicalPool
+		if kind == config.KIND_CURVEBS {
+			server.PhysicalPool = physicalPool
+		} else {
+			server.Pool = logicalPool
+		}
 
 		// copysets number ddefault value is 100
-		copysets += copysetsPerChunkserver
+		copysets += dc.Copysets
 		servers = append(servers, server)
-
 	}
 
 	// copysets
@@ -181,21 +176,24 @@ func (c *Cluster) createLogicalPool(logicalPool string) (LogicalPool, []Server) 
 		Zones:    zones,
 		Replicas: DEFAULT_REPLICAS_PER_COPYSET,
 	}
-
-	lpool.ScatterWidth = DEFAULT_SCATTER_WIDTH
-	lpool.Type = DEFAULT_TYPE
-	lpool.PhysicalPool = physicalPool
-
+	if kind == config.KIND_CURVEBS {
+		lpool.ScatterWidth = DEFAULT_SCATTER_WIDTH
+		lpool.Type = DEFAULT_TYPE
+		lpool.PhysicalPool = physicalPool
+	}
 	return lpool, servers
 }
 
-func (c *Cluster) genClusterPool() string {
+func genClusterPool(dcs []*DeployConfig) string {
 	// create CurveClusterTopo object by call createLogicalPool
-	lpool, servers := c.createLogicalPool("pool1")
+	lpool, servers := createLogicalPool(dcs, "pool1")
 	topo := CurveClusterTopo{Servers: servers, NPools: 1}
 
-	// curvebs
-	topo.LogicalPools = []LogicalPool{lpool}
+	if dcs[0].Kind == config.KIND_CURVEBS {
+		topo.LogicalPools = []LogicalPool{lpool}
+	} else {
+		topo.Pools = []LogicalPool{lpool}
+	}
 
 	// generate the topology.json
 	var bytes []byte
@@ -204,13 +202,8 @@ func (c *Cluster) genClusterPool() string {
 		return ""
 	}
 	clusterPoolJson := string(bytes)
+	// for debug
 	logger.Info(clusterPoolJson)
-	return clusterPoolJson
-}
 
-func (c *Cluster) getRegisterJobLabel(poolType string) map[string]string {
-	labels := make(map[string]string)
-	labels["app"] = RegisterJobName
-	labels["pool"] = poolType
-	return labels
+	return clusterPoolJson
 }

@@ -6,18 +6,17 @@ import (
 
 	"github.com/coreos/pkg/capnslog"
 	"github.com/pkg/errors"
-	"k8s.io/apimachinery/pkg/types"
 
 	curvev1 "github.com/opencurve/curve-operator/api/v1"
-	"github.com/opencurve/curve-operator/pkg/clusterd"
+	"github.com/opencurve/curve-operator/pkg/daemon"
 	"github.com/opencurve/curve-operator/pkg/k8sutil"
+	"github.com/opencurve/curve-operator/pkg/topology"
 )
 
 const (
 	AppName             = "curve-chunkserver"
 	ConfigMapNamePrefix = "curve-chunkserver-conf"
 
-	// ContainerPath is the mount path of data and log
 	Prefix                      = "/curvebs/chunkserver"
 	ChunkserverContainerDataDir = "/curvebs/chunkserver/data"
 	ChunkserverContainerLogDir  = "/curvebs/chunkserver/logs"
@@ -29,57 +28,37 @@ const (
 )
 
 type Cluster struct {
-	context         clusterd.Context
-	namespacedName  types.NamespacedName
-	spec            curvev1.CurveClusterSpec
-	dataDirHostPath string
-	logDirHostPath  string
-	confDirHostPath string
-	ownerInfo       *k8sutil.OwnerInfo
+	*daemon.Cluster
 }
 
 var logger = capnslog.NewPackageLogger("github.com/opencurve/curve-operator", "chunkserver")
 
-func New(context clusterd.Context,
-	namespacedName types.NamespacedName,
-	spec curvev1.CurveClusterSpec,
-	ownerInfo *k8sutil.OwnerInfo,
-	dataDirHostPath string,
-	logDirHostPath string,
-	confDirHostPath string) *Cluster {
-	return &Cluster{
-		context:         context,
-		namespacedName:  namespacedName,
-		spec:            spec,
-		dataDirHostPath: dataDirHostPath,
-		logDirHostPath:  logDirHostPath,
-		confDirHostPath: confDirHostPath,
-		ownerInfo:       ownerInfo,
-	}
+func New(c *daemon.Cluster) *Cluster {
+	return &Cluster{Cluster: c}
 }
 
 // Start begins the chunkserver daemon
 func (c *Cluster) Start(nodeNameIP map[string]string) error {
-	logger.Infof("start running chunkserver in namespace %q", c.namespacedName.Namespace)
+	logger.Infof("start running chunkserver in namespace %q", c.NamespacedName.Namespace)
 
-	if !c.spec.Storage.UseSelectedNodes && (len(c.spec.Storage.Nodes) == 0 || len(c.spec.Storage.Devices) == 0) {
+	if !c.Chunkserver.UseSelectedNodes && (len(c.Chunkserver.Nodes) == 0 || len(c.Chunkserver.Devices) == 0) {
 		return errors.New("useSelectedNodes is set to false but no node specified")
 	}
 
-	if c.spec.Storage.UseSelectedNodes && len(c.spec.Storage.SelectedNodes) == 0 {
+	if c.Chunkserver.UseSelectedNodes && len(c.Chunkserver.SelectedNodes) == 0 {
 		return errors.New("useSelectedNodes is set to false but selectedNodes not be specified")
 	}
 
 	logger.Info("starting to prepare the chunk file")
 
-	// 1. startProvisioningOverNodes format device and prepare chunk files
-	err := c.startProvisioningOverNodes(nodeNameIP)
+	// startProvisioningOverNodes format device and prepare chunk files
+	dcs, err := c.startProvisioningOverNodes(nodeNameIP)
 	if err != nil {
-		return errors.Wrap(err, "failed to provision chunkfilepool")
+		return err
 	}
 
-	// 2. wait all job finish to complete format and wait MDS election success.
-	k8sutil.UpdateCondition(context.TODO(), &c.context, c.namespacedName, curvev1.ConditionTypeFormatedReady, curvev1.ConditionTrue, curvev1.ConditionFormatingChunkfilePoolReason, "Formating chunkfilepool")
+	// wait all job finish to complete format and wait MDS election success.
+	k8sutil.UpdateStatusCondition(c.Kind, context.TODO(), &c.Context, c.NamespacedName, curvev1.ConditionTypeFormatedReady, curvev1.ConditionTrue, curvev1.ConditionFormatingChunkfilePoolReason, "Formating chunkfilepool")
 	oneMinuteTicker := time.NewTicker(20 * time.Second)
 	defer oneMinuteTicker.Stop()
 
@@ -92,37 +71,48 @@ func (c *Cluster) Start(nodeNameIP map[string]string) error {
 	flag := <-chn
 	if !flag {
 		// TODO: delete all jobs that has created.
+		logger.Error("Format job is not completed in 24 hours and exit with -1")
 		return errors.New("Format job is not completed in 24 hours and exit with -1")
 	}
-	k8sutil.UpdateCondition(context.TODO(), &c.context, c.namespacedName, curvev1.ConditionTypeFormatedReady, curvev1.ConditionTrue, curvev1.ConditionFormatChunkfilePoolReason, "Formating chunkfilepool successed")
+	k8sutil.UpdateStatusCondition(c.Kind, context.TODO(), &c.Context, c.NamespacedName, curvev1.ConditionTypeFormatedReady, curvev1.ConditionTrue, curvev1.ConditionFormatChunkfilePoolReason, "Formating chunkfilepool successed")
 
 	logger.Info("all jobs run completed in 24 hours")
 
-	// 2. create physical pool
-	_, err = c.runCreatePoolJob(nodeNameIP, "physical_pool")
+	// create tool ConfigMap
+	if err := c.createToolConfigMap(); err != nil {
+		return err
+	}
+
+	// create topology ConfigMap
+	if err := topology.CreateTopoConfigMap(c.Cluster, dcs); err != nil {
+		return err
+	}
+
+	// create physical pool
+	_, err = topology.RunCreatePoolJob(c.Cluster, dcs, topology.PYHSICAL_POOL)
 	if err != nil {
-		return errors.Wrap(err, "failed to create physical pool")
+		return err
 	}
 	logger.Info("create physical pool successed")
 
-	// 3. startChunkServers start all chunkservers for each device of every node
+	// start all chunkservers for each device of every node
 	err = c.startChunkServers()
 	if err != nil {
-		return errors.Wrap(err, "failed to start chunkserver")
+		return err
 	}
 
-	// 4. wait all chunkservers online before create logical pool
+	// wait all chunkservers online before create logical pool
 	logger.Info("starting all chunkserver")
 	time.Sleep(30 * time.Second)
 
-	// 5. create logical pool
-	_, err = c.runCreatePoolJob(nodeNameIP, "logical_pool")
+	// create logical pool
+	_, err = topology.RunCreatePoolJob(c.Cluster, dcs, topology.LOGICAL_POOL)
 	if err != nil {
-		return errors.Wrap(err, "failed to create physical pool")
+		return err
 	}
 	logger.Info("create logical pool successed")
 
-	k8sutil.UpdateCondition(context.TODO(), &c.context, c.namespacedName, curvev1.ConditionTypeChunkServerReady, curvev1.ConditionTrue, curvev1.ConditionChunkServerClusterCreatedReason, "Chunkserver cluster has been created")
+	k8sutil.UpdateStatusCondition(c.Kind, context.TODO(), &c.Context, c.NamespacedName, curvev1.ConditionTypeChunkServerReady, curvev1.ConditionTrue, curvev1.ConditionChunkServerClusterCreatedReason, "Chunkserver cluster has been created")
 
 	return nil
 }
