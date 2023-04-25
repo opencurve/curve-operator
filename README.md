@@ -136,7 +136,7 @@ The specific meaning of each configuration item is already in the comments above
 Create the cluster:
 
 ```shell
-$ kubectl apply -f config/samples
+$ kubectl apply -f config/samples/cluster.yaml
 ```
 
 using `kubectl` to list pods in the curvebs namespace. You should be able to see the following pods once they are all running. The chunkserver numbers of will depend on the number of nodes in the cluster and the the number of devices configured. 
