@@ -1,0 +1,61 @@
+name: Build and Deploy Go Application
+on: push
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v2
+
+    - name: Set up Go 
+      run: |
+        wget https://golang.org/dl/go1.17.12.linux-amd64.tar.gz
+        tar -C /usr/local -xzf go1.17.12.linux-amd64.tar.gz
+        echo 'export PATH=$PATH:/usr/local/go/bin' >> $HOME/.bashrc
+        source $HOME/.bashrc
+        go env -w GO111MODULE=on
+        go env -w GOPROXY=https://goproxy.cn 
+        echo 'export PATH=$PATH:~/go/bin' >> $HOME/.bashrc
+        source $HOME/.bashrc
+
+    - name: Install kustomize
+      run: |
+        make kustomize
+
+    - name: Install controller-gen
+      run: |
+        make controller-gen
+
+    - name: Verify code
+      run: |
+        make fmt
+        make vet
+        make manifests
+
+    - name: Compile code
+      run: |
+        make curve-operator
+
+    - name: create cluster
+      run: |
+        swapoff -a
+        apt-get update && apt-get install -y apt-transport-https ca-certificates curl
+        sudo curl -fsSLo /usr/share/keyrings/kubernetes-archive-keyring.gpg https://packages.cloud.google.com/apt/doc/apt-key.gpg
+        echo "deb [signed-by=/usr/share/keyrings/kubernetes-archive-keyring.gpg] https://apt.kubernetes.io/ kubernetes-xenial main" | sudo tee /etc/apt/sources.list.d/kubernetes.list
+        sudo apt-get update
+        sudo apt-get install -y kubectl=1.20.15-00 kubelet=1.20.15-00 kubeadm=1.20.15-00
+        sudo apt-mark hold kubelet kubeadm kubectl
+        sudo kubeadm init --pod-network-cidr=10.244.0.0/16
+        mkdir -p $HOME/.kube
+        sudo cp -i /etc/kubernetes/admin.conf $HOME/.kube/config
+        sudo chown $(id -u):$(id -g) $HOME/.kube/config
+        kubectl taint nodes --all node-role.kubernetes.io/master-
+        kubectl apply -f https://raw.githubusercontent.com/coreos/flannel/master/Documentation/kube-flannel.yml
+
+
+    - name: install manifests
+      run: |
+        make docker-build
+        kubectl apply -f config/deploy/manifests.yaml
+        kubectl --namespace curve wait --for=condition=ready --timeout=300s pod -l curve=operator
