@@ -1,22 +1,21 @@
 name: Build and Deploy Go Application
-on: push
+on:
+  push:
+  issue_comment:
+    types: [created]
 
 jobs:
   build:
     runs-on: ubuntu-latest
+    if: ${{ github.event_name == 'push' || (github.event_name == 'issue_comment' && contains(github.event.comment.body, '/cicheck')) }}
     steps:
     - name: Checkout code
       uses: actions/checkout@v2
 
-    - name: Set up Go 
-      run: |
-        wget https://golang.org/dl/go1.17.12.linux-amd64.tar.gz
-        tar -C /usr/local -xzf go1.17.12.linux-amd64.tar.gz
-        echo 'export PATH=$PATH:/usr/local/go/bin' >> $HOME/.bashrc
-        source $HOME/.bashrc
-        go env -w GO111MODULE=on
-        echo 'export PATH=$PATH:~/go/bin' >> $HOME/.bashrc
-        source $HOME/.bashrc
+    - name: Setup Go environment
+      uses: actions/setup-go@v4.0.0
+      with:
+        go-version: 1.17.12
 
     - name: Install kustomize
       run: |
@@ -34,12 +33,14 @@ jobs:
 
     - name: Compile code
       run: |
+        go mod tidy
+        go mod vendor
         make curve-operator
 
     - name: Create cluster
       run: |
-        swapoff -a
-        apt-get update && apt-get install -y apt-transport-https ca-certificates curl
+        sudo swapoff -a
+        sudo apt-get update && sudo apt-get install -y apt-transport-https ca-certificates curl
         sudo curl -fsSLo /usr/share/keyrings/kubernetes-archive-keyring.gpg https://packages.cloud.google.com/apt/doc/apt-key.gpg
         echo "deb [signed-by=/usr/share/keyrings/kubernetes-archive-keyring.gpg] https://apt.kubernetes.io/ kubernetes-xenial main" | sudo tee /etc/apt/sources.list.d/kubernetes.list
         sudo apt-get update
@@ -53,8 +54,12 @@ jobs:
         kubectl apply -f https://raw.githubusercontent.com/coreos/flannel/master/Documentation/kube-flannel.yml
 
 
-    - name: Apply manifests
+    - name: Docker build
       run: |
         make docker-build
-        kubectl apply -f config/deploy/manifests.yaml
+        
+    - name: Deploy manfiests
+      run: |
+        make deploy
         kubectl --namespace curve wait --for=condition=ready --timeout=300s pod -l curve=operator
+        kubectl --namespace curve get pod
