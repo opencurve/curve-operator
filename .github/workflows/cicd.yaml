@@ -11,12 +11,12 @@ jobs:
     - name: Set up Go 
       run: |
         wget https://go.dev/dl/go1.17.12.linux-amd64.tar.gz
-        tar -C /usr/local -xzf go1.17.12.linux-amd64.tar.gz
+        sudo tar -C /usr/local -xzf go1.17.12.linux-amd64.tar.gz
         echo 'export PATH=$PATH:/usr/local/go/bin' >> $HOME/.bashrc
-        source $HOME/.bashrc
+        sudo source $HOME/.bashrc
         go env -w GO111MODULE=on
         echo 'export PATH=$PATH:~/go/bin' >> $HOME/.bashrc
-        source $HOME/.bashrc
+        sudo source $HOME/.bashrc
 
     - name: Install kustomize
       run: |
