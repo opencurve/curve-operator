@@ -1,7 +1,8 @@
 name: Build and Deploy Go Application
-on: push:
-    issue_comment:
-      types: [created]
+on:
+  push:
+  issue_comment:
+    types: [created]
 
 jobs:
   build:
