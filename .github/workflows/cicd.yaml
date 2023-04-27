@@ -1,10 +1,12 @@
 name: Build and Deploy Go Application
 on: push
+    issue_comment:
+      types: [created]
 
 jobs:
   build:
     runs-on: ubuntu-latest
-    if: contains(github.event.comment.body, '/cicheck')
+    if: ${{ github.event_name == 'push' || (github.event_name == 'issue_comment' && contains(github.event.comment.body, '/cicheck')) }}
     steps:
     - name: Checkout code
       uses: actions/checkout@v2
