@@ -15,7 +15,6 @@ jobs:
         echo 'export PATH=$PATH:/usr/local/go/bin' >> $HOME/.bashrc
         source $HOME/.bashrc
         go env -w GO111MODULE=on
-        go env -w GOPROXY=https://goproxy.cn 
         echo 'export PATH=$PATH:~/go/bin' >> $HOME/.bashrc
         source $HOME/.bashrc
 
@@ -37,7 +36,7 @@ jobs:
       run: |
         make curve-operator
 
-    - name: create cluster
+    - name: Create cluster
       run: |
         swapoff -a
         apt-get update && apt-get install -y apt-transport-https ca-certificates curl
@@ -54,7 +53,7 @@ jobs:
         kubectl apply -f https://raw.githubusercontent.com/coreos/flannel/master/Documentation/kube-flannel.yml
 
 
-    - name: install manifests
+    - name: Apply manifests
       run: |
         make docker-build
         kubectl apply -f config/deploy/manifests.yaml
