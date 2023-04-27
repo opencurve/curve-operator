@@ -1,5 +1,5 @@
 name: Build and Deploy Go Application
-on: push
+on: push:
     issue_comment:
       types: [created]
 
