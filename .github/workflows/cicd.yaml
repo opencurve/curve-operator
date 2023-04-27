@@ -30,6 +30,8 @@ jobs:
       run: |
         make fmt
         make vet
+        go mod tidy
+        go mod vendor
         make manifests
 
     - name: Compile code
