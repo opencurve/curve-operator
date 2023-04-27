@@ -1,7 +1,7 @@
 apiVersion: operator.curve.io/v1
 kind: CurveCluster
 metadata:
-  name: my-cluster
+  name: curvebs-cluster-cloud
   # The namespace to deploy CurveBS cluster. 
   # Curve operator is deployed in this namespace,Do not modify if not necessary
   namespace: curve
@@ -52,7 +52,7 @@ spec:
     devices:
     - name: /dev/vdc
       mountPath: /data/chunkserver0
-      percentage: 80
+      percentage: 30
     #selectedNodes:
     #- node: curve-operator-node1
     #  - devices:

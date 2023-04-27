@@ -15,8 +15,8 @@ import (
 	curvev1 "github.com/opencurve/curve-operator/api/v1"
 )
 
-func removeFinalizer(client client.Client, name types.NamespacedName, obj runtime.Object, finalizer string) error {
-	err := client.Get(context.Background(), name, obj)
+func removeFinalizer(cli client.Client, name types.NamespacedName, obj runtime.Object, finalizer string) error {
+	err := cli.Get(context.Background(), name, obj)
 	if err != nil {
 		if kerrors.IsNotFound(err) {
 			logger.Debugf("%s resource not found. Ignoring since object must be deleted.", name.Name)
@@ -26,12 +26,12 @@ func removeFinalizer(client client.Client, name types.NamespacedName, obj runtim
 	}
 
 	if finalizer == "" {
-		err = RemoveFinalizer(context.Background(), client, obj, name)
+		err = RemoveFinalizer(context.Background(), cli, obj, name)
 		if err != nil {
 			return err
 		}
 	} else {
-		err = RemoveFinalizerWithName(context.Background(), client, obj, name, finalizer)
+		err = RemoveFinalizerWithName(context.Background(), cli, obj, name, finalizer)
 		if err != nil {
 			return err
 		}
@@ -63,9 +63,8 @@ func remove(list []string, s string) []string {
 
 // AddFinalizerIfNotPresent adds a finalizer an object to avoid instant deletion
 // of the object without finalizing it.
-func AddFinalizerIfNotPresent(ctx context.Context, client client.Client, obj runtime.Object) error {
+func AddFinalizerIfNotPresent(ctx context.Context, cli client.Client, obj runtime.Object) error {
 	objectFinalizer := buildFinalizerName(obj.GetObjectKind().GroupVersionKind().Kind)
-
 	accessor, err := meta.Accessor(obj)
 	if err != nil {
 		return errors.Wrap(err, "failed to get meta information of object")
@@ -74,9 +73,8 @@ func AddFinalizerIfNotPresent(ctx context.Context, client client.Client, obj run
 	if !contains(accessor.GetFinalizers(), objectFinalizer) {
 		logger.Infof("adding finalizer %q on %q", objectFinalizer, accessor.GetName())
 		accessor.SetFinalizers(append(accessor.GetFinalizers(), objectFinalizer))
-
 		// Update CR with finalizer
-		if err := client.Update(ctx, obj); err != nil {
+		if err := cli.Update(ctx, obj); err != nil {
 			return errors.Wrapf(err, "failed to add finalizer %q on %q", objectFinalizer, accessor.GetName())
 		}
 	}
@@ -85,14 +83,14 @@ func AddFinalizerIfNotPresent(ctx context.Context, client client.Client, obj run
 }
 
 // RemoveFinalizer removes a finalizer from an object
-func RemoveFinalizer(ctx context.Context, client client.Client, obj runtime.Object, namespacedName types.NamespacedName) error {
+func RemoveFinalizer(ctx context.Context, cli client.Client, obj runtime.Object, namespacedName types.NamespacedName) error {
 	finalizerName := buildFinalizerName(obj.GetObjectKind().GroupVersionKind().Kind)
-	return RemoveFinalizerWithName(ctx, client, obj, namespacedName, finalizerName)
+	return RemoveFinalizerWithName(ctx, cli, obj, namespacedName, finalizerName)
 }
 
 // RemoveFinalizerWithName removes finalizer passed as an argument from an object
-func RemoveFinalizerWithName(ctx context.Context, client client.Client, obj runtime.Object, namespacedName types.NamespacedName, finalizerName string) error {
-	err := client.Get(ctx, types.NamespacedName{Name: namespacedName.Name, Namespace: namespacedName.Namespace}, obj)
+func RemoveFinalizerWithName(ctx context.Context, cli client.Client, obj runtime.Object, namespacedName types.NamespacedName, finalizerName string) error {
+	err := cli.Get(ctx, namespacedName, obj)
 	if err != nil {
 		return errors.Wrap(err, "failed to get the latest version of the object")
 	}
@@ -104,7 +102,7 @@ func RemoveFinalizerWithName(ctx context.Context, client client.Client, obj runt
 	if contains(accessor.GetFinalizers(), finalizerName) {
 		logger.Infof("removing finalizer %q on %q", finalizerName, accessor.GetName())
 		accessor.SetFinalizers(remove(accessor.GetFinalizers(), finalizerName))
-		if err := client.Update(ctx, obj); err != nil {
+		if err := cli.Update(ctx, obj); err != nil {
 			return errors.Wrapf(err, "failed to remove finalizer %q on %q", finalizerName, accessor.GetName())
 		}
 	}

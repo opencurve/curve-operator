@@ -9,6 +9,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/util/retry"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	curvev1 "github.com/opencurve/curve-operator/api/v1"
@@ -16,39 +17,50 @@ import (
 	"github.com/opencurve/curve-operator/pkg/config"
 )
 
-func UpdateStatusCondition(kind string, ctx context.Context, c *clusterd.Context, namespaceName types.NamespacedName, conditionType curvev1.ConditionType, status curvev1.ConditionStatus, reason curvev1.ConditionReason, message string) {
+func UpdateStatusCondition(kind string, ctx context.Context, c *clusterd.Context, namespaceName types.NamespacedName, conditionType curvev1.ConditionType, status curvev1.ConditionStatus, reason curvev1.ConditionReason, message string) error {
 	if kind == config.KIND_CURVEBS {
-		UpdateCondition(ctx, c, namespaceName, conditionType, status, reason, message)
+		err := UpdateCondition(ctx, c, namespaceName, conditionType, status, reason, message)
+		if err != nil {
+			return err
+		}
 	} else {
-		UpdateFSCondition(ctx, c, namespaceName, conditionType, status, reason, message)
+		err := UpdateFSCondition(ctx, c, namespaceName, conditionType, status, reason, message)
+		if err != nil {
+			return err
+		}
 	}
+	return nil
 }
 
 // UpdateCondition function will export each condition into the BS cluster custom resource
-func UpdateCondition(ctx context.Context, c *clusterd.Context, namespaceName types.NamespacedName, conditionType curvev1.ConditionType, status curvev1.ConditionStatus, reason curvev1.ConditionReason, message string) {
-	cluster := &curvev1.CurveCluster{}
-	if err := c.Client.Get(ctx, namespaceName, cluster); err != nil {
-		logger.Errorf("failed to get cluster %v to update the conditions. %v", namespaceName, err)
-		return
-	}
+func UpdateCondition(ctx context.Context, c *clusterd.Context, namespaceName types.NamespacedName, conditionType curvev1.ConditionType, status curvev1.ConditionStatus, reason curvev1.ConditionReason, message string) error {
+	return retry.RetryOnConflict(retry.DefaultBackoff, func() (err error) {
+		cluster := &curvev1.CurveCluster{}
+		if err := c.Client.Get(ctx, namespaceName, cluster); err != nil {
+			logger.Errorf("failed to get cluster %v to update the conditions. %v", namespaceName, err)
+			return err
+		}
 
-	UpdateClusterCondition(c, cluster, namespaceName, conditionType, status, reason, message, false)
+		return UpdateClusterCondition(c, cluster, namespaceName, conditionType, status, reason, message, false)
+	})
 }
 
 // UpdateFSCondition function will export each condition into the FS cluster custom resource
-func UpdateFSCondition(ctx context.Context, c *clusterd.Context, namespaceName types.NamespacedName, conditionType curvev1.ConditionType, status curvev1.ConditionStatus, reason curvev1.ConditionReason, message string) {
-	cluster := &curvev1.Curvefs{}
-	if err := c.Client.Get(ctx, namespaceName, cluster); err != nil {
-		logger.Errorf("failed to get cluster %v to update the conditions. %v", namespaceName, err)
-		return
-	}
+func UpdateFSCondition(ctx context.Context, c *clusterd.Context, namespaceName types.NamespacedName, conditionType curvev1.ConditionType, status curvev1.ConditionStatus, reason curvev1.ConditionReason, message string) error {
+	return retry.RetryOnConflict(retry.DefaultBackoff, func() (err error) {
+		cluster := &curvev1.Curvefs{}
+		if err := c.Client.Get(ctx, namespaceName, cluster); err != nil {
+			logger.Errorf("failed to get cluster %v to update the conditions. %v", namespaceName, err)
+			return err
+		}
 
-	UpdateFSClusterCondition(c, cluster, namespaceName, conditionType, status, reason, message, false)
+		return UpdateFSClusterCondition(c, cluster, namespaceName, conditionType, status, reason, message, false)
+	})
 }
 
 // UpdateClusterCondition function will export each condition into the cluster custom resource
 func UpdateFSClusterCondition(c *clusterd.Context, cluster *curvev1.Curvefs, namespaceName types.NamespacedName, conditionType curvev1.ConditionType, status curvev1.ConditionStatus,
-	reason curvev1.ConditionReason, message string, preserveAllConditions bool) {
+	reason curvev1.ConditionReason, message string, preserveAllConditions bool) error {
 
 	// Keep the conditions that already existed if they are in the list of long-term conditions,
 	// otherwise discard the temporary conditions
@@ -62,8 +74,7 @@ func UpdateFSClusterCondition(c *clusterd.Context, cluster *curvev1.Curvefs, nam
 		if preserveAllConditions ||
 			condition.Type == curvev1.ConditionTypeEtcdReady ||
 			condition.Type == curvev1.ConditionTypeMdsReady ||
-			condition.Type == curvev1.ConditionTypeFormatedReady ||
-			condition.Type == curvev1.ConditionTypeChunkServerReady ||
+			condition.Type == curvev1.ConditionTypeMetaServerReady ||
 			condition.Type == curvev1.ConditionTypeSnapShotCloneReady {
 			if conditionType != condition.Type {
 				conditions = append(conditions, condition)
@@ -106,12 +117,15 @@ func UpdateFSClusterCondition(c *clusterd.Context, cluster *curvev1.Curvefs, nam
 
 	if err := UpdateStatus(c.Client, namespaceName, cluster); err != nil {
 		logger.Errorf("failed to update cluster condition to %+v. %v", *currentCondition, err)
+		return err
 	}
+
+	return nil
 }
 
 // UpdateClusterCondition function will export each condition into the cluster custom resource
 func UpdateClusterCondition(c *clusterd.Context, cluster *curvev1.CurveCluster, namespaceName types.NamespacedName, conditionType curvev1.ConditionType, status curvev1.ConditionStatus,
-	reason curvev1.ConditionReason, message string, preserveAllConditions bool) {
+	reason curvev1.ConditionReason, message string, preserveAllConditions bool) error {
 
 	// Keep the conditions that already existed if they are in the list of long-term conditions,
 	// otherwise discard the temporary conditions
@@ -169,7 +183,9 @@ func UpdateClusterCondition(c *clusterd.Context, cluster *curvev1.CurveCluster, 
 
 	if err := UpdateStatus(c.Client, namespaceName, cluster); err != nil {
 		logger.Errorf("failed to update cluster condition to %+v. %v", *currentCondition, err)
+		return err
 	}
+	return nil
 }
 
 func translateConditionType2Phase(conditionType curvev1.ConditionType) curvev1.ConditionType {

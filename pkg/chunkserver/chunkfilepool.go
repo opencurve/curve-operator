@@ -1,6 +1,7 @@
 package chunkserver
 
 import (
+	"context"
 	"fmt"
 	"strconv"
 	"strings"
@@ -119,8 +120,7 @@ func (c *Cluster) startProvisioningOverNodes(nodeNameIP map[string]string) ([]*t
 
 				job, err := c.runPrepareJob(node.Name, device)
 				if err != nil {
-					logger.Errorf("failed to create job for device %s on %s-%v", device.Name, node.Name, err)
-					continue // do not record the failed job in jobsArr and do not create chunkserverConfig for this device
+					return nil, err
 				}
 
 				jobInfo := &Job2DeviceInfo{
@@ -210,23 +210,12 @@ func (c *Cluster) createFormatConfigMap() error {
 // runPrepareJob create job and run job
 func (c *Cluster) runPrepareJob(nodeName string, device curvev1.DevicesSpec) (*batch.Job, error) {
 	job, _ := c.makeJob(nodeName, device)
-
-	// check whether prepare job is exist
-	existingJob, err := c.Context.Clientset.BatchV1().Jobs(job.Namespace).Get(job.Name, metav1.GetOptions{})
-	if err != nil && !kerrors.IsNotFound(err) {
-		logger.Warningf("failed to detect job %s. %+v", job.Name, err)
-	} else if err == nil {
-		// if the job is still running
-		if existingJob.Status.Active > 0 {
-			logger.Infof("Found previous job %s. Status=%+v", job.Name, existingJob.Status)
-			return existingJob, nil
-		}
+	err := k8sutil.RunReplaceableJob(context.TODO(), c.Context.Clientset, job, false)
+	if err != nil {
+		return &batch.Job{}, err
 	}
 
-	// job is not found or job is not active status, so create or recreate it here
-	_, err = c.Context.Clientset.BatchV1().Jobs(job.Namespace).Create(job)
-
-	return job, err
+	return job, nil
 }
 
 func (c *Cluster) makeJob(nodeName string, device curvev1.DevicesSpec) (*batch.Job, error) {

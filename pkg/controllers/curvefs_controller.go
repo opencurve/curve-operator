@@ -97,7 +97,7 @@ func (r *CurvefsReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 		return reconcile.Result{}, err
 	}
 
-	// Delete: the CR was deleted
+	// The CR was deleted
 	if !curvefsCluster.GetDeletionTimestamp().IsZero() {
 		return r.reconcileCurvefsDelete(&curvefsCluster)
 	}
@@ -113,9 +113,9 @@ func (r *CurvefsReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	return ctrl.Result{}, nil
 }
 
-// reconcileDelete
+// reconcileCurvefsDelete
 func (r *CurvefsReconciler) reconcileCurvefsDelete(curvefsCluster *curvev1.Curvefs) (reconcile.Result, error) {
-	log.Log.Info("Delete the cluster CR now", "namespace", curvefsCluster.ObjectMeta.Name)
+	log.Log.Info("delete the cluster CR now", "name", curvefsCluster.ObjectMeta.Name)
 	k8sutil.UpdateFSCondition(context.TODO(), &r.ClusterController.context, r.ClusterController.namespacedName, curvev1.ConditionTypeDeleting, curvev1.ConditionTrue, curvev1.ConditionDeletingClusterReason, "Reconcile curvecluster deleting")
 
 	daemonHosts, _ := k8sutil.GetValidFSDaemonHosts(r.ClusterController.context, curvefsCluster)
@@ -138,20 +138,20 @@ func (r *CurvefsReconciler) reconcileCurvefsDelete(curvefsCluster *curvev1.Curve
 	return reconcile.Result{}, nil
 }
 
-// reconcileCurveCluster
+// reconcileCurvefsCluster
 func (c *ClusterController) reconcileCurvefsCluster(clusterObj *curvev1.Curvefs, ownerInfo *k8sutil.OwnerInfo) error {
-	// one cr cluster in one namespace is allowed
+	// one cluster in one namespace is allowed
 	cluster, ok := c.clusterMap[clusterObj.Namespace]
 	if !ok {
 		logger.Info("A new curve FS Cluster will be created!!!")
 		cluster = newCluster(config.KIND_CURVEFS, false)
 		// TODO: update cluster spec if the cluster has already exist!
 	} else {
-		logger.Info("Cluster has been exist but need configured but we don't apply it now, you need delete it and recreate it!!!namespace=%q", cluster.Namespace)
+		logger.Infof("Cluster has been exist but need configured but we don't apply it now, you need delete it and recreate it!!!namespace=%q", cluster.Namespace)
 		return nil
 	}
 
-	// Set the context and NameSpacedName
+	// Set the context and metadata info
 	cluster.Context = c.context
 	cluster.Namespace = c.namespacedName.Namespace
 	cluster.NamespacedName = c.namespacedName
@@ -165,6 +165,7 @@ func (c *ClusterController) reconcileCurvefsCluster(clusterObj *curvev1.Curvefs,
 	cluster.SnapShotClone = clusterObj.Spec.SnapShotClone
 	cluster.Metaserver = clusterObj.Spec.MetaServer
 
+	// Set Host path
 	cluster.HostDataDir = clusterObj.Spec.HostDataDir
 	cluster.DataDirHostPath = path.Join(clusterObj.Spec.HostDataDir, "data")
 	cluster.LogDirHostPath = path.Join(clusterObj.Spec.HostDataDir, "logs")

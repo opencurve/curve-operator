@@ -32,6 +32,7 @@ func (c *Cluster) checkJobStatus(ctx context.Context, ticker *time.Ticker, chn c
 		case <-ticker.C:
 			du, err := c.getJob2DeviceFormatProgress(chn)
 			if err != nil {
+				logger.Errorf("failed to get device format progress %v", err)
 				chn <- false
 				return
 			}

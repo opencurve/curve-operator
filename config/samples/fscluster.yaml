@@ -42,7 +42,7 @@ spec:
   snapShotClone:
     # set false if there is no S3 service available temporarily or don't need to use the snapshot clone service
     # Make sure s3 service exist if enable is set true
-    enable: true
+    enable: false
     port: 5555
     dummyPort: 8083
     proxyPort: 8084

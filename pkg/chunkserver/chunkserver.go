@@ -57,8 +57,6 @@ func (c *Cluster) Start(nodeNameIP map[string]string) error {
 		return err
 	}
 
-	// wait all job finish to complete format and wait MDS election success.
-	k8sutil.UpdateStatusCondition(c.Kind, context.TODO(), &c.Context, c.NamespacedName, curvev1.ConditionTypeFormatedReady, curvev1.ConditionTrue, curvev1.ConditionFormatingChunkfilePoolReason, "Formating chunkfilepool")
 	oneMinuteTicker := time.NewTicker(20 * time.Second)
 	defer oneMinuteTicker.Stop()
 
@@ -103,6 +101,7 @@ func (c *Cluster) Start(nodeNameIP map[string]string) error {
 
 	// wait all chunkservers online before create logical pool
 	logger.Info("starting all chunkserver")
+	k8sutil.UpdateStatusCondition(c.Kind, context.TODO(), &c.Context, c.NamespacedName, curvev1.ConditionTypeChunkServerReady, curvev1.ConditionTrue, curvev1.ConditionChunkServerClusterCreatedReason, "Chunkserver cluster has been created")
 	time.Sleep(30 * time.Second)
 
 	// create logical pool
@@ -111,8 +110,5 @@ func (c *Cluster) Start(nodeNameIP map[string]string) error {
 		return err
 	}
 	logger.Info("create logical pool successed")
-
-	k8sutil.UpdateStatusCondition(c.Kind, context.TODO(), &c.Context, c.NamespacedName, curvev1.ConditionTypeChunkServerReady, curvev1.ConditionTrue, curvev1.ConditionChunkServerClusterCreatedReason, "Chunkserver cluster has been created")
-
 	return nil
 }

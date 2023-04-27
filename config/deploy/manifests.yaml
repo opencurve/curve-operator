@@ -645,10 +645,10 @@ spec:
     spec:
       containers:
       - args:
-        - --enable-leader-election
+        - --enable-leader-election=true
         command:
         - ./curve-operator
-        image: harbor.cloud.netease.com/curve/curve-operator:v1.0.1
+        image: harbor.cloud.netease.com/curve/curve-operator:v1.0.2
         name: curve-operator
         resources:
           limits:

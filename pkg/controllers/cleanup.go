@@ -47,7 +47,7 @@ func (c *ClusterController) startClusterCleanUp(ctx clusterd.Context, namespace 
 	c.startCleanUpJobs(namespace, nodesForJob)
 }
 
-func (c *ClusterController) startCleanUpJobs(namespace string, nodesForJob []v1.Node) {
+func (c *ClusterController) startCleanUpJobs(namespace string, nodesForJob []v1.Node) error {
 	for _, node := range nodesForJob {
 		logger.Infof("starting clean up job on node %q", node.Name)
 		jobName := k8sutil.TruncateNodeNameForJob("cluster-cleanup-job-%s", node.Name)
@@ -67,10 +67,12 @@ func (c *ClusterController) startCleanUpJobs(namespace string, nodesForJob []v1.
 
 		if err := k8sutil.RunReplaceableJob(context.TODO(), c.context.Clientset, job, true); err != nil {
 			logger.Errorf("failed to run cluster clean up job on node %q. %v", node.Name, err)
+			return err
 		}
 
 		logger.Infof("cleanup job %s has started", jobName)
 	}
+	return nil
 }
 
 func (c *ClusterController) cleanUpJobTemplateSpec(cluster *daemon.Cluster) v1.PodTemplateSpec {
