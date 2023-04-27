@@ -4,6 +4,7 @@ on: push
 jobs:
   build:
     runs-on: ubuntu-latest
+    if: contains(github.event.comment.body, '/cicheck')
     steps:
     - name: Checkout code
       uses: actions/checkout@v2
