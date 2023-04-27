@@ -1,7 +1,7 @@
 apiVersion: operator.curve.io/v1
 kind: CurveCluster
 metadata:
-  name: my-cluster
+  name: curvebs-cluster
   # The namespace to deploy CurveBS cluster. 
   # Curve operator is deployed in this namespace,Do not modify if not necessary
   namespace: curve

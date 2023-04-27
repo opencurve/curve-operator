@@ -17,9 +17,10 @@ limitations under the License.
 package main
 
 import (
-	"flag"
+	"fmt"
 	"os"
 
+	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes"
@@ -44,42 +45,56 @@ func init() {
 	// +kubebuilder:scaffold:scheme
 }
 
-type OperatorOptions struct {
-	// MetricsAddr
-	MetricsAddr string
-	// EnableLeaderElection
+type CurveOptions struct {
+	MetricsAddr          string
 	EnableLeaderElection bool
 }
 
-func NewOperatorOptions() (*OperatorOptions, error) {
-	return &OperatorOptions{
+// NewCurveOptions creates a new CurveOptions with a default config
+func NewCurveOptions() (*CurveOptions, error) {
+	return &CurveOptions{
 		MetricsAddr:          ":8080",
 		EnableLeaderElection: false,
 	}, nil
 }
 
 func main() {
-	var metricsAddr string
-	var enableLeaderElection bool
-	flag.StringVar(&metricsAddr, "metrics-addr", ":8080", "The address the metric endpoint binds to.")
-	flag.BoolVar(&enableLeaderElection, "enable-leader-election", false,
-		"Enable leader election for controller manager. "+
-			"Enabling this will ensure there is only one active controller manager.")
-	flag.Parse()
+	opts, err := NewCurveOptions()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error: %v\n", err)
+		os.Exit(1)
+	}
 
+	cmd := &cobra.Command{
+		Use: "curve-operator",
+		// TODO: Rewrite this long message.
+		Long: `The Curve-Operator is a daemon to deploy Curve and auto it on kubernetes. 
+		It support for Curve storage to natively integrate with cloud-native environments.`,
+		Run: func(cmd *cobra.Command, args []string) {
+			setupLog.Error(opts.Run(), "failed to run curve-operator")
+			os.Exit(1)
+		},
+	}
+
+	opts.AddFlags(cmd.Flags())
+
+	if err := cmd.Execute(); err != nil {
+		fmt.Fprintf(os.Stderr, "error: %v\n", err)
+		os.Exit(1)
+	}
+}
+
+func (opts *CurveOptions) Run() error {
 	ctrl.SetLogger(zap.New(zap.UseDevMode(true)))
 
-	// get config file and create clientSet that pass to context
-
 	config := ctrl.GetConfigOrDie()
-
 	clientSet, err := kubernetes.NewForConfig(config)
 	if err != nil {
 		setupLog.Error(err, "create clientset failed")
 		os.Exit(1)
 	}
 
-	// Create context
+	// Create clusterd context
 	context := clusterd.Context{
 		KubeConfig: config,
 		Clientset:  clientSet,
@@ -87,9 +102,9 @@ func main() {
 
 	mgr, err := ctrl.NewManager(config, ctrl.Options{
 		Scheme:             scheme,
-		MetricsBindAddress: metricsAddr,
+		MetricsBindAddress: opts.MetricsAddr,
 		Port:               9443,
-		LeaderElection:     enableLeaderElection,
+		LeaderElection:     opts.EnableLeaderElection,
 		LeaderElectionID:   "aa88fc6c.curve.io",
 	})
 	if err != nil {
@@ -112,7 +127,7 @@ func main() {
 		mgr.GetScheme(),
 		context,
 	)).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "Curvefs")
+		setupLog.Error(err, "unable to create controller", "controller", "CurvefsCluster")
 		os.Exit(1)
 	}
 	// +kubebuilder:scaffold:builder
@@ -122,10 +137,12 @@ func main() {
 		setupLog.Error(err, "problem running manager")
 		os.Exit(1)
 	}
+
+	return nil
 }
 
 // AddFlags adds flags to fs and binds them to options.
-func (opts *OperatorOptions) AddFlags(fs *pflag.FlagSet) {
-	fs.StringVar(&opts.MetricsAddr, "metricsAddr", opts.MetricsAddr, "The address on which to advertise.")
-	fs.BoolVar(&opts.EnableLeaderElection, "enableLeaderElection", opts.EnableLeaderElection, "Enables leader election for kubediag master.")
+func (opts *CurveOptions) AddFlags(fs *pflag.FlagSet) {
+	fs.StringVar(&opts.MetricsAddr, "metrics-port", opts.MetricsAddr, "The address on which to advertise.")
+	fs.BoolVar(&opts.EnableLeaderElection, "enable-leader-election", opts.EnableLeaderElection, "Enables leader election for curve-operator master.")
 }

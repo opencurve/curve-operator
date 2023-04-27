@@ -23,10 +23,10 @@ $ cd curve-operator
 $ kubectl apply -f config/deploy/
 ```
 
-verify the curve-operator is in the `Running` state in `curvebs` namespace.
+verify the curve-operator is in the `Running` state in `curve` namespace.
 
 ```shell
-$ kubectl get pod -n curvebs
+$ kubectl get pod -n curve
 
 NAME                              READY   STATUS    RESTARTS   AGE
 curve-operator-69bc69c75d-jfsjg   1/1     Running   0          7s
@@ -45,9 +45,9 @@ apiVersion: operator.curve.io/v1
 kind: CurveCluster
 metadata:
   name: my-cluster
-  # The namespace to deploy CurveBS cluster. 
+  # The namespace to deploy Curve BS cluster. 
   # Curve operator is deployed in this namespace,Do not modify if not necessary
-  namespace: curvebs
+  namespace: curve
 spec:
   # The container image used to launch the Curve daemon pods(etcd, mds, chunkserver, snapshotclone).
   # v1.2 is Pacific and v1.3 is not tested.
@@ -139,10 +139,10 @@ Create the cluster:
 $ kubectl apply -f config/samples/cluster.yaml
 ```
 
-using `kubectl` to list pods in the curvebs namespace. You should be able to see the following pods once they are all running. The chunkserver numbers of will depend on the number of nodes in the cluster and the the number of devices configured. 
+using `kubectl` to list pods in the curve namespace. You should be able to see the following pods once they are all running. The chunkserver numbers of will depend on the number of nodes in the cluster and the the number of devices configured. 
 
 ```shell
-$ kubectl -n curvebs get pod
+$ kubectl -n curve get pod
 
 NAME                                                          READY   STATUS      RESTARTS   AGE
 curve-chunkserver-curve-operator-node1-vdc-556fc99467-5nx9q   1/1     Running     0          5m45s
@@ -201,13 +201,13 @@ You can uninstall curve cluster deployed and clean up data on host.
 ### 1. Delete the `Curvecluster` CR:
 
 ```shell
-$ kubectl -n curvebs delete curvecluster my-cluster
+$ kubectl -n curve delete curvecluster my-cluster
 ```
 
 Verify that the cluster CR has been deleted before continuing to the next step.
 
 ```shell
-$ kubectl -n curvebs get curvecluster
+$ kubectl -n curve get curvecluster
 ```
 
 ### 2. Delete the Operator and related Resources

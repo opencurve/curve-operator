@@ -3,7 +3,7 @@
 IMG ?= harbor.cloud.netease.com/curve/curve-operator
 # Image tag to use all building/pushing image targets
 # TAG ?= $(shell git rev-parse --short HEAD)
-TAG ?= v1.0.1
+TAG ?= v1.0.2
 # Produce CRDs that work back to Kubernetes 1.11 (no version conversion)
 CRD_OPTIONS ?= "crd:trivialVersions=true"
 
@@ -65,7 +65,7 @@ generate: controller-gen
 	$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt" paths="./..."
 
 # Build the docker image
-docker-build: test
+docker-build: all test
 	sudo docker build . -t ${IMG}:${TAG} --network host
 
 # Push the docker image

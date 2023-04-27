@@ -34,7 +34,7 @@ func createConfigMapTemplate(c *daemon.Cluster) error {
 		configs = FSConfigs
 	}
 	logger.Infof("current cluster kind is %q", c.Kind)
-	logger.Infof("sync config from container %v", configs)
+	logger.Infof("start syncing config from container %v", configs)
 
 	for _, name := range configs {
 		content, err := readConfigFromContainer(c, pod, name)

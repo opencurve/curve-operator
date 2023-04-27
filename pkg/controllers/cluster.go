@@ -79,7 +79,6 @@ func reconcileCurveDaemons(c *daemon.Cluster) error {
 	if err != nil {
 		return err
 	}
-	k8sutil.UpdateStatusCondition(c.Kind, context.TODO(), &c.Context, c.NamespacedName, curvev1.ConditionTypeChunkServerReady, curvev1.ConditionTrue, curvev1.ConditionChunkServerClusterCreatedReason, "Chunkserver cluster has been created")
 
 	// snapshotclone
 	if c.SnapShotClone.Enable {

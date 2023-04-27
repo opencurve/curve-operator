@@ -127,7 +127,7 @@ func (r *CurveClusterReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error
 
 // reconcileDelete
 func (r *CurveClusterReconciler) reconcileDelete(curveCluster *curvev1.CurveCluster) (reconcile.Result, error) {
-	log.Log.Info("Delete the cluster CR now", "namespace", curveCluster.ObjectMeta.Name)
+	log.Log.Info("delete the cluster CR now", "name", curveCluster.ObjectMeta.Name)
 	k8sutil.UpdateCondition(context.TODO(), &r.ClusterController.context, r.ClusterController.namespacedName, curvev1.ConditionTypeDeleting, curvev1.ConditionTrue, curvev1.ConditionDeletingClusterReason, "Reconcile curvecluster deleting")
 
 	if curveCluster.Spec.CleanupConfirm == "Confirm" || curveCluster.Spec.CleanupConfirm == "confirm" {
@@ -162,7 +162,7 @@ func (c *ClusterController) reconcileCurveCluster(clusterObj *curvev1.CurveClust
 		cluster = newCluster(config.KIND_CURVEBS, false)
 		// TODO: update cluster spec if the cluster has already exist!
 	} else {
-		logger.Info("Cluster has been exist but need configured but we don't apply it now, you need delete it and recreate it!!!namespace=%q", cluster.Namespace)
+		logger.Infof("Cluster has been exist but need configured but we don't apply it now, you need delete it and recreate it!!!<->namespace=%q", cluster.Namespace)
 		return nil
 	}
 
