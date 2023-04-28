@@ -11,6 +11,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/opencurve/curve-operator/pkg/config"
+	"github.com/opencurve/curve-operator/pkg/daemon"
 	"github.com/opencurve/curve-operator/pkg/topology"
 )
 
@@ -128,7 +129,7 @@ func (c *Cluster) makeDeployment(csConfig *chunkserverConfig) (*apps.Deployment,
 	podSpec := v1.PodTemplateSpec{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:   csConfig.ResourceName,
-			Labels: c.getChunkServerPodLabels(csConfig),
+			Labels: daemon.CephDaemonAppLabels(AppName, c.Namespace, "chunkserver", csConfig.DaemonId, c.Kind),
 		},
 		Spec: v1.PodSpec{
 			Containers: []v1.Container{

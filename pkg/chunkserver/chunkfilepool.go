@@ -102,6 +102,8 @@ func (c *Cluster) startProvisioningOverNodes(nodeNameIP map[string]string) ([]*t
 		}
 
 		hostSequence := 0
+		daemonID := 0
+		var daemonIDString string
 		// travel all valid nodes to start job to prepare chunkfiles
 		for _, node := range validNodes {
 			nodeIP := nodeNameIP[node.Name]
@@ -109,6 +111,7 @@ func (c *Cluster) startProvisioningOverNodes(nodeNameIP map[string]string) ([]*t
 			replicasSequence := 0
 			// travel all device to run format job and construct chunkserverConfig
 			for _, device := range c.Chunkserver.Devices {
+				daemonIDString = k8sutil.IndexToName(daemonID)
 				name := strings.TrimSpace(device.Name)
 				name = strings.TrimRight(name, "/")
 				nameArr := strings.Split(name, "/")
@@ -142,6 +145,7 @@ func (c *Cluster) startProvisioningOverNodes(nodeNameIP map[string]string) ([]*t
 					ClusterSnapshotcloneDummyPort: clusterSnapShotCloneDummyPort,
 
 					ResourceName:         resourceName,
+					DaemonId:             daemonIDString,
 					CurrentConfigMapName: currentConfigMapName,
 					DataPathMap: &chunkserverDataPathMap{
 						HostDevice:       device.Name,
@@ -172,6 +176,7 @@ func (c *Cluster) startProvisioningOverNodes(nodeNameIP map[string]string) ([]*t
 				dcs = append(dcs, dc)
 				portBase++
 				replicasSequence++
+				daemonID++
 			}
 			hostSequence++
 		}

@@ -1,6 +1,9 @@
 # cloud.google.com/go v0.38.0
 ## explicit
 cloud.google.com/go/compute/metadata
+# emperror.dev/errors v0.8.1
+## explicit; go 1.12
+emperror.dev/errors
 # github.com/beorn7/perks v1.0.0
 ## explicit; go 1.12
 github.com/beorn7/perks/quantile
@@ -80,7 +83,7 @@ github.com/modern-go/concurrent
 # github.com/modern-go/reflect2 v1.0.1
 ## explicit
 github.com/modern-go/reflect2
-# github.com/pkg/errors v0.8.1
+# github.com/pkg/errors v0.9.1
 ## explicit
 github.com/pkg/errors
 # github.com/prometheus/client_golang v1.0.0
@@ -106,11 +109,11 @@ github.com/spf13/cobra
 # github.com/spf13/pflag v1.0.5
 ## explicit; go 1.12
 github.com/spf13/pflag
-# go.uber.org/atomic v1.3.2
-## explicit
+# go.uber.org/atomic v1.7.0
+## explicit; go 1.13
 go.uber.org/atomic
-# go.uber.org/multierr v1.1.0
-## explicit
+# go.uber.org/multierr v1.6.0
+## explicit; go 1.12
 go.uber.org/multierr
 # go.uber.org/zap v1.10.0
 ## explicit
@@ -256,6 +259,7 @@ k8s.io/apimachinery/pkg/util/httpstream
 k8s.io/apimachinery/pkg/util/httpstream/spdy
 k8s.io/apimachinery/pkg/util/intstr
 k8s.io/apimachinery/pkg/util/json
+k8s.io/apimachinery/pkg/util/jsonmergepatch
 k8s.io/apimachinery/pkg/util/mergepatch
 k8s.io/apimachinery/pkg/util/naming
 k8s.io/apimachinery/pkg/util/net
