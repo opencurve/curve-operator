@@ -21,6 +21,7 @@ type chunkserverConfig struct {
 
 	DataPathMap          *chunkserverDataPathMap
 	ResourceName         string
+	DaemonId             string
 	CurrentConfigMapName string
 	DeviceName           string
 	NodeName             string

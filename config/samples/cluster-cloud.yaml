@@ -52,7 +52,7 @@ spec:
     devices:
     - name: /dev/vdc
       mountPath: /data/chunkserver0
-      percentage: 30
+      percentage: 80
     #selectedNodes:
     #- node: curve-operator-node1
     #  - devices:

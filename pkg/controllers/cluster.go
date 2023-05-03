@@ -1,12 +1,10 @@
 package controllers
 
 import (
-	"context"
 	"time"
 
 	"github.com/coreos/pkg/capnslog"
 
-	curvev1 "github.com/opencurve/curve-operator/api/v1"
 	"github.com/opencurve/curve-operator/pkg/chunkserver"
 	"github.com/opencurve/curve-operator/pkg/daemon"
 	"github.com/opencurve/curve-operator/pkg/etcd"
@@ -88,7 +86,6 @@ func reconcileCurveDaemons(c *daemon.Cluster) error {
 			return err
 		}
 	}
-	k8sutil.UpdateStatusCondition(c.Kind, context.TODO(), &c.Context, c.NamespacedName, curvev1.ConditionTypeSnapShotCloneReady, curvev1.ConditionTrue, curvev1.ConditionSnapShotCloneClusterCreatedReason, "Snapshotclone cluster has been created")
 
 	return nil
 }

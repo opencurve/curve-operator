@@ -98,11 +98,12 @@ func (c *Cluster) makeDeployment(metaserverConfig *metaserverConfig, nodeName st
 	volumes := daemon.DaemonVolumes(config.MetaServerConfigMapDataKey, config.MetaServerConfigMapMountPath, metaserverConfig.DataPathMap, metaserverConfig.CurrentConfigMapName)
 	vols, _ := topology.CreateTopoAndToolVolumeAndMount(c.Cluster)
 	volumes = append(volumes, vols...)
+	labels := daemon.CephDaemonAppLabels(AppName, c.Namespace, "metaserver", metaserverConfig.DaemonID, c.Kind)
 
 	podSpec := v1.PodTemplateSpec{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:   metaserverConfig.ResourceName,
-			Labels: c.getPodLabels(metaserverConfig),
+			Labels: labels,
 		},
 		Spec: v1.PodSpec{
 			Containers: []v1.Container{
@@ -122,11 +123,11 @@ func (c *Cluster) makeDeployment(metaserverConfig *metaserverConfig, nodeName st
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      metaserverConfig.ResourceName,
 			Namespace: c.NamespacedName.Namespace,
-			Labels:    c.getPodLabels(metaserverConfig),
+			Labels:    labels,
 		},
 		Spec: apps.DeploymentSpec{
 			Selector: &metav1.LabelSelector{
-				MatchLabels: c.getPodLabels(metaserverConfig),
+				MatchLabels: labels,
 			},
 			Template: podSpec,
 			Replicas: &replicas,
@@ -182,14 +183,4 @@ func (c *Cluster) makeMSDaemonContainer(nodeIP string, metaserverConfig *metaser
 	}
 
 	return container
-}
-
-// getLabels Add labels for mds deployment
-func (c *Cluster) getPodLabels(metaserverConfig *metaserverConfig) map[string]string {
-	labels := make(map[string]string)
-	labels["app"] = AppName
-	labels["metaserver"] = metaserverConfig.DaemonID
-	labels["curve_daemon_id"] = metaserverConfig.DaemonID
-	labels["curve_cluster"] = c.NamespacedName.Namespace
-	return labels
 }

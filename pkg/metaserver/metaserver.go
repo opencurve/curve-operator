@@ -6,17 +6,18 @@ import (
 	"path"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/coreos/pkg/capnslog"
-	curvev1 "github.com/opencurve/curve-operator/api/v1"
 	"github.com/opencurve/curve-operator/pkg/config"
 	"github.com/opencurve/curve-operator/pkg/daemon"
 	"github.com/opencurve/curve-operator/pkg/k8sutil"
 	"github.com/opencurve/curve-operator/pkg/topology"
 	"github.com/pkg/errors"
+	appsv1 "k8s.io/api/apps/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	curvev1 "github.com/opencurve/curve-operator/api/v1"
 )
 
 const (
@@ -54,6 +55,8 @@ func (c *Cluster) Start(nodeNameIP map[string]string) error {
 		return err
 	}
 
+	var deploymentsToWaitFor []*appsv1.Deployment
+
 	for _, msConfig := range msConfigs {
 		if err := c.createMetaserverConfigMap(msConfig); err != nil {
 			return err
@@ -76,14 +79,16 @@ func (c *Cluster) Start(nodeNameIP map[string]string) error {
 			// }
 		} else {
 			logger.Infof("Deployment %s has been created , waiting for startup", newDeployment.GetName())
-			// TODO:wait for the new deployment
-			// deploymentsToWaitFor = append(deploymentsToWaitFor, newDeployment)
+			deploymentsToWaitFor = append(deploymentsToWaitFor, newDeployment)
 		}
-		// update condition type and phase etc.
 	}
 
-	logger.Info("starting all metaserver")
-	time.Sleep(30 * time.Second)
+	// wait all Deployments to start
+	for _, d := range deploymentsToWaitFor {
+		if err := k8sutil.WaitForDeploymentToStart(context.TODO(), &c.Context, d); err != nil {
+			return err
+		}
+	}
 
 	// create logic pool
 	_, err = topology.RunCreatePoolJob(c.Cluster, dcs, topology.LOGICAL_POOL)

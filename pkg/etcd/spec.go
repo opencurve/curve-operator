@@ -102,11 +102,12 @@ func (c *Cluster) createEtcdConfigMap(etcdConfig *etcdConfig) error {
 // makeDeployment make etcd deployment to run etcd server
 func (c *Cluster) makeDeployment(nodeName string, ip string, etcdConfig *etcdConfig) (*apps.Deployment, error) {
 	volumes := daemon.DaemonVolumes(config.EtcdConfigMapDataKey, etcdConfig.ConfigMapMountPath, etcdConfig.DataPathMap, etcdConfig.CurrentConfigMapName)
+	labels := daemon.CephDaemonAppLabels(AppName, c.Namespace, "etcd", etcdConfig.DaemonID, c.Kind)
 
 	podSpec := v1.PodTemplateSpec{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:   etcdConfig.ResourceName,
-			Labels: c.getPodLabels(etcdConfig),
+			Labels: labels,
 		},
 		Spec: v1.PodSpec{
 			InitContainers: []v1.Container{
@@ -129,11 +130,11 @@ func (c *Cluster) makeDeployment(nodeName string, ip string, etcdConfig *etcdCon
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      etcdConfig.ResourceName,
 			Namespace: c.NamespacedName.Namespace,
-			Labels:    c.getPodLabels(etcdConfig),
+			Labels:    labels,
 		},
 		Spec: apps.DeploymentSpec{
 			Selector: &metav1.LabelSelector{
-				MatchLabels: c.getPodLabels(etcdConfig),
+				MatchLabels: labels,
 			},
 			Template: podSpec,
 			Replicas: &replicas,
@@ -219,13 +220,4 @@ func (c *Cluster) makeEtcdDaemonContainer(nodeName string, ip string, etcdConfig
 		Env: []v1.EnvVar{{Name: "TZ", Value: "Asia/Hangzhou"}},
 	}
 	return container
-}
-
-// getLabels adds labels for etcd deployment
-func (c *Cluster) getPodLabels(etcdConfig *etcdConfig) map[string]string {
-	return map[string]string{
-		"app":           AppName,
-		"etcd":          etcdConfig.DaemonID,
-		"curve_cluster": c.Namespace,
-	}
 }
