@@ -111,11 +111,12 @@ func (c *Cluster) createMdsConfigMap(mdsConfig *mdsConfig) error {
 // makeDeployment make mds deployment to run mds daemon
 func (c *Cluster) makeDeployment(nodeName string, nodeIP string, mdsConfig *mdsConfig) (*apps.Deployment, error) {
 	volumes := daemon.DaemonVolumes(config.MdsConfigMapDataKey, mdsConfig.ConfigMapMountPath, mdsConfig.DataPathMap, mdsConfig.CurrentConfigMapName)
+	labels := daemon.CephDaemonAppLabels(AppName, c.Namespace, "mds", mdsConfig.DaemonID, c.Kind)
 
 	podSpec := v1.PodTemplateSpec{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:   mdsConfig.ResourceName,
-			Labels: daemon.CephDaemonAppLabels(AppName, c.Namespace, "mds", mdsConfig.DaemonID, c.Kind),
+			Labels: labels,
 		},
 		Spec: v1.PodSpec{
 			Containers: []v1.Container{
@@ -135,11 +136,11 @@ func (c *Cluster) makeDeployment(nodeName string, nodeIP string, mdsConfig *mdsC
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      mdsConfig.ResourceName,
 			Namespace: c.NamespacedName.Namespace,
-			Labels:    daemon.CephDaemonAppLabels(AppName, c.Namespace, "mds", mdsConfig.DaemonID, c.Kind),
+			Labels:    labels,
 		},
 		Spec: apps.DeploymentSpec{
 			Selector: &metav1.LabelSelector{
-				MatchLabels: daemon.CephDaemonAppLabels(AppName, c.Namespace, "mds", mdsConfig.DaemonID, c.Kind),
+				MatchLabels: labels,
 			},
 			Template: podSpec,
 			Replicas: &replicas,

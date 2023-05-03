@@ -98,11 +98,12 @@ func (c *Cluster) makeDeployment(metaserverConfig *metaserverConfig, nodeName st
 	volumes := daemon.DaemonVolumes(config.MetaServerConfigMapDataKey, config.MetaServerConfigMapMountPath, metaserverConfig.DataPathMap, metaserverConfig.CurrentConfigMapName)
 	vols, _ := topology.CreateTopoAndToolVolumeAndMount(c.Cluster)
 	volumes = append(volumes, vols...)
+	labels := daemon.CephDaemonAppLabels(AppName, c.Namespace, "metaserver", metaserverConfig.DaemonID, c.Kind)
 
 	podSpec := v1.PodTemplateSpec{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:   metaserverConfig.ResourceName,
-			Labels: daemon.CephDaemonAppLabels(AppName, c.Namespace, "metaserver", metaserverConfig.DaemonID, c.Kind),
+			Labels: labels,
 		},
 		Spec: v1.PodSpec{
 			Containers: []v1.Container{
@@ -122,11 +123,11 @@ func (c *Cluster) makeDeployment(metaserverConfig *metaserverConfig, nodeName st
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      metaserverConfig.ResourceName,
 			Namespace: c.NamespacedName.Namespace,
-			Labels:    daemon.CephDaemonAppLabels(AppName, c.Namespace, "metaserver", metaserverConfig.DaemonID, c.Kind),
+			Labels:    labels,
 		},
 		Spec: apps.DeploymentSpec{
 			Selector: &metav1.LabelSelector{
-				MatchLabels: daemon.CephDaemonAppLabels(AppName, c.Namespace, "metaserver", metaserverConfig.DaemonID, c.Kind),
+				MatchLabels: labels,
 			},
 			Template: podSpec,
 			Replicas: &replicas,

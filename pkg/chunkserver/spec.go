@@ -1,6 +1,7 @@
 package chunkserver
 
 import (
+	"context"
 	"path"
 	"strconv"
 
@@ -12,6 +13,7 @@ import (
 
 	"github.com/opencurve/curve-operator/pkg/config"
 	"github.com/opencurve/curve-operator/pkg/daemon"
+	"github.com/opencurve/curve-operator/pkg/k8sutil"
 	"github.com/opencurve/curve-operator/pkg/topology"
 )
 
@@ -34,6 +36,8 @@ func (c *Cluster) startChunkServers() error {
 	_ = c.createStartCSConfigMap()
 	_ = c.createCSClientConfigMap()
 	_ = c.CreateS3ConfigMap()
+
+	var deploymentsToWaitFor []*apps.Deployment
 
 	for _, csConfig := range chunkserverConfigs {
 		err := c.createConfigMap(csConfig)
@@ -59,10 +63,15 @@ func (c *Cluster) startChunkServers() error {
 			// }
 		} else {
 			logger.Infof("Deployment %s has been created , waiting for startup", newDeployment.GetName())
-			// TODO:wait for the new deployment
-			// deploymentsToWaitFor = append(deploymentsToWaitFor, newDeployment)
+			deploymentsToWaitFor = append(deploymentsToWaitFor, newDeployment)
 		}
-		// update condition type and phase etc.
+	}
+
+	// wait all Deployments to start
+	for _, d := range deploymentsToWaitFor {
+		if err := k8sutil.WaitForDeploymentToStart(context.TODO(), &c.Context, d); err != nil {
+			return err
+		}
 	}
 
 	return nil
@@ -125,11 +134,12 @@ func (c *Cluster) makeDeployment(csConfig *chunkserverConfig) (*apps.Deployment,
 	volumes := CSDaemonVolumes(csConfig)
 	vols, _ := topology.CreateTopoAndToolVolumeAndMount(c.Cluster)
 	volumes = append(volumes, vols...)
+	labels := daemon.CephDaemonAppLabels(AppName, c.Namespace, "chunkserver", csConfig.DaemonId, c.Kind)
 
 	podSpec := v1.PodTemplateSpec{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:   csConfig.ResourceName,
-			Labels: daemon.CephDaemonAppLabels(AppName, c.Namespace, "chunkserver", csConfig.DaemonId, c.Kind),
+			Labels: labels,
 		},
 		Spec: v1.PodSpec{
 			Containers: []v1.Container{
@@ -149,11 +159,11 @@ func (c *Cluster) makeDeployment(csConfig *chunkserverConfig) (*apps.Deployment,
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      csConfig.ResourceName,
 			Namespace: c.NamespacedName.Namespace,
-			Labels:    c.getChunkServerPodLabels(csConfig),
+			Labels:    labels,
 		},
 		Spec: apps.DeploymentSpec{
 			Selector: &metav1.LabelSelector{
-				MatchLabels: c.getChunkServerPodLabels(csConfig),
+				MatchLabels: labels,
 			},
 			Template: podSpec,
 			Replicas: &replicas,
@@ -228,13 +238,4 @@ func (c *Cluster) makeCSDaemonContainer(csConfig *chunkserverConfig) v1.Containe
 	}
 
 	return container
-}
-
-// getChunkServerPodLabels returns pod labels for chunk server
-func (c *Cluster) getChunkServerPodLabels(csConfig *chunkserverConfig) map[string]string {
-	labels := make(map[string]string)
-	labels["app"] = AppName
-	labels["chunkserver"] = csConfig.ResourceName
-	labels["curve_cluster"] = c.NamespacedName.Namespace
-	return labels
 }

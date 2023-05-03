@@ -46,9 +46,9 @@ func UpdateDeploymentAndWait(ctx context.Context, clusterContext *clusterd.Conte
 	logger.Infof("updating deployment %q after verifying it is safe to stop", modifiedDeployment.Name)
 
 	// Let's verify the deployment can be stopped
-	if err := verifyCallback("stop"); err != nil {
-		return fmt.Errorf("failed to check if deployment %q can be updated. %v", modifiedDeployment.Name, err)
-	}
+	// if err := verifyCallback("stop"); err != nil {
+	// 	return fmt.Errorf("failed to check if deployment %q can be updated. %v", modifiedDeployment.Name, err)
+	// }
 
 	// Set hash annotation to the newly generated deployment
 	if err := patch.DefaultAnnotator.SetLastAppliedAnnotation(modifiedDeployment); err != nil {
@@ -64,13 +64,12 @@ func UpdateDeploymentAndWait(ctx context.Context, clusterContext *clusterd.Conte
 	}
 
 	// Now we check if we can go to the next daemon
-	if err := verifyCallback("continue"); err != nil {
-		return fmt.Errorf("failed to check if deployment %q can continue: %v", modifiedDeployment.Name, err)
-	}
+	// if err := verifyCallback("continue"); err != nil {
+	// 	return fmt.Errorf("failed to check if deployment %q can continue: %v", modifiedDeployment.Name, err)
+	// }
 	return nil
 }
 
-// 等待mgr-deployment until is start status
 func WaitForDeploymentToStart(ctx context.Context, clusterdContext *clusterd.Context, deployment *appsv1.Deployment) error {
 	// wait for the deployment to be restarted up to 300s（5min）
 	sleepTime := 3
@@ -81,7 +80,7 @@ func WaitForDeploymentToStart(ctx context.Context, clusterdContext *clusterd.Con
 		if err != nil {
 			return fmt.Errorf("failed to get deployment %q. %v", deployment.Name, err)
 		}
-		if d.Status.ObservedGeneration != deployment.Status.ObservedGeneration && d.Status.UpdatedReplicas > 0 && d.Status.ReadyReplicas > 0 {
+		if d.Status.ObservedGeneration >= deployment.Status.ObservedGeneration && d.Status.UpdatedReplicas > 0 && d.Status.ReadyReplicas > 0 {
 			logger.Infof("finished waiting for updated deployment %q", d.Name)
 			return nil
 		}
@@ -95,7 +94,7 @@ func WaitForDeploymentToStart(ctx context.Context, clusterdContext *clusterd.Con
 		}
 
 		logger.Debugf("deployment %q status=%+v", d.Name, d.Status)
-		// 等待3s重新尝试
+
 		time.Sleep(time.Duration(sleepTime) * time.Second)
 	}
 	return fmt.Errorf("gave up waiting for deployment %q to update", deployment.Name)

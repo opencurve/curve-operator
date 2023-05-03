@@ -9,6 +9,7 @@ import (
 
 	"github.com/coreos/pkg/capnslog"
 	"github.com/pkg/errors"
+	appsv1 "k8s.io/api/apps/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 
 	curvev1 "github.com/opencurve/curve-operator/api/v1"
@@ -98,6 +99,8 @@ func (c *Cluster) Start(nodeNameIP map[string]string) error {
 		configMapMountPath = config.FSEtcdConfigMapMountPathDir
 	}
 
+	var deploymentsToWaitFor []*appsv1.Deployment
+
 	daemonID := 0
 	replicasSequence := 0
 	var daemonIDString string
@@ -146,16 +149,20 @@ func (c *Cluster) Start(nodeNameIP map[string]string) error {
 			}
 			logger.Infof("deployment for etcd %s already exists. updating if needed", resourceName)
 
-			// TODO:Update the daemon Deployment
-			// if err := updateDeploymentAndWait(c.context, c.clusterInfo, d, config.MgrType, mgrConfig.DaemonID, c.spec.SkipUpgradeChecks, false); err != nil {
+			// if err := k8sutil.UpdateDeploymentAndWait(context.TODO(), &c.Context, d, c.Namespace, nil); err != nil {
 			// 	logger.Errorf("failed to update mgr deployment %q. %v", resourceName, err)
 			// }
 		} else {
 			logger.Infof("Deployment %s has been created , waiting for startup", newDeployment.GetName())
-			// TODO:wait for the new deployment
-			// deploymentsToWaitFor = append(deploymentsToWaitFor, newDeployment)
+			deploymentsToWaitFor = append(deploymentsToWaitFor, newDeployment)
 		}
-		// update condition type and phase etc.
+	}
+
+	// wait all Deployments to start
+	for _, d := range deploymentsToWaitFor {
+		if err := k8sutil.WaitForDeploymentToStart(context.TODO(), &c.Context, d); err != nil {
+			return err
+		}
 	}
 
 	k8sutil.UpdateStatusCondition(c.Kind, context.TODO(), &c.Context, c.NamespacedName, curvev1.ConditionTypeEtcdReady, curvev1.ConditionTrue, curvev1.ConditionEtcdClusterCreatedReason, "Etcd cluster has been created")

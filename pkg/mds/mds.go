@@ -8,6 +8,7 @@ import (
 
 	"github.com/coreos/pkg/capnslog"
 	"github.com/pkg/errors"
+	appsv1 "k8s.io/api/apps/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -87,6 +88,8 @@ func (c *Cluster) Start(nodeNameIP map[string]string) error {
 		configMapMountPath = config.FSMdsConfigMapMountPathDir
 	}
 
+	var deploymentsToWaitFor []*appsv1.Deployment
+
 	daemonID := 0
 	var daemonIDString string
 	for _, nodeName := range nodeNamesOrdered {
@@ -137,10 +140,15 @@ func (c *Cluster) Start(nodeNameIP map[string]string) error {
 			// }
 		} else {
 			logger.Infof("Deployment %s has been created , waiting for startup", newDeployment.GetName())
-			// TODO:wait for the new deployment
-			// deploymentsToWaitFor = append(deploymentsToWaitFor, newDeployment)
+			deploymentsToWaitFor = append(deploymentsToWaitFor, newDeployment)
 		}
-		// update condition type and phase etc.
+	}
+
+	// wait all Deployments to start
+	for _, d := range deploymentsToWaitFor {
+		if err := k8sutil.WaitForDeploymentToStart(context.TODO(), &c.Context, d); err != nil {
+			return err
+		}
 	}
 
 	k8sutil.UpdateStatusCondition(c.Kind, context.TODO(), &c.Context, c.NamespacedName, curvev1.ConditionTypeMdsReady, curvev1.ConditionTrue, curvev1.ConditionMdsClusterCreatedReason, "MDS cluster has been created")

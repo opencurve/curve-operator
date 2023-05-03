@@ -5,6 +5,7 @@ const (
 	ClusterAttr     = "curve_cluster"
 	daemonTypeLabel = "curve_daemon_type"
 	DaemonIDLabel   = "ceph_daemon_id"
+	ResourceKind    = "kind"
 )
 
 // AppLabels returns labels common for all Rook-Ceph applications which may be useful for admins.
@@ -25,7 +26,7 @@ func CephDaemonAppLabels(appName, namespace, daemonType, daemonID, resourceKind 
 	labels := AppLabels(appName, namespace)
 	labels[daemonTypeLabel] = daemonType
 	labels[DaemonIDLabel] = daemonID
-	// Also report the daemon id keyed by its daemon type: "mon: a", "mds: c", etc.
 	labels[daemonType] = daemonID
+	labels[ResourceKind] = resourceKind
 	return labels
 }

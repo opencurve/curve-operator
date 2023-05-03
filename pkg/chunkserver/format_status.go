@@ -12,6 +12,7 @@ import (
 	"github.com/pkg/errors"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/tools/remotecommand"
 )
@@ -24,30 +25,29 @@ type device2Use struct {
 	usePercent    int
 }
 
-// checkJobStatus go routine to check all job's status
-func (c *Cluster) checkJobStatus(ctx context.Context, ticker *time.Ticker, chn chan bool) {
+// WaitForForamtJobCompletion waits for a format job to reach the completed state.
+// only one pod in one job
+func (c *Cluster) WaitForForamtJobCompletion(ctx context.Context, timeout time.Duration) error {
 	retry := 0
-	for {
-		select {
-		case <-ticker.C:
-			du, err := c.getJob2DeviceFormatProgress(chn)
-			if err != nil {
-				logger.Errorf("failed to get device format progress %v", err)
-				chn <- false
-				return
-			}
-			c.printProgress(retry, du)
-			retry++
-		case <-ctx.Done():
-			chn <- false
-			logger.Error("go routinue exit because check time is more than 24 hours")
-			return
+	return wait.Poll(30*time.Second, timeout, func() (bool, error) {
+		du, completed, err := c.getJob2DeviceFormatProgress()
+		if err != nil {
+			logger.Errorf("failed to get device format progress %v", err)
+			return false, err
 		}
-	}
+		if completed {
+			return true, nil
+		}
+
+		c.printProgress(retry, du)
+		retry++
+
+		return false, nil
+	})
 }
 
 // getJobFormatStatus gets one device(one job) usage that represents format progress
-func (c *Cluster) getJob2DeviceFormatProgress(chn chan bool) ([]device2Use, error) {
+func (c *Cluster) getJob2DeviceFormatProgress() ([]device2Use, bool, error) {
 	device2UseArr := []device2Use{}
 	completed := 0
 	for _, watchedJob2DeviceInfo := range job2DeviceInfos {
@@ -56,15 +56,14 @@ func (c *Cluster) getJob2DeviceFormatProgress(chn chan bool) ([]device2Use, erro
 		wathedDevice := watchedJob2DeviceInfo.device
 		job, err := c.Context.Clientset.BatchV1().Jobs(c.NamespacedName.Namespace).Get(watchedJob.Name, metav1.GetOptions{})
 		if err != nil {
-			return []device2Use{}, errors.Wrapf(err, "failed to get job %q in cluster", watchedJob.Name)
+			return []device2Use{}, false, errors.Wrapf(err, "failed to get job %q in cluster", watchedJob.Name)
 		}
 
 		if job.Status.Succeeded > 0 {
 			completed++
 			if completed == len(job2DeviceInfos) {
 				logger.Info("all format jobs has finished.")
-				chn <- true
-				return device2UseArr, nil
+				return device2UseArr, true, nil
 			}
 			continue
 		}
@@ -88,12 +87,12 @@ func (c *Cluster) getJob2DeviceFormatProgress(chn chan bool) ([]device2Use, erro
 		pod := podList.Items[0]
 		du, err := c.getDevUsedbyExecRequest(&pod, watchedNodeName, wathedDevice.Name, wathedDevice.Percentage, "Formatting")
 		if err != nil {
-			return []device2Use{}, errors.Wrap(err, "failed to get disk used percentage using exec request")
+			return []device2Use{}, false, errors.Wrap(err, "failed to get disk used percentage using exec request")
 		}
 		device2UseArr = append(device2UseArr, du)
 	}
 
-	return device2UseArr, nil
+	return device2UseArr, false, nil
 }
 
 func (c *Cluster) getDevUsedbyExecRequest(pod *v1.Pod, nodeName, deviceName string, devicePercent int, status string) (device2Use, error) {

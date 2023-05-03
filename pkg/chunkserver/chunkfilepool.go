@@ -119,7 +119,7 @@ func (c *Cluster) startProvisioningOverNodes(nodeNameIP map[string]string) ([]*t
 				resourceName := fmt.Sprintf("%s-%s-%s", AppName, node.Name, name)
 				currentConfigMapName := fmt.Sprintf("%s-%s-%s", ConfigMapNamePrefix, node.Name, name)
 
-				logger.Infof("creating job for device %s on %s", device.Name, node.Name)
+				logger.Infof("creating job for device %q on host %q", device.Name, node.Name)
 
 				job, err := c.runPrepareJob(node.Name, device)
 				if err != nil {

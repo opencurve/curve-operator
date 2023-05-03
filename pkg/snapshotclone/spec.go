@@ -11,6 +11,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/opencurve/curve-operator/pkg/config"
+	"github.com/opencurve/curve-operator/pkg/daemon"
 )
 
 // prepareConfigMap
@@ -144,6 +145,7 @@ func (c *Cluster) createSnapShotCloneConfigMap(snapConfig *snapConfig) error {
 // makeDeployment make snapshotclone deployment to run snapshotclone daemon
 func (c *Cluster) makeDeployment(nodeName string, nodeIP string, snapConfig *snapConfig) (*apps.Deployment, error) {
 	volumes := SnapDaemonVolumes(snapConfig)
+	labels := daemon.CephDaemonAppLabels(AppName, c.Namespace, "snapshotclone", snapConfig.DaemonID, c.Kind)
 
 	// for debug
 	// log.Infof("snapConfig %+v", snapConfig)
@@ -154,7 +156,7 @@ func (c *Cluster) makeDeployment(nodeName string, nodeIP string, snapConfig *sna
 	podSpec := v1.PodTemplateSpec{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:   snapConfig.ResourceName,
-			Labels: c.getPodLabels(snapConfig),
+			Labels: labels,
 		},
 		Spec: v1.PodSpec{
 			Containers: []v1.Container{
@@ -178,11 +180,11 @@ func (c *Cluster) makeDeployment(nodeName string, nodeIP string, snapConfig *sna
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      snapConfig.ResourceName,
 			Namespace: c.NamespacedName.Namespace,
-			Labels:    c.getPodLabels(snapConfig),
+			Labels:    labels,
 		},
 		Spec: apps.DeploymentSpec{
 			Selector: &metav1.LabelSelector{
-				MatchLabels: c.getPodLabels(snapConfig),
+				MatchLabels: labels,
 			},
 			Template: podSpec,
 			Replicas: &replicas,
@@ -255,14 +257,4 @@ func (c *Cluster) makeSnapshotDaemonContainer(nodeIP string, snapConfig *snapCon
 	}
 
 	return container
-}
-
-// getLabels Add labels for mds deployment
-func (c *Cluster) getPodLabels(snapConfig *snapConfig) map[string]string {
-	labels := make(map[string]string)
-	labels["app"] = AppName
-	labels["snapshotclone"] = snapConfig.DaemonID
-	labels["curve_daemon_id"] = snapConfig.DaemonID
-	labels["curve_cluster"] = c.NamespacedName.Namespace
-	return labels
 }
