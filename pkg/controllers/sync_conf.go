@@ -2,10 +2,12 @@ package controllers
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 
 	"github.com/opencurve/curve-operator/pkg/config"
 	"github.com/opencurve/curve-operator/pkg/daemon"
+	"github.com/opencurve/curve-operator/pkg/k8sutil"
 	"github.com/pkg/errors"
 	apps "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
@@ -79,6 +81,7 @@ func createSyncDeployment(c *daemon.Cluster) error {
 	if err != nil {
 		return err
 	}
+	var deploymentsToWaitFor []*apps.Deployment
 
 	newDeployment, err := c.Context.Clientset.AppsV1().Deployments(c.Namespace).Create(d)
 	if err != nil {
@@ -93,8 +96,14 @@ func createSyncDeployment(c *daemon.Cluster) error {
 		// }
 	} else {
 		logger.Infof("Deployment %s has been created , waiting for startup", newDeployment.GetName())
-		// TODO:wait for the new deployment
-		// deploymentsToWaitFor = append(deploymentsToWaitFor, newDeployment)
+		deploymentsToWaitFor = append(deploymentsToWaitFor, newDeployment)
+	}
+
+	// wait all Deployments to start
+	for _, d := range deploymentsToWaitFor {
+		if err := k8sutil.WaitForDeploymentToStart(context.TODO(), &c.Context, d); err != nil {
+			return err
+		}
 	}
 	// update condition type and phase etc.
 	return nil

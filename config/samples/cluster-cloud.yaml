@@ -9,7 +9,7 @@ spec:
   # The container image used to launch the Curve daemon pods(etcd, mds, chunkserver, snapshotclone).
   # v1.2 is Pacific and v1.3 is not tested.
   curveVersion:
-    image: opencurvedocker/curvebs:v1.2
+    image: opencurvedocker/curvebs:v1.2.6
     # Container image pull policy, 
     # By default the pull policy of all containers in that pod will be set to IfNotPresent if it is not explicitly specified and no modification necessary.
     imagePullPolicy: IfNotPresent
