@@ -84,8 +84,10 @@ func (c *Cluster) Start(nodeNameIP map[string]string) error {
 	}
 
 	// wait all Deployments to start
-	if err := k8sutil.WaitForDeploymentsToStart(&c.Context, deploymentsToWaitFor, k8sutil.WaitForRunningInterval, k8sutil.WaitForRunningTimeout); err != nil {
-		return err
+	for _, d := range deploymentsToWaitFor {
+		if err := k8sutil.WaitForDeploymentToStart(context.TODO(), &c.Context, d); err != nil {
+			return err
+		}
 	}
 
 	// create logic pool

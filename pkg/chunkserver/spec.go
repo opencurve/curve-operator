@@ -1,6 +1,7 @@
 package chunkserver
 
 import (
+	"context"
 	"path"
 	"strconv"
 
@@ -67,8 +68,10 @@ func (c *Cluster) startChunkServers() error {
 	}
 
 	// wait all Deployments to start
-	if err := k8sutil.WaitForDeploymentsToStart(&c.Context, deploymentsToWaitFor, k8sutil.WaitForRunningInterval, k8sutil.WaitForRunningTimeout); err != nil {
-		return err
+	for _, d := range deploymentsToWaitFor {
+		if err := k8sutil.WaitForDeploymentToStart(context.TODO(), &c.Context, d); err != nil {
+			return err
+		}
 	}
 
 	return nil
