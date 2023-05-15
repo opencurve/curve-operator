@@ -19,6 +19,7 @@ const (
 	MdsOverrideConfigMapName    = "mds-endpoints-override"
 	MdsOvverideConfigMapDataKey = "mdsEndpoints"
 	ClusterMdsDummyAddr         = "clusterMdsDummyAddr"
+	ClusterMdsDummyPort         = "clusterMdsDummyPort"
 
 	// configuration
 	// etcd.conf - it not be used

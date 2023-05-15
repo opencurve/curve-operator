@@ -3,7 +3,7 @@ package mds
 import (
 	"fmt"
 	"path"
-	"strings"
+	"strconv"
 
 	"github.com/pkg/errors"
 	apps "k8s.io/api/apps/v1"
@@ -16,19 +16,12 @@ import (
 )
 
 // createOverrideMdsCM create mds-endpoints-override configmap to record mds endpoints
-func (c *Cluster) createOverrideMdsCM(nodeNameIP map[string]string) error {
-	var mds_endpoints string
-	var clusterMdsDummyAddr string
-	for _, ipAddr := range nodeNameIP {
-		mds_endpoints = fmt.Sprint(mds_endpoints, ipAddr, ":", c.Mds.Port, ",")
-		clusterMdsDummyAddr = fmt.Sprint(clusterMdsDummyAddr, ipAddr, ":", c.Mds.DummyPort, ",")
-	}
-	mds_endpoints = strings.TrimRight(mds_endpoints, ",")
-	clusterMdsDummyAddr = strings.TrimRight(clusterMdsDummyAddr, ",")
+func (c *Cluster) createOverrideMdsCM(mdsEndpoints, clusterMdsDummyAddr, clusterMdsDummyPort string) error {
 
 	mdsConfigMapData := map[string]string{
-		config.MdsOvverideConfigMapDataKey: mds_endpoints,
+		config.MdsOvverideConfigMapDataKey: mdsEndpoints,
 		config.ClusterMdsDummyAddr:         clusterMdsDummyAddr,
+		config.ClusterMdsDummyPort:         clusterMdsDummyPort,
 	}
 
 	// create mds override configMap to record the endpoints of etcd
@@ -161,6 +154,8 @@ func (c *Cluster) makeDeployment(nodeName string, nodeIP string, mdsConfig *mdsC
 
 // makeMdsDaemonContainer create mds container
 func (c *Cluster) makeMdsDaemonContainer(nodeIP string, mdsConfig *mdsConfig) v1.Container {
+	port, _ := strconv.Atoi(mdsConfig.ServicePort)
+	dummyPort, _ := strconv.Atoi(mdsConfig.ServiceDummyPort)
 	var commandLine string
 	if c.Kind == config.KIND_CURVEBS {
 		commandLine = "/curvebs/mds/sbin/curvebs-mds"
@@ -185,14 +180,14 @@ func (c *Cluster) makeMdsDaemonContainer(nodeIP string, mdsConfig *mdsConfig) v1
 		Ports: []v1.ContainerPort{
 			{
 				Name:          "listen-port",
-				ContainerPort: int32(c.Mds.Port),
-				HostPort:      int32(c.Mds.Port),
+				ContainerPort: int32(port),
+				HostPort:      int32(port),
 				Protocol:      v1.ProtocolTCP,
 			},
 			{
 				Name:          "dummy-port",
-				ContainerPort: int32(c.Mds.DummyPort),
-				HostPort:      int32(c.Mds.DummyPort),
+				ContainerPort: int32(dummyPort),
+				HostPort:      int32(dummyPort),
 				Protocol:      v1.ProtocolTCP,
 			},
 		},

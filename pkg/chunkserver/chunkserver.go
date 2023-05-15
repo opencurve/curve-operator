@@ -38,7 +38,7 @@ func New(c *daemon.Cluster) *Cluster {
 }
 
 // Start begins the chunkserver daemon
-func (c *Cluster) Start(nodeNameIP map[string]string) error {
+func (c *Cluster) Start(nodesInfo []daemon.NodeInfo) error {
 	logger.Infof("start running chunkserver in namespace %q", c.NamespacedName.Namespace)
 
 	if !c.Chunkserver.UseSelectedNodes && (len(c.Chunkserver.Nodes) == 0 || len(c.Chunkserver.Devices) == 0) {
@@ -52,24 +52,27 @@ func (c *Cluster) Start(nodeNameIP map[string]string) error {
 	logger.Info("starting to prepare the chunk file")
 
 	// startProvisioningOverNodes format device and prepare chunk files
-	dcs, err := c.startProvisioningOverNodes(nodeNameIP)
+	dcs, err := c.startProvisioningOverNodes(nodesInfo)
 	if err != nil {
 		return err
 	}
 
-	if err := c.WaitForForamtJobCompletion(context.TODO(), 24*time.Hour); err != nil {
+	err = c.WaitForForamtJobCompletion(context.TODO(), 24*time.Hour)
+	if err != nil {
 		return err
 	}
 	k8sutil.UpdateStatusCondition(c.Kind, context.TODO(), &c.Context, c.NamespacedName, curvev1.ConditionTypeFormatedReady, curvev1.ConditionTrue, curvev1.ConditionFormatChunkfilePoolReason, "Formating chunkfilepool successed")
 	logger.Info("all jobs run completed in 24 hours")
 
 	// create tool ConfigMap
-	if err := c.createToolConfigMap(); err != nil {
+	err = c.createToolConfigMap()
+	if err != nil {
 		return err
 	}
 
 	// create topology ConfigMap
-	if err := topology.CreateTopoConfigMap(c.Cluster, dcs); err != nil {
+	err = topology.CreateTopoConfigMap(c.Cluster, dcs)
+	if err != nil {
 		return err
 	}
 

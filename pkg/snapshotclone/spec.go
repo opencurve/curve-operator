@@ -3,6 +3,7 @@ package snapshotclone
 import (
 	"fmt"
 	"path"
+	"strconv"
 
 	"github.com/pkg/errors"
 	apps "k8s.io/api/apps/v1"
@@ -214,6 +215,10 @@ func (c *Cluster) makeSnapshotDaemonContainer(nodeIP string, snapConfig *snapCon
 	configFileMountPath := path.Join(config.SnapShotCloneConfigMapMountPath, config.SnapShotCloneConfigMapDataKey)
 	argsConfigFileDir := fmt.Sprintf("--conf=%s", configFileMountPath)
 
+	port, _ := strconv.Atoi(snapConfig.ServicePort)
+	dummyPort, _ := strconv.Atoi(snapConfig.ServiceDummyPort)
+	proxyPort, _ := strconv.Atoi(snapConfig.ServiceProxyPort)
+
 	container := v1.Container{
 		Name: "snapshotclone",
 		Command: []string{
@@ -236,20 +241,20 @@ func (c *Cluster) makeSnapshotDaemonContainer(nodeIP string, snapConfig *snapCon
 		Ports: []v1.ContainerPort{
 			{
 				Name:          "listen-port",
-				ContainerPort: int32(c.SnapShotClone.Port),
-				HostPort:      int32(c.SnapShotClone.Port),
+				ContainerPort: int32(port),
+				HostPort:      int32(port),
 				Protocol:      v1.ProtocolTCP,
 			},
 			{
 				Name:          "dummy-port",
-				ContainerPort: int32(c.SnapShotClone.DummyPort),
-				HostPort:      int32(c.SnapShotClone.DummyPort),
+				ContainerPort: int32(dummyPort),
+				HostPort:      int32(dummyPort),
 				Protocol:      v1.ProtocolTCP,
 			},
 			{
 				Name:          "proxy-port",
-				ContainerPort: int32(c.SnapShotClone.ProxyPort),
-				HostPort:      int32(c.SnapShotClone.ProxyPort),
+				ContainerPort: int32(proxyPort),
+				HostPort:      int32(proxyPort),
 				Protocol:      v1.ProtocolTCP,
 			},
 		},

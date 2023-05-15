@@ -203,7 +203,7 @@ func (c *ClusterController) initCluster(cluster *daemon.Cluster) error {
 		err = reconcileCurveFSDaemons(cluster)
 	}
 	if err != nil {
-		return nil
+		return err
 	}
 
 	return nil
@@ -211,12 +211,14 @@ func (c *ClusterController) initCluster(cluster *daemon.Cluster) error {
 
 // preClusterStartValidation Cluster Spec validation
 func preClusterStartValidation(cluster *daemon.Cluster) error {
-	// Assert the node num is 3
+	if cluster.Kind == config.KIND_CURVEFS {
+		return nil
+	}
 	nodesNum := len(cluster.Nodes)
-	if nodesNum < 3 {
-		return errors.Errorf("nodes count shoule at least 3, cannot start cluster %d", len(cluster.Nodes))
-	} else if nodesNum > 3 {
-		return errors.Errorf("nodes count more than 3, cannot start cluster temporary %d", len(cluster.Nodes))
+	storageNodesNum := len(cluster.Chunkserver.Devices)
+	if nodesNum == 1 && storageNodesNum < 3 {
+		return errors.Errorf(`The number of configured chunkserver devices must be greater than 3 
+		              for CurveBS cluster stand-alone deployment %d`, nodesNum)
 	}
 
 	return nil

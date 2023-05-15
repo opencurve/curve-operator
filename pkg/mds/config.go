@@ -21,7 +21,7 @@ type mdsConfig struct {
 	ConfigMapMountPath   string
 }
 
-func (c *mdsConfig) GetPrefix() string                  { return Prefix }
+func (c *mdsConfig) GetPrefix() string                  { return c.Prefix }
 func (c *mdsConfig) GetServiceId() string               { return "" }
 func (c *mdsConfig) GetServiceRole() string             { return "mds" }
 func (c *mdsConfig) GetServiceHost() string             { return "" }
