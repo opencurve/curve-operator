@@ -71,7 +71,7 @@ func (c *Cluster) createFormatVolumeAndMount(device curvev1.DevicesSpec) ([]v1.V
 	return vols, mounts
 }
 
-// DaemonVolumes returns the pod volumes used only by chunkserver
+// CSDaemonVolumes DaemonVolumes returns the pod volumes used only by chunkserver
 func CSDaemonVolumes(csConfig *chunkserverConfig) []v1.Volume {
 	vols := []v1.Volume{}
 

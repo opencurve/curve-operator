@@ -8,7 +8,7 @@ import (
 	"github.com/opencurve/curve-operator/pkg/config"
 )
 
-// DaemonVolumes returns the pod volumes used only by snapshotclone
+// SnapDaemonVolumes returns the pod volumes used only by snapshotclone
 func SnapDaemonVolumes(snapConfig *snapConfig) []v1.Volume {
 	vols := []v1.Volume{}
 	// create configmap volume
@@ -27,7 +27,7 @@ func SnapDaemonVolumes(snapConfig *snapConfig) []v1.Volume {
 	return vols
 }
 
-// DaemonVolumeMounts returns the pod container volume mounth used only by chunkserver
+// SnapDaemonVolumeMounts returns the pod container volume mounth used only by chunkserver
 func SnapDaemonVolumeMounts(snapConfig *snapConfig) []v1.VolumeMount {
 	mounts := []v1.VolumeMount{}
 
@@ -43,7 +43,7 @@ func SnapDaemonVolumeMounts(snapConfig *snapConfig) []v1.VolumeMount {
 	return mounts
 }
 
-// configConfigMapVolumeAndMount Create configmap volume and volume mount for daemon chunkserver pod
+// SnapConfigMapVolumeAndMount Create configmap volume and volume mount for daemon chunkserver pod
 func SnapConfigMapVolumeAndMount(snapConfig *snapConfig) ([]v1.Volume, []v1.VolumeMount) {
 	vols := []v1.Volume{}
 	mounts := []v1.VolumeMount{}

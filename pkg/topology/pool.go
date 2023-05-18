@@ -100,7 +100,7 @@ func formatName(dc *DeployConfig) string {
 	return fmt.Sprintf("%s_%d", dc.NodeName, dc.ReplicasSequence)
 }
 
-// we should sort the "dcs" for generate correct zone number
+// SortDeployConfigs we should sort the "dcs" for generate correct zone number
 func SortDeployConfigs(dcs []*DeployConfig) {
 	sort.Slice(dcs, func(i, j int) bool {
 		dc1, dc2 := dcs[i], dcs[j]

@@ -58,7 +58,7 @@ func UpdateFSCondition(ctx context.Context, c *clusterd.Context, namespaceName t
 	})
 }
 
-// UpdateClusterCondition function will export each condition into the cluster custom resource
+// UpdateFSClusterCondition function will export each condition into the cluster custom resource
 func UpdateFSClusterCondition(c *clusterd.Context, cluster *curvev1.Curvefs, namespaceName types.NamespacedName, conditionType curvev1.ConditionType, status curvev1.ConditionStatus,
 	reason curvev1.ConditionReason, message string, preserveAllConditions bool) error {
 
