@@ -6,10 +6,10 @@ import (
 	v1 "k8s.io/api/core/v1"
 )
 
-// createTopoAndToolVolumeAndMount creates volumes and volumeMounts for topo and tool
+// CreateTopoAndToolVolumeAndMount creates volumes and volumeMounts for topo and tool
 func CreateTopoAndToolVolumeAndMount(c *daemon.Cluster) ([]v1.Volume, []v1.VolumeMount) {
-	vols := []v1.Volume{}
-	mounts := []v1.VolumeMount{}
+	var vols []v1.Volume
+	var mounts []v1.VolumeMount
 
 	var topoMountPath, toolMountPath string
 	if c.Kind == config.KIND_CURVEBS {

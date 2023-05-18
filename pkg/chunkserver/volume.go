@@ -16,8 +16,8 @@ const (
 
 // createFormatVolumeAndMount
 func (c *Cluster) createFormatVolumeAndMount(device curvev1.DevicesSpec) ([]v1.Volume, []v1.VolumeMount) {
-	vols := []v1.Volume{}
-	mounts := []v1.VolumeMount{}
+	var vols []v1.Volume
+	var mounts []v1.VolumeMount
 
 	// Create format configmap volume and volume path
 	mode := int32(0644)
@@ -71,7 +71,7 @@ func (c *Cluster) createFormatVolumeAndMount(device curvev1.DevicesSpec) ([]v1.V
 	return vols, mounts
 }
 
-// DaemonVolumes returns the pod volumes used only by chunkserver
+// CSDaemonVolumes DaemonVolumes returns the pod volumes used only by chunkserver
 func CSDaemonVolumes(csConfig *chunkserverConfig) []v1.Volume {
 	vols := []v1.Volume{}
 
@@ -108,8 +108,8 @@ func CSDaemonVolumeMounts(csConfig *chunkserverConfig) []v1.VolumeMount {
 
 // CSConfigConfigMapVolumeAndMount creates configmap volume and volume mount for daemon chunkserver pod
 func CSConfigConfigMapVolumeAndMount(csConfig *chunkserverConfig) ([]v1.Volume, []v1.VolumeMount) {
-	vols := []v1.Volume{}
-	mounts := []v1.VolumeMount{}
+	var vols []v1.Volume
+	var mounts []v1.VolumeMount
 
 	// start_chunkserver.sh
 	mode := int32(0644)

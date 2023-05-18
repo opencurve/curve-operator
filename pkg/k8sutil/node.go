@@ -19,7 +19,7 @@ import (
 
 var logger = capnslog.NewPackageLogger("github.com/opencurve/curve-operator", "k8sutil")
 
-// getNodeInfoMap get node ip by node name that user specified and return a mapping of nodeName:nodeIP
+// GetNodeInfoMap get node ip by node name that user specified and return a mapping of nodeName:nodeIP
 func GetNodeInfoMap(nodes []string, clientset kubernetes.Interface) (map[string]string, error) {
 	nodeNameIP := make(map[string]string)
 

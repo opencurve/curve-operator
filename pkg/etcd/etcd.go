@@ -23,6 +23,7 @@ const (
 	ConfigMapNamePrefix = "curve-etcd-conf"
 
 	// ContainerPath is the mount path of data and log
+
 	Prefix           = "/curvebs/etcd"
 	ContainerDataDir = "/curvebs/etcd/data"
 	ContainerLogDir  = "/curvebs/etcd/logs"

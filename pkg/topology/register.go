@@ -94,7 +94,7 @@ func makeCreatePoolContainer(c *daemon.Cluster, poolType string, mounts []v1.Vol
 	readOnlyRootFilesystem := false
 
 	toolsBinaryPath := ""
-	args := []string{}
+	var args []string
 	if c.Kind == config.KIND_CURVEBS {
 		toolsBinaryPath = "/curvebs/tools/sbin/curvebs-tool"
 		argsOp := ""

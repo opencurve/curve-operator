@@ -97,8 +97,8 @@ func (c *ClusterController) cleanUpJobTemplateSpec(cluster *daemon.Cluster) v1.P
 }
 
 func (c *ClusterController) cleanUpJobContainer(cluster *daemon.Cluster) v1.Container {
-	volumeMounts := []v1.VolumeMount{}
-	envVars := []v1.EnvVar{}
+	var volumeMounts []v1.VolumeMount
+	var envVars []v1.EnvVar
 
 	dataHhostPathVolumeMount := v1.VolumeMount{Name: dataVolumeName, MountPath: cluster.HostDataDir}
 	volumeMounts = append(volumeMounts, dataHhostPathVolumeMount)
