@@ -44,21 +44,20 @@ $ vim config/samples/cluster.yaml
 apiVersion: operator.curve.io/v1
 kind: CurveCluster
 metadata:
-  name: my-cluster
-  # The namespace to deploy Curve BS cluster. 
+  name: curvebs-cluster-cloud
+  # The namespace to deploy CurveBS cluster. 
   # Curve operator is deployed in this namespace,Do not modify if not necessary
   namespace: curve
 spec:
   # The container image used to launch the Curve daemon pods(etcd, mds, chunkserver, snapshotclone).
   # v1.2 is Pacific and v1.3 is not tested.
   curveVersion:
-    image: opencurvedocker/curvebs:v1.2
+    image: opencurvedocker/curvebs:v1.2.6
     # Container image pull policy, 
     # By default the pull policy of all containers in that pod will be set to IfNotPresent if it is not explicitly specified and no modification necessary.
     imagePullPolicy: IfNotPresent
   # The K8s cluster nodes name in cluster that prepare to deploy Curve daemon pods(etcd, mds, snapshotclone).
-  # Three nodes must be configured here for a three-replica protocol, and don't support stand-alone deployment at present.
-  # So, you must configure and only configure three nodes here. If it contain master plane node, that you must untaint it to allow scheduled.
+  # For stand-alone deploy, set one node here and see bscluster-onehost.yaml
   # - node1 -> etcd-a, mds-a, snapshotclone-a
   # - node2 -> etcd-b, mds-b, snapshotclone-b
   # - node3 -> etcd-c, mds-c, snapshotclone-c
@@ -76,12 +75,13 @@ spec:
     # clientPort for listening server port.
     clientPort: 23790
   mds:
-    port: 26700
-    dummyPort: 27700
+    port: 6700
+    dummyPort: 7700
   storage:
     # useSelectedNodes is to control whether to use individual nodes and their configured devices can be specified as well.
     # This field is not implemented at present and is must set false here.
     # You can refer following selectoedNodes setting commented if the function is completed later.
+    # But the func is not implemented yet.
     useSelectedNodes: false
     # The hosts specified to deployment chunkserver as storage resource.
     # And you can configure the same nodes above configure that deploy etcd, mds and snapshotclone service.
@@ -90,12 +90,13 @@ spec:
     - curve-operator-node2
     - curve-operator-node3
     port: 8200
-    copysets: 100
+    copySets: 100
     # Make sure the devices configured are available on hosts above.
     devices:
     - name: /dev/vdc
       mountPath: /data/chunkserver0
       percentage: 80
+    # Not implement yet
     #selectedNodes:
     #- node: curve-operator-node1
     #  - devices:
@@ -116,8 +117,8 @@ spec:
     # Make sure s3 service exist if enable is set true
     enable: false
     port: 5555
-    dummyPort: 8081
-    proxyPort: 8080
+    dummyPort: 8800
+    proxyPort: 8900
     s3Config:
       # Access Key for the S3 service. Uploading snapshots
       ak: <>

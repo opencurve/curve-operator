@@ -43,47 +43,22 @@ func New(c *daemon.Cluster) *Cluster {
 }
 
 // Start begins the process of running a cluster of curve etcds.
-func (c *Cluster) Start(nodeNameIP map[string]string) error {
-	var etcdEndpoints string
-	var clusterEtcdAddr string
-	for _, ipAddr := range nodeNameIP {
-		etcdEndpoints = fmt.Sprint(etcdEndpoints, ipAddr, ":", c.Etcd.PeerPort, ",")
-		clusterEtcdAddr = fmt.Sprint(clusterEtcdAddr, ipAddr, ":", c.Etcd.ClientPort, ",")
+func (c *Cluster) Start(nodesInfo []daemon.NodeInfo) error {
+	var etcdEndpoints, clusterEtcdAddr, initialCluster string
+	for _, node := range nodesInfo {
+		etcdEndpoints = fmt.Sprint(etcdEndpoints, node.NodeIP, ":", node.PeerPort, ",")
+		clusterEtcdAddr = fmt.Sprint(clusterEtcdAddr, node.NodeIP, ":", node.ClientPort, ",")
+		initialCluster = fmt.Sprint(initialCluster, "etcd", strconv.Itoa(node.HostID), strconv.Itoa(node.ReplicasSequence), "=http://", node.NodeIP, ":", node.PeerPort, ",")
 	}
 	etcdEndpoints = strings.TrimRight(etcdEndpoints, ",")
 	clusterEtcdAddr = strings.TrimRight(clusterEtcdAddr, ",")
+	initialCluster = strings.TrimRight(initialCluster, ",")
+	logger.Infof("initialCluster %v", initialCluster)
 
 	// Create etcd override configmap
 	if err := c.createOverrideConfigMap(etcdEndpoints, clusterEtcdAddr); err != nil {
 		return err
 	}
-
-	// reorder the nodeNameIP according to the order of nodes spec defined by the user
-	// nodes:
-	// - node1 - curve-etcd-a
-	// - node2  - curve-etcd-b
-	// - node3 - curve-etcd-c
-	nodeNamesOrdered := make([]string, 0)
-	for _, n := range c.Nodes {
-		for nodeName := range nodeNameIP {
-			if n == nodeName {
-				nodeNamesOrdered = append(nodeNamesOrdered, nodeName)
-			}
-		}
-	}
-
-	// never happen
-	if len(nodeNamesOrdered) != 3 {
-		return errors.New("Nodes spec field is not 3")
-	}
-
-	hostId := 0
-	var initial_cluster string
-	for _, nodeName := range nodeNamesOrdered {
-		initial_cluster = fmt.Sprint(initial_cluster, "etcd", strconv.Itoa(hostId), "0", "=http://", nodeNameIP[nodeName], ":", c.Etcd.PeerPort, ",")
-		hostId++
-	}
-	initial_cluster = strings.TrimRight(initial_cluster, ",")
 
 	// create ConfigMap and referred Deployment by travel all nodes that have been labeled - "app=etcd"
 	var configMapMountPath, prefix, containerDataDir, containerLogDir string
@@ -101,22 +76,19 @@ func (c *Cluster) Start(nodeNameIP map[string]string) error {
 
 	var deploymentsToWaitFor []*appsv1.Deployment
 
-	daemonID := 0
-	replicasSequence := 0
-	var daemonIDString string
-	for _, nodeName := range nodeNamesOrdered {
-		daemonIDString = k8sutil.IndexToName(daemonID)
+	for _, node := range nodesInfo {
+		daemonIDString := k8sutil.IndexToName(node.HostID)
 		// Construct etcd config to pass to make deployment
 		resourceName := fmt.Sprintf("%s-%s", AppName, daemonIDString)
 		currentConfigMapName := fmt.Sprintf("%s-%s", ConfigMapNamePrefix, daemonIDString)
 		etcdConfig := &etcdConfig{
 			Prefix:                 prefix,
-			ServiceHostSequence:    strconv.Itoa(daemonID),
-			ServiceReplicaSequence: strconv.Itoa(replicasSequence),
-			ServiceAddr:            nodeNameIP[nodeName],
-			ServicePort:            strconv.Itoa(c.Etcd.PeerPort),
-			ServiceClientPort:      strconv.Itoa(c.Etcd.ClientPort),
-			ClusterEtcdHttpAddr:    initial_cluster,
+			ServiceHostSequence:    strconv.Itoa(node.HostID),
+			ServiceReplicaSequence: strconv.Itoa(node.ReplicasSequence),
+			ServiceAddr:            node.NodeIP,
+			ServicePort:            strconv.Itoa(node.PeerPort),
+			ServiceClientPort:      strconv.Itoa(node.ClientPort),
+			ClusterEtcdHttpAddr:    initialCluster,
 
 			DaemonID:             daemonIDString,
 			CurrentConfigMapName: currentConfigMapName,
@@ -129,7 +101,6 @@ func (c *Cluster) Start(nodeNameIP map[string]string) error {
 			),
 			ConfigMapMountPath: configMapMountPath,
 		}
-		daemonID++
 
 		// create each etcd configmap for each deployment
 		if err := c.createEtcdConfigMap(etcdConfig); err != nil {
@@ -137,7 +108,7 @@ func (c *Cluster) Start(nodeNameIP map[string]string) error {
 		}
 
 		// make etcd deployment
-		d, err := c.makeDeployment(nodeName, nodeNameIP[nodeName], etcdConfig)
+		d, err := c.makeDeployment(node.NodeName, node.NodeIP, etcdConfig)
 		if err != nil {
 			return err
 		}

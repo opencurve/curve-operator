@@ -127,8 +127,9 @@ func createLogicalPool(dcs []*DeployConfig, logicalPool string) (LogicalPool, []
 	SortDeployConfigs(dcs)
 
 	for _, dc := range dcs {
-		if dc.ReplicasSequence == 0 {
+		if dc.ReplicasSequence == 0 || dc.StandAlone {
 			zone = nextZone()
+			logger.Info("stand-alonedeployment? ", dc.StandAlone)
 		}
 
 		// NOTE: if we deploy chunkservers with replica feature
@@ -138,12 +139,11 @@ func createLogicalPool(dcs []*DeployConfig, logicalPool string) (LogicalPool, []
 		// see issue: https://github.com/opencurve/curve/issues/1441
 		internalPort := dc.Port
 		externalPort := dc.Port
-		if dc.Replicas > 1 {
+		if dc.Replicas > 1 && !dc.StandAlone {
 			internalPort = 0
 			externalPort = 0
 		}
 
-		// json Server field
 		server := Server{
 			Name:         formatName(dc),
 			InternalIp:   dc.NodeIP,

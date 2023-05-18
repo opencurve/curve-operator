@@ -19,10 +19,14 @@ import (
 
 var logger = capnslog.NewPackageLogger("github.com/opencurve/curve-operator", "k8sutil")
 
-// getNodeInfoMap get node ip by node name that user specified and return a mapping of nodeName:nodeIP
-func GetNodeInfoMap(nodes []string, clientset kubernetes.Interface) (map[string]string, error) {
-	nodeNameIP := make(map[string]string)
+type NodesToDeploy struct {
+	NodeName string
+	NodeIP   string
+}
 
+// getNodeInfoMap get node ip by node name that user specified and return a mapping of nodeName:nodeIP
+func GetNodeInfoMap(nodes []string, clientset kubernetes.Interface) ([]NodesToDeploy, error) {
+	nodeNameIP := []NodesToDeploy{}
 	for _, nodeName := range nodes {
 		n, err := clientset.CoreV1().Nodes().Get(nodeName, metav1.GetOptions{})
 		if err != nil {
@@ -31,10 +35,21 @@ func GetNodeInfoMap(nodes []string, clientset kubernetes.Interface) (map[string]
 
 		for _, address := range n.Status.Addresses {
 			if address.Type == "InternalIP" {
-				nodeNameIP[n.Name] = address.Address
+				nodeNameIP = append(nodeNameIP, NodesToDeploy{
+					NodeName: nodeName,
+					NodeIP:   address.Address,
+				})
 			}
 		}
 	}
+
+	if len(nodeNameIP) == 1 {
+		for i := 0; i < 2; i++ {
+			nodeNameIP = append(nodeNameIP, nodeNameIP[0])
+		}
+	}
+
+	logger.Infof("using %v to deploy cluster", nodeNameIP)
 
 	return nodeNameIP, nil
 }

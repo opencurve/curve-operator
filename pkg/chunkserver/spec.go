@@ -38,7 +38,6 @@ func (c *Cluster) startChunkServers() error {
 	_ = c.CreateS3ConfigMap()
 
 	var deploymentsToWaitFor []*apps.Deployment
-
 	for _, csConfig := range chunkserverConfigs {
 		err := c.createConfigMap(csConfig)
 		if err != nil {

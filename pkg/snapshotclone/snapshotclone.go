@@ -40,7 +40,7 @@ func New(c *daemon.Cluster) *Cluster {
 }
 
 // Start Curve snapshotclone daemon
-func (c *Cluster) Start(nodeNameIP map[string]string) error {
+func (c *Cluster) Start(nodesInfo []daemon.NodeInfo) error {
 	logger.Info("starting snapshotclone server")
 
 	// get clusterEtcdAddr
@@ -61,41 +61,18 @@ func (c *Cluster) Start(nodeNameIP map[string]string) error {
 		return err
 	}
 
-	// reorder the nodeNameIP according to the order of nodes spec defined by the user
-	// nodes:
-	// - node1 - curve-snap-a
-	// - node2  - curve-snap-b
-	// - node3 - curve-snap-c
-	nodeNamesOrdered := make([]string, 0)
-	for _, n := range c.Nodes {
-		for nodeName := range nodeNameIP {
-			if n == nodeName {
-				nodeNamesOrdered = append(nodeNamesOrdered, nodeName)
-			}
-		}
-	}
-
-	// never happend
-	if len(nodeNamesOrdered) != 3 {
-		return errors.New("Nodes spec field is not 3")
-	}
-
 	var deploymentsToWaitFor []*appsv1.Deployment
-
-	daemonID := 0
-	var daemonIDString string
-	for _, nodeName := range nodeNamesOrdered {
-		daemonIDString = k8sutil.IndexToName(daemonID)
-		daemonID++
+	for _, node := range nodesInfo {
+		daemonIDString := k8sutil.IndexToName(node.HostID)
 		resourceName := fmt.Sprintf("%s-%s", AppName, daemonIDString)
 		currentConfigMapName := fmt.Sprintf("%s-%s", ConfigMapNamePrefix, daemonIDString)
 
 		snapConfig := &snapConfig{
 			Prefix:           Prefix,
-			ServiceAddr:      nodeNameIP[nodeName],
-			ServicePort:      strconv.Itoa(c.SnapShotClone.Port),
-			ServiceDummyPort: strconv.Itoa(c.SnapShotClone.DummyPort),
-			ServiceProxyPort: strconv.Itoa(c.SnapShotClone.ProxyPort),
+			ServiceAddr:      node.NodeIP,
+			ServicePort:      strconv.Itoa(node.SnapshotClonePort),
+			ServiceDummyPort: strconv.Itoa(node.SnapshotCloneDummyPort),
+			ServiceProxyPort: strconv.Itoa(node.SnapshotCloneProxyPort),
 			ClusterEtcdAddr:  clusterEtcdAddr,
 			ClusterMdsAddr:   clusterMdsAddr,
 
@@ -112,11 +89,11 @@ func (c *Cluster) Start(nodeNameIP map[string]string) error {
 
 		err = c.prepareConfigMap(snapConfig)
 		if err != nil {
-			return errors.Wrap(err, "failed to prepare all ConfigMaps of snapshotclone")
+			return err
 		}
 
 		// make snapshotclone deployment
-		d, err := c.makeDeployment(nodeName, nodeNameIP[nodeName], snapConfig)
+		d, err := c.makeDeployment(node.NodeName, node.NodeIP, snapConfig)
 		if err != nil {
 			return err
 		}

@@ -20,4 +20,5 @@ type DeployConfig struct {
 	HostSequence     int
 	ReplicasSequence int
 	Replicas         int
+	StandAlone       bool
 }

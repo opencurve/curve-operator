@@ -1,27 +1,21 @@
 apiVersion: operator.curve.io/v1
 kind: Curvefs
 metadata:
-  name: my-fscluster
+  name: my-fscluster-one
   # The namespace to deploy CurveBS cluster. 
   # Curve operator is deployed in this namespace,Do not modify if not necessary
   namespace: curve
 spec:
   # The container image used to launch the Curve daemon pods(etcd, mds, metaserver).
-  # v1.2 is Pacific and v1.3 is not tested.
   curveVersion:
     image: opencurvedocker/curvefs:v2.3
     # Container image pull policy, 
     # By default the pull policy of all containers in that pod will be set to IfNotPresent if it is not explicitly specified and no modification necessary.
     imagePullPolicy: IfNotPresent
   # The K8s cluster nodes name in cluster that prepare to deploy Curve daemon pods(etcd, mds, metaserver).
-  # For stand-alone deployment, set one host here and see fscluster-onehost.yaml
-  # - node1 -> etcd-a, mds-a, metaserver-a
-  # - node2 -> etcd-b, mds-b, metaserver-b
-  # - node3 -> etcd-c, mds-c, metaserver-c
+  # For stand-alone deploy, set one node here.
   nodes:
   - curve-operator-node1
-  - curve-operator-node2
-  - curve-operator-node3
   # DataDirHostPath and LogDirHostPath where data files and log files will be persisted on host machine. Must be specified.
   # If you reinstall the cluster, make surce that you delete this directory from each host.
   hostDataDir: /curvefs

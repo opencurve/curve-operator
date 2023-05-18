@@ -3,6 +3,7 @@ package metaserver
 import (
 	"fmt"
 	"path"
+	"strconv"
 
 	"github.com/opencurve/curve-operator/pkg/config"
 	"github.com/opencurve/curve-operator/pkg/daemon"
@@ -154,6 +155,9 @@ func (c *Cluster) makeMSDaemonContainer(nodeIP string, metaserverConfig *metaser
 	_, mounts := topology.CreateTopoAndToolVolumeAndMount(c.Cluster)
 	volMounts = append(volMounts, mounts...)
 
+	port, _ := strconv.Atoi(metaserverConfig.ServicePort)
+	// externalPort, _ := strconv.Atoi(metaserverConfig.ServiceExternalPort)
+
 	container := v1.Container{
 		Name: "metaserver",
 		Command: []string{
@@ -168,16 +172,16 @@ func (c *Cluster) makeMSDaemonContainer(nodeIP string, metaserverConfig *metaser
 		Ports: []v1.ContainerPort{
 			{
 				Name:          "listen-port",
-				ContainerPort: int32(c.Metaserver.Port),
-				HostPort:      int32(c.Metaserver.Port),
+				ContainerPort: int32(port),
+				HostPort:      int32(port),
 				Protocol:      v1.ProtocolTCP,
 			},
-			{
-				Name:          "external-port",
-				ContainerPort: int32(c.Metaserver.ExternalPort),
-				HostPort:      int32(c.Metaserver.ExternalPort),
-				Protocol:      v1.ProtocolTCP,
-			},
+			// {
+			// 	Name:          "external-port",
+			// 	ContainerPort: int32(externalPort),
+			// 	HostPort:      int32(externalPort),
+			// 	Protocol:      v1.ProtocolTCP,
+			// },
 		},
 		Env: []v1.EnvVar{{Name: "TZ", Value: "Asia/Hangzhou"}},
 	}

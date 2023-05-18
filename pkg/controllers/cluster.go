@@ -8,7 +8,6 @@ import (
 	"github.com/opencurve/curve-operator/pkg/chunkserver"
 	"github.com/opencurve/curve-operator/pkg/daemon"
 	"github.com/opencurve/curve-operator/pkg/etcd"
-	"github.com/opencurve/curve-operator/pkg/k8sutil"
 	"github.com/opencurve/curve-operator/pkg/mds"
 	"github.com/opencurve/curve-operator/pkg/metaserver"
 	"github.com/opencurve/curve-operator/pkg/snapshotclone"
@@ -23,13 +22,12 @@ func newCluster(kind string, isUpgrade bool) *daemon.Cluster {
 	}
 }
 
-func reconcileSharedServer(c *daemon.Cluster) (map[string]string, error) {
+func reconcileSharedServer(c *daemon.Cluster) ([]daemon.NodeInfo, error) {
 	// get node name and internal ip mapping
-	nodeNameIP, err := k8sutil.GetNodeInfoMap(c.Nodes, c.Context.Clientset)
+	nodesInfo, err := daemon.ConfigureNodeInfo(c)
 	if err != nil {
 		return nil, err
 	}
-	logger.Infof("using %v to create curve cluster", nodeNameIP)
 
 	err = createSyncDeployment(c)
 	if err != nil {
@@ -45,7 +43,7 @@ func reconcileSharedServer(c *daemon.Cluster) (map[string]string, error) {
 
 	// Start etcd cluster
 	etcds := etcd.New(c)
-	err = etcds.Start(nodeNameIP)
+	err = etcds.Start(nodesInfo)
 	if err != nil {
 		return nil, err
 	}
@@ -54,26 +52,26 @@ func reconcileSharedServer(c *daemon.Cluster) (map[string]string, error) {
 
 	// Start Mds cluster
 	mds := mds.New(c)
-	err = mds.Start(nodeNameIP)
+	err = mds.Start(nodesInfo)
 	if err != nil {
 		return nil, err
 	}
 	// wait until mds election finished
 	time.Sleep(20 * time.Second)
 
-	return nodeNameIP, nil
+	return nodesInfo, nil
 }
 
 // reconcileCurveDaemons start all daemon progress of Curve
 func reconcileCurveDaemons(c *daemon.Cluster) error {
 	// shared server
-	nodeNameIP, err := reconcileSharedServer(c)
+	nodesInfo, err := reconcileSharedServer(c)
 	if err != nil {
 		return err
 	}
 	// chunkserver
 	chunkservers := chunkserver.New(c)
-	err = chunkservers.Start(nodeNameIP)
+	err = chunkservers.Start(nodesInfo)
 	if err != nil {
 		return err
 	}
@@ -81,7 +79,7 @@ func reconcileCurveDaemons(c *daemon.Cluster) error {
 	// snapshotclone
 	if c.SnapShotClone.Enable {
 		snapshotclone := snapshotclone.New(c)
-		err = snapshotclone.Start(nodeNameIP)
+		err = snapshotclone.Start(nodesInfo)
 		if err != nil {
 			return err
 		}
@@ -93,14 +91,14 @@ func reconcileCurveDaemons(c *daemon.Cluster) error {
 // reconcileCurveDaemons start all daemon progress of Curve
 func reconcileCurveFSDaemons(c *daemon.Cluster) error {
 	// shared server
-	nodeNameIP, err := reconcileSharedServer(c)
+	nodesInfo, err := reconcileSharedServer(c)
 	if err != nil {
 		return err
 	}
 
 	// metaserver
 	metaservers := metaserver.New(c)
-	err = metaservers.Start(nodeNameIP)
+	err = metaservers.Start(nodesInfo)
 	if err != nil {
 		return err
 	}

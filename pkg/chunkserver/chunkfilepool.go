@@ -15,6 +15,7 @@ import (
 	curvev1 "github.com/opencurve/curve-operator/api/v1"
 	"github.com/opencurve/curve-operator/pkg/chunkserver/script"
 	"github.com/opencurve/curve-operator/pkg/config"
+	"github.com/opencurve/curve-operator/pkg/daemon"
 	"github.com/opencurve/curve-operator/pkg/k8sutil"
 	"github.com/opencurve/curve-operator/pkg/topology"
 )
@@ -28,6 +29,11 @@ const (
 	formatScriptMountPath   = "/curvebs/tools/sbin/format.sh"
 )
 
+type storageNodeInfo struct {
+	nodeName string
+	nodeIP   string
+}
+
 type Job2DeviceInfo struct {
 	job      *batch.Job
 	device   *curvev1.DevicesSpec
@@ -39,7 +45,7 @@ var job2DeviceInfos []*Job2DeviceInfo
 var chunkserverConfigs []chunkserverConfig
 
 // startProvisioningOverNodes format device and provision chunk files
-func (c *Cluster) startProvisioningOverNodes(nodeNameIP map[string]string) ([]*topology.DeployConfig, error) {
+func (c *Cluster) startProvisioningOverNodes(nodesInfo []daemon.NodeInfo) ([]*topology.DeployConfig, error) {
 	dcs := []*topology.DeployConfig{}
 	if !c.Chunkserver.UseSelectedNodes {
 		// clear slice
@@ -61,8 +67,21 @@ func (c *Cluster) startProvisioningOverNodes(nodeNameIP map[string]string) ([]*t
 			logger.Warningf("no valid nodes available to run chunkservers on nodes in namespace %q", c.NamespacedName.Namespace)
 			return nil, nil
 		}
-
 		logger.Infof("%d of the %d storage nodes are valid", len(validNodes), len(c.Chunkserver.Nodes))
+
+		storageNodeInfos := []storageNodeInfo{}
+		for _, node := range validNodes {
+			nodeIP := ""
+			for _, address := range node.Status.Addresses {
+				if address.Type == "InternalIP" {
+					nodeIP = address.Address
+				}
+			}
+			storageNodeInfos = append(storageNodeInfos, storageNodeInfo{
+				nodeName: node.Name,
+				nodeIP:   nodeIP,
+			})
+		}
 
 		// create FORMAT configmap
 		err = c.createFormatConfigMap()
@@ -83,30 +102,24 @@ func (c *Cluster) startProvisioningOverNodes(nodeNameIP map[string]string) ([]*t
 			return nil, errors.Wrap(err, "failed to get mds override endoints configmap")
 		}
 		clusterMdsAddr := mdsOverrideCM.Data[config.MdsOvverideConfigMapDataKey]
-
-		// get clusterMdsDummyPort
-		dummyPort := strconv.Itoa(c.Mds.DummyPort)
-		clusterMdsDummyPort := dummyPort + "," + dummyPort + "," + dummyPort
+		clusterMdsDummyPort := mdsOverrideCM.Data[config.ClusterMdsDummyPort]
 
 		// get clusterSnapCloneAddr and clusterSnapShotCloneDummyPort
 		var clusterSnapCloneAddr string
 		var clusterSnapShotCloneDummyPort string
 		if c.SnapShotClone.Enable {
-			for _, ipAddr := range nodeNameIP {
-				clusterSnapCloneAddr = fmt.Sprint(clusterSnapCloneAddr, ipAddr, ":", c.SnapShotClone.Port, ",")
+			for _, node := range nodesInfo {
+				clusterSnapCloneAddr = fmt.Sprint(clusterSnapCloneAddr, node.NodeIP, ":", node.SnapshotClonePort, ",")
+				clusterSnapShotCloneDummyPort = fmt.Sprint(clusterSnapShotCloneDummyPort, strconv.Itoa(node.SnapshotCloneDummyPort), ",")
 			}
 			clusterSnapCloneAddr = strings.TrimRight(clusterSnapCloneAddr, ",")
-
-			dummyPort := strconv.Itoa(c.SnapShotClone.DummyPort)
-			clusterSnapShotCloneDummyPort = fmt.Sprintf("%s,%s,%s", dummyPort, dummyPort, dummyPort)
+			clusterSnapShotCloneDummyPort = strings.TrimRight(clusterSnapShotCloneDummyPort, ",")
 		}
 
-		hostSequence := 0
-		daemonID := 0
+		hostSequence, daemonID := 0, 0
 		var daemonIDString string
 		// travel all valid nodes to start job to prepare chunkfiles
-		for _, node := range validNodes {
-			nodeIP := nodeNameIP[node.Name]
+		for _, node := range storageNodeInfos {
 			portBase := c.Chunkserver.Port
 			replicasSequence := 0
 			// travel all device to run format job and construct chunkserverConfig
@@ -116,12 +129,12 @@ func (c *Cluster) startProvisioningOverNodes(nodeNameIP map[string]string) ([]*t
 				name = strings.TrimRight(name, "/")
 				nameArr := strings.Split(name, "/")
 				name = nameArr[len(nameArr)-1]
-				resourceName := fmt.Sprintf("%s-%s-%s", AppName, node.Name, name)
-				currentConfigMapName := fmt.Sprintf("%s-%s-%s", ConfigMapNamePrefix, node.Name, name)
+				resourceName := fmt.Sprintf("%s-%s-%s", AppName, node.nodeName, name)
+				currentConfigMapName := fmt.Sprintf("%s-%s-%s", ConfigMapNamePrefix, node.nodeName, name)
 
-				logger.Infof("creating job for device %q on host %q", device.Name, node.Name)
+				logger.Infof("creating job for device %q on host %q", device.Name, node.nodeName)
 
-				job, err := c.runPrepareJob(node.Name, device)
+				job, err := c.runPrepareJob(node.nodeName, device)
 				if err != nil {
 					return nil, err
 				}
@@ -129,7 +142,7 @@ func (c *Cluster) startProvisioningOverNodes(nodeNameIP map[string]string) ([]*t
 				jobInfo := &Job2DeviceInfo{
 					job,
 					&device,
-					node.Name,
+					node.nodeName,
 				}
 				// jobsArr record all the job that have started, to determine whether the format is completed
 				job2DeviceInfos = append(job2DeviceInfos, jobInfo)
@@ -149,12 +162,12 @@ func (c *Cluster) startProvisioningOverNodes(nodeNameIP map[string]string) ([]*t
 					CurrentConfigMapName: currentConfigMapName,
 					DataPathMap: &chunkserverDataPathMap{
 						HostDevice:       device.Name,
-						HostLogDir:       c.LogDirHostPath + "/chunkserver-" + node.Name + "-" + name,
+						HostLogDir:       c.LogDirHostPath + "/chunkserver-" + node.nodeName + "-" + name,
 						ContainerDataDir: ChunkserverContainerDataDir,
 						ContainerLogDir:  ChunkserverContainerLogDir,
 					},
-					NodeName:         node.Name,
-					NodeIP:           nodeIP,
+					NodeName:         node.nodeName,
+					NodeIP:           node.nodeIP,
 					DeviceName:       device.Name,
 					HostSequence:     hostSequence,
 					ReplicasSequence: replicasSequence,
@@ -165,12 +178,13 @@ func (c *Cluster) startProvisioningOverNodes(nodeNameIP map[string]string) ([]*t
 					Kind:             c.Kind,
 					Role:             "chunkserver",
 					Copysets:         c.Chunkserver.CopySets,
-					NodeName:         node.Name,
-					NodeIP:           nodeIP,
+					NodeName:         node.nodeName,
+					NodeIP:           node.nodeIP,
 					Port:             portBase,
 					DeviceName:       device.Name,
 					ReplicasSequence: replicasSequence,
 					Replicas:         len(c.Chunkserver.Devices),
+					StandAlone:       len(storageNodeInfos) == 1,
 				}
 				chunkserverConfigs = append(chunkserverConfigs, chunkserverConfig)
 				dcs = append(dcs, dc)
