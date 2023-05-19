@@ -3,6 +3,7 @@ package etcd
 import (
 	"fmt"
 	"path"
+	"strconv"
 
 	"github.com/pkg/errors"
 	apps "k8s.io/api/apps/v1"
@@ -154,6 +155,8 @@ func (c *Cluster) makeDeployment(nodeName string, ip string, etcdConfig *etcdCon
 
 // makeChmodDirInitContainer make init container to chmod 700 of ContainerDataDir('/curvebs/etcd/data')
 func (c *Cluster) makeChmodDirInitContainer(etcdConfig *etcdConfig) v1.Container {
+	// clientPort, _ := strconv.Atoi(etcdConfig.ServiceClientPort)
+	// peerPort, _ := strconv.Atoi(etcdConfig.ServicePort)
 	container := v1.Container{
 		Name: "chmod",
 		// Args:            args,
@@ -165,14 +168,14 @@ func (c *Cluster) makeChmodDirInitContainer(etcdConfig *etcdConfig) v1.Container
 		Ports: []v1.ContainerPort{
 			{
 				Name:          "listen-port",
-				ContainerPort: int32(c.Etcd.ClientPort),
-				HostPort:      int32(c.Etcd.ClientPort),
+				ContainerPort: 9898,
+				HostPort:      9898,
 				Protocol:      v1.ProtocolTCP,
 			},
 			{
 				Name:          "peer-port",
-				ContainerPort: int32(c.Etcd.PeerPort),
-				HostPort:      int32(c.Etcd.PeerPort),
+				ContainerPort: int32(9899),
+				HostPort:      int32(9899),
 				Protocol:      v1.ProtocolTCP,
 			},
 		},
@@ -182,6 +185,8 @@ func (c *Cluster) makeChmodDirInitContainer(etcdConfig *etcdConfig) v1.Container
 
 // makeEtcdDaemonContainer create etcd container
 func (c *Cluster) makeEtcdDaemonContainer(nodeName string, ip string, etcdConfig *etcdConfig, init_cluster string) v1.Container {
+	clientPort, _ := strconv.Atoi(etcdConfig.ServiceClientPort)
+	peerPort, _ := strconv.Atoi(etcdConfig.ServicePort)
 	var commandLine string
 	if c.Kind == config.KIND_CURVEBS {
 		commandLine = "/curvebs/etcd/sbin/etcd"
@@ -206,14 +211,14 @@ func (c *Cluster) makeEtcdDaemonContainer(nodeName string, ip string, etcdConfig
 		Ports: []v1.ContainerPort{
 			{
 				Name:          "listen-port",
-				ContainerPort: int32(c.Etcd.ClientPort),
-				HostPort:      int32(c.Etcd.ClientPort),
+				ContainerPort: int32(clientPort),
+				HostPort:      int32(clientPort),
 				Protocol:      v1.ProtocolTCP,
 			},
 			{
 				Name:          "peer-port",
-				ContainerPort: int32(c.Etcd.PeerPort),
-				HostPort:      int32(c.Etcd.PeerPort),
+				ContainerPort: int32(peerPort),
+				HostPort:      int32(peerPort),
 				Protocol:      v1.ProtocolTCP,
 			},
 		},

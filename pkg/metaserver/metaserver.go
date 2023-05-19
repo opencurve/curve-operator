@@ -39,8 +39,8 @@ func New(c *daemon.Cluster) *Cluster {
 
 var logger = capnslog.NewPackageLogger("github.com/opencurve/curve-operator", "metaserver")
 
-func (c *Cluster) Start(nodeNameIP map[string]string) error {
-	msConfigs, dcs, err := c.buildConfigs(nodeNameIP)
+func (c *Cluster) Start(nodesInfo []daemon.NodeInfo) error {
+	msConfigs, dcs, err := c.buildConfigs(nodesInfo)
 	if err != nil {
 		return err
 	}
@@ -55,8 +55,13 @@ func (c *Cluster) Start(nodeNameIP map[string]string) error {
 		return err
 	}
 
-	var deploymentsToWaitFor []*appsv1.Deployment
+	// create logic pool
+	_, err = topology.RunCreatePoolJob(c.Cluster, dcs, topology.LOGICAL_POOL)
+	if err != nil {
+		return err
+	}
 
+	var deploymentsToWaitFor []*appsv1.Deployment
 	for _, msConfig := range msConfigs {
 		if err := c.createMetaserverConfigMap(msConfig); err != nil {
 			return err
@@ -90,18 +95,12 @@ func (c *Cluster) Start(nodeNameIP map[string]string) error {
 		}
 	}
 
-	// create logic pool
-	_, err = topology.RunCreatePoolJob(c.Cluster, dcs, topology.LOGICAL_POOL)
-	if err != nil {
-		return err
-	}
-
 	k8sutil.UpdateStatusCondition(c.Kind, context.TODO(), &c.Context, c.NamespacedName, curvev1.ConditionTypeMetaServerReady, curvev1.ConditionTrue, curvev1.ConditionMetaServerClusterCreatedReason, "MetaServer cluster has been created")
 	return nil
 }
 
 // Start Curve metaserver daemon
-func (c *Cluster) buildConfigs(nodeNameIP map[string]string) ([]*metaserverConfig, []*topology.DeployConfig, error) {
+func (c *Cluster) buildConfigs(nodesInfo []daemon.NodeInfo) ([]*metaserverConfig, []*topology.DeployConfig, error) {
 	logger.Infof("starting to run metaserver in namespace %q", c.NamespacedName.Namespace)
 
 	// get ClusterEtcdAddr
@@ -119,46 +118,27 @@ func (c *Cluster) buildConfigs(nodeNameIP map[string]string) ([]*metaserverConfi
 	clusterMdsAddr := mdsOverrideCM.Data[config.MdsOvverideConfigMapDataKey]
 	clusterMdsDummyAddr := mdsOverrideCM.Data[config.ClusterMdsDummyAddr]
 
-	// reorder the nodeNameIP according to the order of nodes spec defined by the user
-	// nodes:
-	// - node1 - curve-mds-a
-	// - node2  - curve-mds-b
-	// - node3 - curve-mds-c
-	nodeNamesOrdered := make([]string, 0)
-	for _, n := range c.Nodes {
-		for nodeName := range nodeNameIP {
-			if n == nodeName {
-				nodeNamesOrdered = append(nodeNamesOrdered, nodeName)
-			}
-		}
-	}
-	if len(nodeNamesOrdered) != 3 {
-		return nil, nil, errors.New("Nodes spec field is not 3")
-	}
-
 	// get clusterMetaserverAddr
 	metaserveraddr := []string{}
-	for _, nodeName := range nodeNamesOrdered {
-		metaserveraddr = append(metaserveraddr, fmt.Sprint(nodeNameIP[nodeName], ":", strconv.Itoa(c.Metaserver.Port)))
+	for _, node := range nodesInfo {
+		metaserveraddr = append(metaserveraddr, fmt.Sprint(node.NodeIP, ":", strconv.Itoa(node.MetaserverPort)))
 	}
 	clusterMetaserverAddr := strings.Join(metaserveraddr, ",")
 	logger.Info("clusterMetaserverAddr is ", clusterMetaserverAddr)
 
-	daemonID := 0
 	metaserverConfigs := []*metaserverConfig{}
 	dcs := []*topology.DeployConfig{}
-	var daemonIDString string
-	for _, nodeName := range nodeNamesOrdered {
-		daemonIDString = k8sutil.IndexToName(daemonID)
+	for _, node := range nodesInfo {
+		daemonIDString := k8sutil.IndexToName(node.HostID)
 		resourceName := fmt.Sprintf("%s-%s", AppName, daemonIDString)
 		currentConfigMapName := fmt.Sprintf("%s-%s", ConfigMapNamePrefix, daemonIDString)
 
 		metaserverConfig := &metaserverConfig{
 			Prefix:                FSPrefix,
-			ServiceAddr:           nodeNameIP[nodeName],
-			ServicePort:           strconv.Itoa(c.Metaserver.Port),
-			ServiceExternalAddr:   nodeNameIP[nodeName],
-			ServiceExternalPort:   strconv.Itoa(c.Metaserver.Port),
+			ServiceAddr:           node.NodeIP,
+			ServicePort:           strconv.Itoa(node.MetaserverPort),
+			ServiceExternalAddr:   node.NodeIP,
+			ServiceExternalPort:   strconv.Itoa(node.MetaserverExternalPort),
 			ClusterEtcdAddr:       clusterEtcdAddr,
 			ClusterMdsAddr:        clusterMdsAddr,
 			ClusterMdsDummyAddr:   clusterMdsDummyAddr,
@@ -173,23 +153,24 @@ func (c *Cluster) buildConfigs(nodeNameIP map[string]string) ([]*metaserverConfi
 				FSContainerDataDir,
 				FSContainerLogDir,
 			),
-			NodeName: nodeName,
-			NodeIP:   nodeNameIP[nodeName],
+			NodeName: node.NodeName,
+			NodeIP:   node.NodeIP,
 		}
 
 		dc := &topology.DeployConfig{
 			Kind:             c.Kind,
 			Role:             "metaserver",
 			Copysets:         c.Metaserver.CopySets,
-			NodeName:         nodeName,
-			NodeIP:           nodeNameIP[nodeName],
-			Port:             c.Metaserver.Port,
-			ReplicasSequence: 0,
+			NodeName:         node.NodeName,
+			NodeIP:           node.NodeIP,
+			Port:             node.MetaserverPort,
+			ReplicasSequence: node.ReplicasSequence,
 			Replicas:         len(c.Nodes),
+			StandAlone:       node.StandAlone,
 		}
 		metaserverConfigs = append(metaserverConfigs, metaserverConfig)
 		dcs = append(dcs, dc)
-		daemonID++
 	}
+
 	return metaserverConfigs, dcs, nil
 }

@@ -18,7 +18,7 @@ import (
 	"archive/zip"
 	"bytes"
 	"encoding/base64"
-	"io/ioutil"
+	"io"
 	"net/http"
 
 	json "github.com/json-iterator/go"
@@ -195,7 +195,7 @@ func zipAndBase64EncodeAnnotation(original []byte) (string, error) {
 }
 
 func unZipAnnotation(original []byte) ([]byte, error) {
-	annotation, err := ioutil.ReadAll(bytes.NewReader(original))
+	annotation, err := io.ReadAll(bytes.NewReader(original))
 	if err != nil {
 		return nil, err
 	}
@@ -221,5 +221,5 @@ func readZipFile(zf *zip.File) ([]byte, error) {
 		return nil, err
 	}
 	defer f.Close()
-	return ioutil.ReadAll(f)
+	return io.ReadAll(f)
 }

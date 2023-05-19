@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"path"
 	"strconv"
+	"strings"
 
 	"github.com/coreos/pkg/capnslog"
 	"github.com/pkg/errors"
@@ -43,36 +44,27 @@ func New(c *daemon.Cluster) *Cluster {
 var logger = capnslog.NewPackageLogger("github.com/opencurve/curve-operator", "mds")
 
 // Start Curve mds daemon
-func (c *Cluster) Start(nodeNameIP map[string]string) error {
+func (c *Cluster) Start(nodesInfo []daemon.NodeInfo) error {
 	overrideCM, err := c.Context.Clientset.CoreV1().ConfigMaps(c.NamespacedName.Namespace).Get(config.EtcdOverrideConfigMapName, metav1.GetOptions{})
 	if err != nil {
 		return err
 	}
 	clusterEtcdAddr := overrideCM.Data[config.ClusterEtcdAddr]
 
+	var mdsEndpoints, clusterMdsDummyAddr, clusterMdsDummyPort string
+	for _, node := range nodesInfo {
+		mdsEndpoints = fmt.Sprint(mdsEndpoints, node.NodeIP, ":", node.MdsPort, ",")
+		clusterMdsDummyAddr = fmt.Sprint(clusterMdsDummyAddr, node.NodeIP, ":", node.DummyPort, ",")
+		clusterMdsDummyPort = fmt.Sprint(clusterMdsDummyPort, node.DummyPort, ",")
+	}
+	mdsEndpoints = strings.TrimRight(mdsEndpoints, ",")
+	clusterMdsDummyAddr = strings.TrimRight(clusterMdsDummyAddr, ",")
+	clusterMdsDummyPort = strings.TrimRight(clusterMdsDummyPort, ",")
+
 	// create mds override configmap to record mds endpoints
-	err = c.createOverrideMdsCM(nodeNameIP)
+	err = c.createOverrideMdsCM(mdsEndpoints, clusterMdsDummyAddr, clusterMdsDummyPort)
 	if err != nil {
 		return err
-	}
-
-	// reorder the nodeNameIP according to the order of nodes spec defined by the user
-	// nodes:
-	// - node1 - curve-mds-a
-	// - node2  - curve-mds-b
-	// - node3 - curve-mds-c
-	nodeNamesOrdered := make([]string, 0)
-	for _, n := range c.Nodes {
-		for nodeName := range nodeNameIP {
-			if n == nodeName {
-				nodeNamesOrdered = append(nodeNamesOrdered, nodeName)
-			}
-		}
-	}
-
-	// never heppend
-	if len(nodeNamesOrdered) != 3 {
-		return errors.New("Nodes spec field is not 3")
 	}
 
 	var configMapMountPath, prefix, containerDataDir, containerLogDir string
@@ -90,19 +82,17 @@ func (c *Cluster) Start(nodeNameIP map[string]string) error {
 
 	var deploymentsToWaitFor []*appsv1.Deployment
 
-	daemonID := 0
 	var daemonIDString string
-	for _, nodeName := range nodeNamesOrdered {
-		daemonIDString = k8sutil.IndexToName(daemonID)
-		daemonID++
+	for _, node := range nodesInfo {
+		daemonIDString = k8sutil.IndexToName(node.HostID)
 		resourceName := fmt.Sprintf("%s-%s", AppName, daemonIDString)
 		currentConfigMapName := fmt.Sprintf("%s-%s", ConfigMapNamePrefix, daemonIDString)
 
 		mdsConfig := &mdsConfig{
 			Prefix:                        prefix,
-			ServiceAddr:                   nodeNameIP[nodeName],
-			ServicePort:                   strconv.Itoa(c.Mds.Port),
-			ServiceDummyPort:              strconv.Itoa(c.Mds.DummyPort),
+			ServiceAddr:                   node.NodeIP,
+			ServicePort:                   strconv.Itoa(node.MdsPort),
+			ServiceDummyPort:              strconv.Itoa(node.DummyPort),
 			ClusterEtcdAddr:               clusterEtcdAddr,
 			ClusterSnapshotcloneProxyAddr: "",
 
@@ -122,7 +112,7 @@ func (c *Cluster) Start(nodeNameIP map[string]string) error {
 			return err
 		}
 
-		d, err := c.makeDeployment(nodeName, nodeNameIP[nodeName], mdsConfig)
+		d, err := c.makeDeployment(node.NodeName, node.NodeIP, mdsConfig)
 		if err != nil {
 			return err
 		}

@@ -22,7 +22,7 @@ type etcdConfig struct {
 	DataPathMap          *config.DataPathMap
 }
 
-func (c *etcdConfig) GetPrefix() string                  { return Prefix }
+func (c *etcdConfig) GetPrefix() string                  { return c.Prefix }
 func (c *etcdConfig) GetServiceId() string               { return "" }
 func (c *etcdConfig) GetServiceRole() string             { return "" }
 func (c *etcdConfig) GetServiceHost() string             { return "" }
