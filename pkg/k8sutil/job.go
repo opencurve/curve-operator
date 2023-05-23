@@ -18,7 +18,7 @@ import (
 // the previous job if deleteIfFound is set to true.
 func RunReplaceableJob(ctx context.Context, clientset kubernetes.Interface, job *batch.Job, deleteIfFound bool) error {
 	// check if the job was already created and what its status is
-	existingJob, err := clientset.BatchV1().Jobs(job.Namespace).Get(job.Name, metav1.GetOptions{})
+	existingJob, err := clientset.BatchV1().Jobs(job.Namespace).Get(context.Background(), job.Name, metav1.GetOptions{})
 	if err != nil && !errors.IsNotFound(err) {
 		// error but found, will recreate it
 		logger.Warningf("failed to detect job %s. %+v", job.Name, err)
@@ -39,7 +39,7 @@ func RunReplaceableJob(ctx context.Context, clientset kubernetes.Interface, job 
 	}
 
 	// always create new job
-	_, err = clientset.BatchV1().Jobs(job.Namespace).Create(job)
+	_, err = clientset.BatchV1().Jobs(job.Namespace).Create(context.Background(), job, metav1.CreateOptions{})
 	return err
 }
 
@@ -47,8 +47,8 @@ func RunReplaceableJob(ctx context.Context, clientset kubernetes.Interface, job 
 func DeleteBatchJob(ctx context.Context, clientset kubernetes.Interface, namespace, name string, wait bool) error {
 	propagation := metav1.DeletePropagationForeground
 	gracePeriod := int64(0)
-	options := &metav1.DeleteOptions{GracePeriodSeconds: &gracePeriod, PropagationPolicy: &propagation}
-	if err := clientset.BatchV1().Jobs(namespace).Delete(name, options); err != nil {
+	options := metav1.DeleteOptions{GracePeriodSeconds: &gracePeriod, PropagationPolicy: &propagation}
+	if err := clientset.BatchV1().Jobs(namespace).Delete(context.Background(), name, options); err != nil {
 		if errors.IsNotFound(err) {
 			return nil
 		}
@@ -64,7 +64,7 @@ func DeleteBatchJob(ctx context.Context, clientset kubernetes.Interface, namespa
 	retries := 30
 	sleepInterval := 3 * time.Second
 	for i := 0; i < retries; i++ {
-		_, err := clientset.BatchV1().Jobs(namespace).Get(name, metav1.GetOptions{})
+		_, err := clientset.BatchV1().Jobs(namespace).Get(context.Background(), name, metav1.GetOptions{})
 		if err != nil && errors.IsNotFound(err) {
 			logger.Infof("batch job %s deleted", name)
 			return nil
@@ -83,7 +83,7 @@ func DeleteBatchJob(ctx context.Context, clientset kubernetes.Interface, namespa
 func WaitForJobCompletion(ctx context.Context, clientset kubernetes.Interface, job *batch.Job, timeout time.Duration) error {
 	logger.Infof("waiting for job %s to complete...", job.Name)
 	return wait.Poll(5*time.Second, timeout, func() (bool, error) {
-		job, err := clientset.BatchV1().Jobs(job.Namespace).Get(job.Name, metav1.GetOptions{})
+		job, err := clientset.BatchV1().Jobs(job.Namespace).Get(context.Background(), job.Name, metav1.GetOptions{})
 		if err != nil {
 			return false, fmt.Errorf("failed to detect job %s. %+v", job.Name, err)
 		}

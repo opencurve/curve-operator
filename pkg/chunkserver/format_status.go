@@ -54,7 +54,7 @@ func (c *Cluster) getJob2DeviceFormatProgress() ([]device2Use, bool, error) {
 		watchedJob := watchedJob2DeviceInfo.job
 		watchedNodeName := watchedJob2DeviceInfo.nodeName
 		wathedDevice := watchedJob2DeviceInfo.device
-		job, err := c.Context.Clientset.BatchV1().Jobs(c.NamespacedName.Namespace).Get(watchedJob.Name, metav1.GetOptions{})
+		job, err := c.Context.Clientset.BatchV1().Jobs(c.NamespacedName.Namespace).Get(context.Background(), watchedJob.Name, metav1.GetOptions{})
 		if err != nil {
 			return []device2Use{}, false, errors.Wrapf(err, "failed to get job %q in cluster", watchedJob.Name)
 		}
@@ -74,7 +74,7 @@ func (c *Cluster) getJob2DeviceFormatProgress() ([]device2Use, bool, error) {
 			labelSelector = append(labelSelector, k+"="+v)
 		}
 		selector := strings.Join(labelSelector, ",")
-		podList, _ := c.Context.Clientset.CoreV1().Pods(watchedJob.Namespace).List(metav1.ListOptions{
+		podList, _ := c.Context.Clientset.CoreV1().Pods(watchedJob.Namespace).List(context.Background(), metav1.ListOptions{
 			LabelSelector: selector,
 		})
 		if len(podList.Items) < 1 {

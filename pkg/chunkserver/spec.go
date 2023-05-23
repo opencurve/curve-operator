@@ -49,7 +49,7 @@ func (c *Cluster) startChunkServers() error {
 			return err
 		}
 
-		newDeployment, err := c.Context.Clientset.AppsV1().Deployments(c.NamespacedName.Namespace).Create(d)
+		newDeployment, err := c.Context.Clientset.AppsV1().Deployments(c.NamespacedName.Namespace).Create(context.Background(), d, metav1.CreateOptions{})
 		if err != nil {
 			if !kerrors.IsAlreadyExists(err) {
 				return errors.Wrapf(err, "failed to create chunkserver deployment %s", csConfig.ResourceName)
@@ -79,7 +79,7 @@ func (c *Cluster) startChunkServers() error {
 // createConfigMap create chunkserver configmap for chunkserver server
 func (c *Cluster) createConfigMap(csConfig chunkserverConfig) error {
 	// get mds-conf-template from cluster
-	chunkserverCMTemplate, err := c.Context.Clientset.CoreV1().ConfigMaps(c.NamespacedName.Namespace).Get(config.ChunkServerConfigMapTemp, metav1.GetOptions{})
+	chunkserverCMTemplate, err := c.Context.Clientset.CoreV1().ConfigMaps(c.NamespacedName.Namespace).Get(context.Background(), config.ChunkServerConfigMapTemp, metav1.GetOptions{})
 	if err != nil {
 		logger.Errorf("failed to get configmap %s from cluster", config.ChunkServerConfigMapTemp)
 		if kerrors.IsNotFound(err) {
@@ -121,7 +121,7 @@ func (c *Cluster) createConfigMap(csConfig chunkserverConfig) error {
 	}
 
 	// Create chunkserver config in cluster
-	_, err = c.Context.Clientset.CoreV1().ConfigMaps(c.NamespacedName.Namespace).Create(cm)
+	_, err = c.Context.Clientset.CoreV1().ConfigMaps(c.NamespacedName.Namespace).Create(context.Background(), cm, metav1.CreateOptions{})
 	if err != nil && !kerrors.IsAlreadyExists(err) {
 		return errors.Wrapf(err, "failed to create chunkserver configmap %s", c.NamespacedName.Namespace)
 	}

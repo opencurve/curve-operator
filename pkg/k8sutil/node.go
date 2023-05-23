@@ -28,7 +28,7 @@ type NodesToDeploy struct {
 func GetNodeInfoMap(nodes []string, clientset kubernetes.Interface) ([]NodesToDeploy, error) {
 	nodeNameIP := []NodesToDeploy{}
 	for _, nodeName := range nodes {
-		n, err := clientset.CoreV1().Nodes().Get(nodeName, metav1.GetOptions{})
+		n, err := clientset.CoreV1().Nodes().Get(context.Background(), nodeName, metav1.GetOptions{})
 		if err != nil {
 			return nil, errors.Wrapf(err, "failed to find node %s from cluster", nodeName)
 		}
@@ -58,7 +58,7 @@ func GetNodeInfoMap(nodes []string, clientset kubernetes.Interface) ([]NodesToDe
 // Typically these will be the same name, but sometimes they are not such as when nodes have a longer
 // dns name, but the hostname is short.
 func GetNodeHostNames(clientset kubernetes.Interface) (map[string]string, error) {
-	nodes, err := clientset.CoreV1().Nodes().List(metav1.ListOptions{})
+	nodes, err := clientset.CoreV1().Nodes().List(context.Background(), metav1.ListOptions{})
 	if err != nil {
 		return nil, err
 	}
@@ -74,7 +74,7 @@ func GetNodeHostNames(clientset kubernetes.Interface) (map[string]string, error)
 func GetValidNodes(c clusterd.Context, storageNodes []string) ([]v1.Node, error) {
 	nodes := []v1.Node{}
 	for _, curveNode := range storageNodes {
-		n, err := c.Clientset.CoreV1().Nodes().Get(curveNode, metav1.GetOptions{})
+		n, err := c.Clientset.CoreV1().Nodes().Get(context.Background(), curveNode, metav1.GetOptions{})
 		if err != nil {
 			logger.Errorf("failed to get node %v info", curveNode)
 			return nil, errors.Wrap(err, "failed to get node info by node name")
@@ -172,7 +172,7 @@ func truncateNodeName(format, nodeName string, maxLength int) string {
 
 // GetNodeHostName returns the hostname label given the node name.
 func GetNodeHostName(ctx context.Context, clientset kubernetes.Interface, nodeName string) (string, error) {
-	node, err := clientset.CoreV1().Nodes().Get(nodeName, metav1.GetOptions{})
+	node, err := clientset.CoreV1().Nodes().Get(context.Background(), nodeName, metav1.GetOptions{})
 	if err != nil {
 		return "", err
 	}

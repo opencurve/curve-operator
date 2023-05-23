@@ -90,14 +90,14 @@ func (c *Cluster) startProvisioningOverNodes(nodesInfo []daemon.NodeInfo) ([]*to
 		}
 
 		// get ClusterEtcdAddr
-		etcdOverrideCM, err := c.Context.Clientset.CoreV1().ConfigMaps(c.NamespacedName.Namespace).Get(config.EtcdOverrideConfigMapName, metav1.GetOptions{})
+		etcdOverrideCM, err := c.Context.Clientset.CoreV1().ConfigMaps(c.NamespacedName.Namespace).Get(context.Background(), config.EtcdOverrideConfigMapName, metav1.GetOptions{})
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to get etcd override endoints configmap")
 		}
 		clusterEtcdAddr := etcdOverrideCM.Data[config.ClusterEtcdAddr]
 
 		// get ClusterMdsAddr
-		mdsOverrideCM, err := c.Context.Clientset.CoreV1().ConfigMaps(c.NamespacedName.Namespace).Get(config.MdsOverrideConfigMapName, metav1.GetOptions{})
+		mdsOverrideCM, err := c.Context.Clientset.CoreV1().ConfigMaps(c.NamespacedName.Namespace).Get(context.Background(), config.MdsOverrideConfigMapName, metav1.GetOptions{})
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to get mds override endoints configmap")
 		}
@@ -218,7 +218,7 @@ func (c *Cluster) createFormatConfigMap() error {
 		return errors.Wrapf(err, "failed to set owner reference to format configmap %q", formatConfigMapName)
 	}
 
-	_, err = c.Context.Clientset.CoreV1().ConfigMaps(c.NamespacedName.Namespace).Create(cm)
+	_, err = c.Context.Clientset.CoreV1().ConfigMaps(c.NamespacedName.Namespace).Create(context.Background(), cm, metav1.CreateOptions{})
 	if err != nil && !kerrors.IsAlreadyExists(err) {
 		return errors.Wrapf(err, "failed to create override configmap %s", c.NamespacedName.Namespace)
 	}

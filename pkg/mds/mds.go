@@ -45,7 +45,7 @@ var logger = capnslog.NewPackageLogger("github.com/opencurve/curve-operator", "m
 
 // Start Curve mds daemon
 func (c *Cluster) Start(nodesInfo []daemon.NodeInfo) error {
-	overrideCM, err := c.Context.Clientset.CoreV1().ConfigMaps(c.NamespacedName.Namespace).Get(config.EtcdOverrideConfigMapName, metav1.GetOptions{})
+	overrideCM, err := c.Context.Clientset.CoreV1().ConfigMaps(c.NamespacedName.Namespace).Get(context.Background(), config.EtcdOverrideConfigMapName, metav1.GetOptions{})
 	if err != nil {
 		return err
 	}
@@ -117,7 +117,7 @@ func (c *Cluster) Start(nodesInfo []daemon.NodeInfo) error {
 			return err
 		}
 
-		newDeployment, err := c.Context.Clientset.AppsV1().Deployments(c.NamespacedName.Namespace).Create(d)
+		newDeployment, err := c.Context.Clientset.AppsV1().Deployments(c.NamespacedName.Namespace).Create(context.Background(), d, metav1.CreateOptions{})
 		if err != nil {
 			if !kerrors.IsAlreadyExists(err) {
 				return errors.Wrapf(err, "failed to create mds deployment %s", resourceName)

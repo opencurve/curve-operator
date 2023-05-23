@@ -1,6 +1,7 @@
 package chunkserver
 
 import (
+	"context"
 	"github.com/opencurve/curve-operator/pkg/chunkserver/script"
 	"github.com/opencurve/curve-operator/pkg/config"
 	"github.com/pkg/errors"
@@ -11,7 +12,7 @@ import (
 
 func (c *Cluster) createToolConfigMap() error {
 	// get mds-conf-template from cluster
-	toolsCMTemplate, err := c.Context.Clientset.CoreV1().ConfigMaps(c.Namespace).Get(config.ToolsConfigMapTemp, metav1.GetOptions{})
+	toolsCMTemplate, err := c.Context.Clientset.CoreV1().ConfigMaps(c.Namespace).Get(context.Background(), config.ToolsConfigMapTemp, metav1.GetOptions{})
 	if err != nil {
 		logger.Errorf("failed to get configmap %s from cluster", config.ToolsConfigMapTemp)
 		if kerrors.IsNotFound(err) {
@@ -43,7 +44,7 @@ func (c *Cluster) createToolConfigMap() error {
 	}
 
 	// Create topology-json-conf configmap in cluster
-	_, err = c.Context.Clientset.CoreV1().ConfigMaps(c.Namespace).Create(cm)
+	_, err = c.Context.Clientset.CoreV1().ConfigMaps(c.Namespace).Create(context.Background(), cm, metav1.CreateOptions{})
 	if err != nil && !kerrors.IsAlreadyExists(err) {
 		return errors.Wrapf(err, "failed to create tools-conf configmap in namespace %s", c.Namespace)
 	}
@@ -54,7 +55,7 @@ func (c *Cluster) createToolConfigMap() error {
 // createCSClientConfigMap create cs_client configmap
 func (c *Cluster) createCSClientConfigMap() error {
 	// get mds-conf-template from cluster
-	csClientCMTemplate, err := c.Context.Clientset.CoreV1().ConfigMaps(c.NamespacedName.Namespace).Get(config.CsClientConfigMapTemp, metav1.GetOptions{})
+	csClientCMTemplate, err := c.Context.Clientset.CoreV1().ConfigMaps(c.NamespacedName.Namespace).Get(context.Background(), config.CsClientConfigMapTemp, metav1.GetOptions{})
 	if err != nil {
 		logger.Errorf("failed to get configmap %s from cluster", config.CsClientConfigMapTemp)
 		if kerrors.IsNotFound(err) {
@@ -89,7 +90,7 @@ func (c *Cluster) createCSClientConfigMap() error {
 	}
 
 	// Create cs_client configmap in cluster
-	_, err = c.Context.Clientset.CoreV1().ConfigMaps(c.NamespacedName.Namespace).Create(cm)
+	_, err = c.Context.Clientset.CoreV1().ConfigMaps(c.NamespacedName.Namespace).Create(context.Background(), cm, metav1.CreateOptions{})
 	if err != nil && !kerrors.IsAlreadyExists(err) {
 		return errors.Wrapf(err, "failed to create cs_client configmap %s", c.NamespacedName.Namespace)
 	}
@@ -99,7 +100,7 @@ func (c *Cluster) createCSClientConfigMap() error {
 
 // CreateS3ConfigMap creates s3 configmap
 func (c *Cluster) CreateS3ConfigMap() error {
-	s3CMTemplate, err := c.Context.Clientset.CoreV1().ConfigMaps(c.NamespacedName.Namespace).Get(config.S3ConfigMapTemp, metav1.GetOptions{})
+	s3CMTemplate, err := c.Context.Clientset.CoreV1().ConfigMaps(c.NamespacedName.Namespace).Get(context.Background(), config.S3ConfigMapTemp, metav1.GetOptions{})
 	if err != nil {
 		logger.Errorf("failed to get configmap %s from cluster", config.S3ConfigMapTemp)
 		if kerrors.IsNotFound(err) {
@@ -139,7 +140,7 @@ func (c *Cluster) CreateS3ConfigMap() error {
 	}
 
 	// Create s3 configmap in cluster
-	_, err = c.Context.Clientset.CoreV1().ConfigMaps(c.NamespacedName.Namespace).Create(cm)
+	_, err = c.Context.Clientset.CoreV1().ConfigMaps(c.NamespacedName.Namespace).Create(context.Background(), cm, metav1.CreateOptions{})
 	if err != nil && !kerrors.IsAlreadyExists(err) {
 		return errors.Wrapf(err, "failed to create s3 configmap %s", c.NamespacedName.Namespace)
 	}
@@ -168,7 +169,7 @@ func (c *Cluster) createStartCSConfigMap() error {
 	}
 
 	// Create format.sh configmap in cluster
-	_, err = c.Context.Clientset.CoreV1().ConfigMaps(c.NamespacedName.Namespace).Create(cm)
+	_, err = c.Context.Clientset.CoreV1().ConfigMaps(c.NamespacedName.Namespace).Create(context.Background(), cm, metav1.CreateOptions{})
 	if err != nil && !kerrors.IsAlreadyExists(err) {
 		return errors.Wrapf(err, "failed to create override configmap %s", c.NamespacedName.Namespace)
 	}

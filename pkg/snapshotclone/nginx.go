@@ -1,6 +1,7 @@
 package snapshotclone
 
 import (
+	"context"
 	"github.com/pkg/errors"
 	v1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
@@ -11,7 +12,7 @@ import (
 
 func (c *Cluster) createNginxConfigMap(snapConfig *snapConfig) error {
 	// 1. get mds-conf-template from cluster
-	nginxCMTemplate, err := c.Context.Clientset.CoreV1().ConfigMaps(c.NamespacedName.Namespace).Get(config.NginxConfigMapTemp, metav1.GetOptions{})
+	nginxCMTemplate, err := c.Context.Clientset.CoreV1().ConfigMaps(c.NamespacedName.Namespace).Get(context.Background(), config.NginxConfigMapTemp, metav1.GetOptions{})
 	if err != nil {
 		if kerrors.IsNotFound(err) {
 			return errors.Wrapf(err, "failed to get configmap %s from cluster", config.NginxConfigMapTemp)
@@ -48,7 +49,7 @@ func (c *Cluster) createNginxConfigMap(snapConfig *snapConfig) error {
 	// log.Infof("namespace=%v", c.NamespacedName.Namespace)
 
 	// create nginx configmap in cluster
-	_, err = c.Context.Clientset.CoreV1().ConfigMaps(c.NamespacedName.Namespace).Create(cm)
+	_, err = c.Context.Clientset.CoreV1().ConfigMaps(c.NamespacedName.Namespace).Create(context.Background(), cm, metav1.CreateOptions{})
 	if err != nil && !kerrors.IsAlreadyExists(err) {
 		return errors.Wrapf(err, "failed to create nginx configmap %s", c.NamespacedName.Namespace)
 	}

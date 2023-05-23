@@ -71,7 +71,7 @@ func (c *Cluster) Start(nodesInfo []daemon.NodeInfo) error {
 			return err
 		}
 
-		newDeployment, err := c.Context.Clientset.AppsV1().Deployments(c.NamespacedName.Namespace).Create(d)
+		newDeployment, err := c.Context.Clientset.AppsV1().Deployments(c.NamespacedName.Namespace).Create(context.Background(), d, metav1.CreateOptions{})
 		if err != nil {
 			if !kerrors.IsAlreadyExists(err) {
 				return errors.Wrapf(err, "failed to create mds deployment %s", msConfig.ResourceName)
@@ -104,14 +104,14 @@ func (c *Cluster) buildConfigs(nodesInfo []daemon.NodeInfo) ([]*metaserverConfig
 	logger.Infof("starting to run metaserver in namespace %q", c.NamespacedName.Namespace)
 
 	// get ClusterEtcdAddr
-	etcdOverrideCM, err := c.Context.Clientset.CoreV1().ConfigMaps(c.NamespacedName.Namespace).Get(config.EtcdOverrideConfigMapName, metav1.GetOptions{})
+	etcdOverrideCM, err := c.Context.Clientset.CoreV1().ConfigMaps(c.NamespacedName.Namespace).Get(context.Background(), config.EtcdOverrideConfigMapName, metav1.GetOptions{})
 	if err != nil {
 		return nil, nil, errors.Wrap(err, "failed to get etcd override endoints configmap")
 	}
 	clusterEtcdAddr := etcdOverrideCM.Data[config.ClusterEtcdAddr]
 
 	// get ClusterMdsAddr
-	mdsOverrideCM, err := c.Context.Clientset.CoreV1().ConfigMaps(c.NamespacedName.Namespace).Get(config.MdsOverrideConfigMapName, metav1.GetOptions{})
+	mdsOverrideCM, err := c.Context.Clientset.CoreV1().ConfigMaps(c.NamespacedName.Namespace).Get(context.Background(), config.MdsOverrideConfigMapName, metav1.GetOptions{})
 	if err != nil {
 		return nil, nil, errors.Wrap(err, "failed to get mds override endoints configmap")
 	}
