@@ -5,7 +5,6 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/opencurve/curve-operator/pkg/config"
 	"github.com/opencurve/curve-operator/pkg/daemon"
 	"github.com/opencurve/curve-operator/pkg/k8sutil"
 	"github.com/pkg/errors"
@@ -38,6 +37,17 @@ var FSConfigs = []string{
 	"mds.conf",
 	"metaserver.conf",
 	"tools.conf",
+}
+
+var GrafanaDashboardsConfigs = []string{
+	"all.yml",
+	"chunkserver.json",
+	"client.json",
+	"etcd.json",
+	"mds.json",
+	"report.json",
+	"snapshotcloneserver.json",
+	"grafana.ini",
 }
 
 // createSyncDeployment create a deployment for read config file
@@ -126,13 +136,7 @@ func createSyncContainer(c *daemon.Cluster) v1.Container {
 	return container
 }
 
-func readConfigFromContainer(c *daemon.Cluster, pod v1.Pod, configName string) (string, error) {
-	var configPath string
-	if c.Kind == config.KIND_CURVEBS {
-		configPath = "/curvebs/conf/" + configName
-	} else {
-		configPath = "/curvefs/conf/" + configName
-	}
+func readConfigFromContainer(c *daemon.Cluster, pod v1.Pod, configPath string) (string, error) {
 	logger.Infof("syncing %v", configPath)
 	var (
 		execOut bytes.Buffer

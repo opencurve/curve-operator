@@ -164,6 +164,7 @@ func (c *ClusterController) reconcileCurvefsCluster(clusterObj *curvev1.Curvefs,
 	cluster.Mds = clusterObj.Spec.Mds
 	cluster.SnapShotClone = clusterObj.Spec.SnapShotClone
 	cluster.Metaserver = clusterObj.Spec.MetaServer
+	cluster.Monitor = clusterObj.Spec.Monitor
 
 	// Set Host path
 	cluster.HostDataDir = clusterObj.Spec.HostDataDir

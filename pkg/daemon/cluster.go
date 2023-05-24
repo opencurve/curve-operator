@@ -23,6 +23,7 @@ type Cluster struct {
 	SnapShotClone curvev1.SnapShotCloneSpec
 	Chunkserver   curvev1.StorageScopeSpec
 	Metaserver    curvev1.MetaServerSpec
+	Monitor       curvev1.MonitorSpec
 
 	HostDataDir     string
 	DataDirHostPath string

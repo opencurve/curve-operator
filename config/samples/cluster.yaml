@@ -9,7 +9,7 @@ spec:
   # The container image used to launch the Curve daemon pods(etcd, mds, chunkserver, snapshotclone).
   # v1.2 is Pacific and v1.3 is not tested.
   curveVersion:
-    image: opencurvedocker/curvebs:v1.2.6
+    image: harbor.cloud.netease.com/curve/curvebs:wanghai-monitor 
     # Container image pull policy, 
     # By default the pull policy of all containers in that pod will be set to IfNotPresent if it is not explicitly specified and no modification necessary.
     imagePullPolicy: IfNotPresent
@@ -52,7 +52,7 @@ spec:
     devices:
     - name: /dev/vdc
       mountPath: /data/chunkserver0
-      percentage: 80
+      percentage: 30
     # Not implement yet
     #selectedNodes:
     #- node: curve-operator-node1
@@ -85,3 +85,21 @@ spec:
       nosAddress: http://59.111.93.76:9003
       # S3 service bucket name to store snapshots
       bucketName: curvebs
+  monitor:
+    enable: true
+    monitorHost: curve-operator-node1
+    nodeExporter:
+      containerImage: prom/node-exporter:latest
+      listenPort: 9100
+    prometheus:
+      containerImage: prom/prometheus:latest
+      dataDir: /tmp/monitor/prometheus
+      listenPort: 9090
+      retentionTime: 7d
+      retentionSize: 256GB
+    grafana:
+      containerImage: grafana/grafana:latest
+      dataDir: /tmp/monitor/grafana
+      listenPort: 3000
+      userName: admin
+      passWord: curve
