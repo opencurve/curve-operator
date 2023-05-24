@@ -179,6 +179,7 @@ func (c *ClusterController) reconcileCurveCluster(clusterObj *curvev1.CurveClust
 	cluster.Mds = clusterObj.Spec.Mds
 	cluster.SnapShotClone = clusterObj.Spec.SnapShotClone
 	cluster.Chunkserver = clusterObj.Spec.Storage
+	cluster.Monitor = clusterObj.Spec.Monitor
 
 	cluster.HostDataDir = clusterObj.Spec.HostDataDir
 	cluster.DataDirHostPath = path.Join(clusterObj.Spec.HostDataDir, "data")

@@ -36,7 +36,7 @@ spec:
         - ./curve-operator
         args:
         - --enable-leader-election=true
-        image: harbor.cloud.netease.com/curve/curve-operator:v1.0.0
+        image: curve2operator/curve-operator:v1.0.0
         name: curve-operator
         resources:
           limits:

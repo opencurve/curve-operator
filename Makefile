@@ -1,9 +1,9 @@
 
 # Image URL to use all building/pushing image targets
-IMG ?= harbor.cloud.netease.com/curve/curve-operator
+IMG ?= curve2operator/curve-operator
 # Image tag to use all building/pushing image targets
 # TAG ?= $(shell git rev-parse --short HEAD)
-TAG ?= v1.0.5
+TAG ?= v1.0.6
 # Produce CRDs that work back to Kubernetes 1.11 (no version conversion)
 CRD_OPTIONS ?= "crd:trivialVersions=true"
 
@@ -49,7 +49,7 @@ deploy: manifests
 # Generate manifests e.g. CRD, RBAC etc.
 manifests: generate
 	$(CONTROLLER_GEN) $(CRD_OPTIONS) rbac:roleName=curve-operator-role webhook paths="./..." output:crd:artifacts:config=config/crd/bases
-	cd config/manager && kustomize edit set image harbor.cloud.netease.com/curve/curve-operator=${IMG}:${TAG}
+	cd config/manager && kustomize edit set image curve2operator/curve-operator=${IMG}:${TAG}
 	kustomize build config/default > config/deploy/manifests.yaml
 
 # Run go fmt against code

@@ -114,7 +114,7 @@ func (c *Cluster) makeChmodDirInitContainer(etcdConfig *etcdConfig) v1.Container
 		Command:         []string{"chmod", "700", etcdConfig.DataPathMap.ContainerDataDir},
 		Image:           c.CurveVersion.Image,
 		ImagePullPolicy: c.CurveVersion.ImagePullPolicy,
-		VolumeMounts:    daemon.DaemonVolumeMounts(config.EtcdConfigMapDataKey, config.EtcdConfigMapMountPathDir, etcdConfig.DataPathMap, etcdConfig.CurrentConfigMapName),
+		VolumeMounts:    daemon.DaemonVolumeMounts(config.EtcdConfigMapDataKey, etcdConfig.ConfigMapMountPath, etcdConfig.DataPathMap, etcdConfig.CurrentConfigMapName),
 		Env:             []v1.EnvVar{{Name: "TZ", Value: "Asia/Hangzhou"}},
 	}
 	return container
@@ -131,7 +131,7 @@ func (c *Cluster) makeEtcdDaemonContainer(nodeName string, ip string, etcdConfig
 		commandLine = "/curvefs/etcd/sbin/etcd"
 	}
 
-	configFileMountPath := path.Join(config.EtcdConfigMapMountPathDir, config.EtcdConfigMapDataKey)
+	configFileMountPath := path.Join(etcdConfig.ConfigMapMountPath, config.EtcdConfigMapDataKey)
 	argsConfigFileDir := fmt.Sprintf("--config-file=%s", configFileMountPath)
 
 	container := v1.Container{
@@ -144,7 +144,7 @@ func (c *Cluster) makeEtcdDaemonContainer(nodeName string, ip string, etcdConfig
 		},
 		Image:           c.CurveVersion.Image,
 		ImagePullPolicy: c.CurveVersion.ImagePullPolicy,
-		VolumeMounts:    daemon.DaemonVolumeMounts(config.EtcdConfigMapDataKey, config.EtcdConfigMapMountPathDir, etcdConfig.DataPathMap, etcdConfig.CurrentConfigMapName),
+		VolumeMounts:    daemon.DaemonVolumeMounts(config.EtcdConfigMapDataKey, etcdConfig.ConfigMapMountPath, etcdConfig.DataPathMap, etcdConfig.CurrentConfigMapName),
 		Ports: []v1.ContainerPort{
 			{
 				Name:          "listen-port",

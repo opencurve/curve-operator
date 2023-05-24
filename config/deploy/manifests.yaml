@@ -98,6 +98,46 @@ spec:
                 port:
                   type: integer
               type: object
+            monitor:
+              properties:
+                enable:
+                  type: boolean
+                grafana:
+                  properties:
+                    containerImage:
+                      type: string
+                    dataDir:
+                      type: string
+                    listenPort:
+                      type: integer
+                    passWord:
+                      type: string
+                    userName:
+                      type: string
+                  type: object
+                monitorHost:
+                  type: string
+                nodeExporter:
+                  properties:
+                    containerImage:
+                      type: string
+                    listenPort:
+                      type: integer
+                  type: object
+                prometheus:
+                  properties:
+                    containerImage:
+                      type: string
+                    dataDir:
+                      type: string
+                    listenPort:
+                      type: integer
+                    retentionSize:
+                      type: string
+                    retentionTime:
+                      type: string
+                  type: object
+              type: object
             nodes:
               items:
                 type: string
@@ -341,6 +381,46 @@ spec:
                   type: integer
                 port:
                   type: integer
+              type: object
+            monitor:
+              properties:
+                enable:
+                  type: boolean
+                grafana:
+                  properties:
+                    containerImage:
+                      type: string
+                    dataDir:
+                      type: string
+                    listenPort:
+                      type: integer
+                    passWord:
+                      type: string
+                    userName:
+                      type: string
+                  type: object
+                monitorHost:
+                  type: string
+                nodeExporter:
+                  properties:
+                    containerImage:
+                      type: string
+                    listenPort:
+                      type: integer
+                  type: object
+                prometheus:
+                  properties:
+                    containerImage:
+                      type: string
+                    dataDir:
+                      type: string
+                    listenPort:
+                      type: integer
+                    retentionSize:
+                      type: string
+                    retentionTime:
+                      type: string
+                  type: object
               type: object
             nodes:
               items:
@@ -648,7 +728,7 @@ spec:
         - --enable-leader-election=true
         command:
         - ./curve-operator
-        image: harbor.cloud.netease.com/curve/curve-operator:v1.0.5
+        image: curve2operator/curve-operator:v1.0.6
         name: curve-operator
         resources:
           limits:

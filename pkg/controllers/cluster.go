@@ -10,7 +10,9 @@ import (
 	"github.com/opencurve/curve-operator/pkg/etcd"
 	"github.com/opencurve/curve-operator/pkg/mds"
 	"github.com/opencurve/curve-operator/pkg/metaserver"
+	"github.com/opencurve/curve-operator/pkg/monitor"
 	"github.com/opencurve/curve-operator/pkg/snapshotclone"
+	"github.com/opencurve/curve-operator/pkg/topology"
 )
 
 var logger = capnslog.NewPackageLogger("github.com/opencurve/curve-operator", "controller")
@@ -22,55 +24,64 @@ func newCluster(kind string, isUpgrade bool) *daemon.Cluster {
 	}
 }
 
-func reconcileSharedServer(c *daemon.Cluster) ([]daemon.NodeInfo, error) {
+func reconcileSharedServer(c *daemon.Cluster) ([]daemon.NodeInfo, []*topology.DeployConfig, error) {
 	// get node name and internal ip mapping
 	nodesInfo, err := daemon.ConfigureNodeInfo(c)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	err = createSyncDeployment(c)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	time.Sleep(20 * time.Second)
 
 	err = createDefaultConfigMap(c)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
+
+	if c.Monitor.Enable {
+		err = createGrafanaConfigMapTemplate(c)
+		if err != nil {
+			return nil, nil, err
+		}
+	}
+
+	logger.Info("create config template configmap successfully")
 
 	// Start etcd cluster
 	etcds := etcd.New(c)
-	err = etcds.Start(nodesInfo)
+	dcs, err := etcds.Start(nodesInfo)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	// wait until etcd election finished
 	time.Sleep(20 * time.Second)
 
 	// Start Mds cluster
 	mds := mds.New(c)
-	err = mds.Start(nodesInfo)
+	dcs, err = mds.Start(nodesInfo, dcs)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	// wait until mds election finished
 	time.Sleep(20 * time.Second)
 
-	return nodesInfo, nil
+	return nodesInfo, dcs, nil
 }
 
 // reconcileCurveDaemons start all daemon progress of Curve
 func reconcileCurveDaemons(c *daemon.Cluster) error {
 	// shared server
-	nodesInfo, err := reconcileSharedServer(c)
+	nodesInfo, dcs, err := reconcileSharedServer(c)
 	if err != nil {
 		return err
 	}
 	// chunkserver
 	chunkservers := chunkserver.New(c)
-	err = chunkservers.Start(nodesInfo)
+	dcs, err = chunkservers.Start(nodesInfo, dcs)
 	if err != nil {
 		return err
 	}
@@ -78,7 +89,15 @@ func reconcileCurveDaemons(c *daemon.Cluster) error {
 	// snapshotclone
 	if c.SnapShotClone.Enable {
 		snapshotclone := snapshotclone.New(c)
-		err = snapshotclone.Start(nodesInfo)
+		dcs, err = snapshotclone.Start(nodesInfo, dcs)
+		if err != nil {
+			return err
+		}
+	}
+
+	if c.Monitor.Enable {
+		monitor := monitor.New(c)
+		err = monitor.Start(nodesInfo, dcs)
 		if err != nil {
 			return err
 		}
@@ -90,16 +109,24 @@ func reconcileCurveDaemons(c *daemon.Cluster) error {
 // reconcileCurveDaemons start all daemon progress of Curve
 func reconcileCurveFSDaemons(c *daemon.Cluster) error {
 	// shared server
-	nodesInfo, err := reconcileSharedServer(c)
+	nodesInfo, dcs, err := reconcileSharedServer(c)
 	if err != nil {
 		return err
 	}
 
 	// metaserver
 	metaservers := metaserver.New(c)
-	err = metaservers.Start(nodesInfo)
+	dcs, err = metaservers.Start(nodesInfo, dcs)
 	if err != nil {
 		return err
+	}
+
+	if c.Monitor.Enable {
+		monitor := monitor.New(c)
+		err = monitor.Start(nodesInfo, dcs)
+		if err != nil {
+			return err
+		}
 	}
 
 	return nil

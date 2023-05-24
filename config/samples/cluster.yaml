@@ -9,7 +9,7 @@ spec:
   # The container image used to launch the Curve daemon pods(etcd, mds, chunkserver, snapshotclone).
   # v1.2 is Pacific and v1.3 is not tested.
   curveVersion:
-    image: harbor.cloud.netease.com/curve/curvebs:operator-v1.2.6
+    image: curve2operator/curvebs:monitor-v1.2.6
     # Container image pull policy, 
     # By default the pull policy of all containers in that pod will be set to IfNotPresent if it is not explicitly specified and no modification necessary.
     imagePullPolicy: IfNotPresent
@@ -72,7 +72,7 @@ spec:
   snapShotClone:
     # set false if there is no S3 service available temporarily or don't need to use the snapshot clone service
     # Make sure s3 service exist if enable is set true
-    enable: true
+    enable: false
     port: 5555
     dummyPort: 8800
     proxyPort: 8900
@@ -85,3 +85,21 @@ spec:
       nosAddress: <>
       # S3 service bucket name to store snapshots
       bucketName: <>
+  monitor:
+    enable: false
+    monitorHost: curve-operator-node1
+    nodeExporter:
+      containerImage: prom/node-exporter:latest
+      listenPort: 9100
+    prometheus:
+      containerImage: prom/prometheus:latest
+      dataDir: /tmp/monitor/prometheus
+      listenPort: 9090
+      retentionTime: 7d
+      retentionSize: 256GB
+    grafana:
+      containerImage: grafana/grafana:latest
+      dataDir: /tmp/monitor/grafana
+      listenPort: 3000
+      userName: admin
+      passWord: curve

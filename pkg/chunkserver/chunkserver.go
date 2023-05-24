@@ -42,28 +42,27 @@ func New(c *daemon.Cluster) *Cluster {
 }
 
 // Start begins the chunkserver daemon
-func (c *Cluster) Start(nodesInfo []daemon.NodeInfo) error {
+func (c *Cluster) Start(nodesInfo []daemon.NodeInfo, globalDCs []*topology.DeployConfig) ([]*topology.DeployConfig, error) {
 	logger.Infof("start running chunkserver in namespace %q", c.Namespace)
 
 	err := c.CreateSpecRoleAllConfigMap(config.ROLE_CHUNKSERVER, config.ChunkserverAllConfigMapName)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	err = c.CreateSpecRoleAllConfigMap(config.ROLE_SNAPSHOTCLONE, config.SnapShotCloneAllConfigMapName)
 	if err != nil {
-		return err
+		return nil, err
 	}
-
 	// startProvisioningOverNodes format device and prepare chunk files
-	dcs, err := c.startProvisioningOverNodes(nodesInfo)
+	dcs, globalDCs, err := c.startProvisioningOverNodes(nodesInfo, globalDCs)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	err = c.WaitForForamtJobCompletion(context.TODO(), 24*time.Hour)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	k8sutil.UpdateStatusCondition(c.Kind, context.TODO(), &c.Context, c.NamespacedName, curvev1.ConditionTypeFormatedReady, curvev1.ConditionTrue, curvev1.ConditionFormatChunkfilePoolReason, "Formating chunkfilepool successed")
@@ -72,26 +71,26 @@ func (c *Cluster) Start(nodesInfo []daemon.NodeInfo) error {
 	// create tool ConfigMap
 	err = c.createToolConfigMap()
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	// create topology ConfigMap
 	err = topology.CreateTopoConfigMap(c.Cluster, dcs)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	// create physical pool
 	_, err = topology.RunCreatePoolJob(c.Cluster, dcs, topology.PYHSICAL_POOL)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	logger.Info("The physical pool was created successfully")
 
 	// start all chunkservers for each device of every node
 	err = c.startChunkServers()
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	// wait all chunkservers online before create logical pool
@@ -102,10 +101,11 @@ func (c *Cluster) Start(nodesInfo []daemon.NodeInfo) error {
 	// create logical pool
 	_, err = topology.RunCreatePoolJob(c.Cluster, dcs, topology.LOGICAL_POOL)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	logger.Info("create logical pool successed")
-	return nil
+
+	return globalDCs, nil
 }
 
 // startChunkServers start all chunkservers for each device of every node
