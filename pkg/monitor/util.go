@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/opencurve/curve-operator/pkg/config"
 	"github.com/opencurve/curve-operator/pkg/daemon"
 	"github.com/opencurve/curve-operator/pkg/topology"
 	"github.com/pkg/errors"
@@ -53,17 +52,7 @@ func parsePrometheusTarget(dcs []*topology.DeployConfig) (string, error) {
 	for _, dc := range dcs {
 		role := dc.Role
 		ip := dc.NodeIP
-		var item string
-		switch role {
-		case config.ETCD_ROLE:
-			item = fmt.Sprintf("%s:%d", ip, dc.Port)
-		case config.MDS_ROLE,
-			config.CHUNKSERVER_ROLE,
-			config.METASERVER_ROLE:
-			item = fmt.Sprintf("%s:%d", ip, dc.Port)
-		case config.SNAPSHOTCLONE_ROLE:
-			item = fmt.Sprintf("%s:%d", ip, dc.Port)
-		}
+		item := fmt.Sprintf("%s:%d", ip, dc.Port)
 		if _, ok := tMap[role]; ok {
 			t := tMap[role]
 			t.Targets = append(t.Targets, item)
@@ -80,7 +69,7 @@ func parsePrometheusTarget(dcs []*topology.DeployConfig) (string, error) {
 	}
 	target, err := json.Marshal(targets)
 	if err != nil {
-		return "", errors.New("failed to parse prometheus ")
+		return "", errors.New("failed to parse prometheus target")
 	}
 	return string(target), nil
 }

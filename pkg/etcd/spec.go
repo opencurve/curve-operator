@@ -16,9 +16,9 @@ import (
 )
 
 // createOverrideConfigMap create configMap override to record the endpoints of etcd for mds use
-func (c *Cluster) createOverrideConfigMap(etcd_endpoints string, clusterEtcdAddr string) error {
+func (c *Cluster) createOverrideConfigMap(etcdEndpoints string, clusterEtcdAddr string) error {
 	etcdConfigMapData := map[string]string{
-		config.EtcdOvverideConfigMapDataKey: etcd_endpoints,
+		config.EtcdOvverideConfigMapDataKey: etcdEndpoints,
 		config.ClusterEtcdAddr:              clusterEtcdAddr,
 	}
 

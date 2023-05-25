@@ -257,7 +257,11 @@ func (c *Cluster) createGrafaContainer(dataPath *config.DataPathMap) v1.Containe
 				Protocol:      v1.ProtocolTCP,
 			},
 		},
-		Env: []v1.EnvVar{{Name: "TZ", Value: "Asia/Hangzhou"}},
+		Env: []v1.EnvVar{
+			{Name: "TZ", Value: "Asia/Hangzhou"},
+			{Name: "GF_SECURITY_ADMIN_USER", Value: c.Monitor.Grafana.UserName},
+			{Name: "GF_SECURITY_ADMIN_PASSWORD", Value: c.Monitor.Grafana.PassWord},
+		},
 	}
 	return container
 }

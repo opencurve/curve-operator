@@ -1,5 +1,5 @@
 # Build the curve-operator binary
-FROM golang:1.17 as builder
+FROM golang:1.18 as builder
 
 WORKDIR /workspace
 # Copy the Go Modules manifests
@@ -38,7 +38,7 @@ RUN echo "deb http://mirrors.aliyun.com/ubuntu/ focal main restricted" > /etc/ap
     echo "deb http://mirrors.aliyun.com/ubuntu/ focal-security main restricted" >> /etc/apt/sources.list && \
     echo "deb http://mirrors.aliyun.com/ubuntu/ focal-security universe" >> /etc/apt/sources.list && \
     echo "deb http://mirrors.aliyun.com/ubuntu/ focal-security multiverse" >> /etc/apt/sources.list
-    
+
 # Install utility tools
 RUN apt-get update -y && \
     apt-get install -y coreutils dnsutils iputils-ping iproute2 telnet curl vim less wget graphviz unzip tcpdump gdb && \
