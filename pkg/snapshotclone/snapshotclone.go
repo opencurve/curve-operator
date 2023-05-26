@@ -44,14 +44,14 @@ func (c *Cluster) Start(nodesInfo []daemon.NodeInfo) error {
 	logger.Info("starting snapshotclone server")
 
 	// get clusterEtcdAddr
-	etcdOverrideCM, err := c.Context.Clientset.CoreV1().ConfigMaps(c.NamespacedName.Namespace).Get(config.EtcdOverrideConfigMapName, metav1.GetOptions{})
+	etcdOverrideCM, err := c.Context.Clientset.CoreV1().ConfigMaps(c.NamespacedName.Namespace).Get(context.Background(), config.EtcdOverrideConfigMapName, metav1.GetOptions{})
 	if err != nil {
 		return errors.Wrapf(err, "failed to get %s configmap from cluster", config.EtcdOverrideConfigMapName)
 	}
 	clusterEtcdAddr := etcdOverrideCM.Data[config.ClusterEtcdAddr]
 
 	// get clusterMdsAddr
-	mdsOverrideCM, err := c.Context.Clientset.CoreV1().ConfigMaps(c.NamespacedName.Namespace).Get(config.MdsOverrideConfigMapName, metav1.GetOptions{})
+	mdsOverrideCM, err := c.Context.Clientset.CoreV1().ConfigMaps(c.NamespacedName.Namespace).Get(context.Background(), config.MdsOverrideConfigMapName, metav1.GetOptions{})
 	if err != nil {
 		return errors.Wrap(err, "failed to get mds override endoints configmap")
 	}
@@ -98,7 +98,7 @@ func (c *Cluster) Start(nodesInfo []daemon.NodeInfo) error {
 			return err
 		}
 
-		newDeployment, err := c.Context.Clientset.AppsV1().Deployments(c.NamespacedName.Namespace).Create(d)
+		newDeployment, err := c.Context.Clientset.AppsV1().Deployments(c.NamespacedName.Namespace).Create(context.Background(), d, metav1.CreateOptions{})
 		if err != nil {
 			if !kerrors.IsAlreadyExists(err) {
 				return errors.Wrapf(err, "failed to create snapshotclone deployment %q in cluster", snapConfig.ResourceName)
@@ -145,7 +145,7 @@ func (c *Cluster) createStartSnapConfigMap() error {
 		return errors.Wrapf(err, "failed to set owner reference to start_snapshot.sh configmap %q", config.StartSnapConfigMap)
 	}
 	// create nginx configmap in cluster
-	_, err = c.Context.Clientset.CoreV1().ConfigMaps(c.NamespacedName.Namespace).Create(cm)
+	_, err = c.Context.Clientset.CoreV1().ConfigMaps(c.NamespacedName.Namespace).Create(context.Background(), cm, metav1.CreateOptions{})
 	if err != nil && !kerrors.IsAlreadyExists(err) {
 		return errors.Wrapf(err, "failed to create start snapshotclone configmap %s", c.NamespacedName.Namespace)
 	}

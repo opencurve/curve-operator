@@ -1,6 +1,7 @@
 package metaserver
 
 import (
+	"context"
 	"fmt"
 	"path"
 	"strconv"
@@ -17,7 +18,7 @@ import (
 
 func (c *Cluster) createToolConfigMap(msConfigs []*metaserverConfig) error {
 	// get mds-conf-template from cluster
-	toolsCMTemplate, err := c.Context.Clientset.CoreV1().ConfigMaps(c.Namespace).Get(config.ToolsConfigMapTemp, metav1.GetOptions{})
+	toolsCMTemplate, err := c.Context.Clientset.CoreV1().ConfigMaps(c.Namespace).Get(context.Background(), config.ToolsConfigMapTemp, metav1.GetOptions{})
 	if err != nil {
 		logger.Errorf("failed to get configmap %s from cluster", config.ToolsConfigMapTemp)
 		if kerrors.IsNotFound(err) {
@@ -49,7 +50,7 @@ func (c *Cluster) createToolConfigMap(msConfigs []*metaserverConfig) error {
 	}
 
 	// Create topology-json-conf configmap in cluster
-	_, err = c.Context.Clientset.CoreV1().ConfigMaps(c.Namespace).Create(cm)
+	_, err = c.Context.Clientset.CoreV1().ConfigMaps(c.Namespace).Create(context.Background(), cm, metav1.CreateOptions{})
 	if err != nil && !kerrors.IsAlreadyExists(err) {
 		return errors.Wrapf(err, "failed to create tools-conf configmap in namespace %s", c.Namespace)
 	}
@@ -58,7 +59,7 @@ func (c *Cluster) createToolConfigMap(msConfigs []*metaserverConfig) error {
 }
 
 func (c *Cluster) createMetaserverConfigMap(metaserverConfig *metaserverConfig) error {
-	metaserverCMTemplate, err := c.Context.Clientset.CoreV1().ConfigMaps(c.NamespacedName.Namespace).Get(config.MetaserverConfigMapTemp, metav1.GetOptions{})
+	metaserverCMTemplate, err := c.Context.Clientset.CoreV1().ConfigMaps(c.NamespacedName.Namespace).Get(context.Background(), config.MetaserverConfigMapTemp, metav1.GetOptions{})
 	if err != nil {
 		if kerrors.IsNotFound(err) {
 			return errors.Wrapf(err, "failed to get configmap %s from cluster", config.MetaserverConfigMapTemp)
@@ -87,7 +88,7 @@ func (c *Cluster) createMetaserverConfigMap(metaserverConfig *metaserverConfig) 
 		return err
 	}
 
-	_, err = c.Context.Clientset.CoreV1().ConfigMaps(c.NamespacedName.Namespace).Create(cm)
+	_, err = c.Context.Clientset.CoreV1().ConfigMaps(c.NamespacedName.Namespace).Create(context.Background(), cm, metav1.CreateOptions{})
 	if err != nil && !kerrors.IsAlreadyExists(err) {
 		return errors.Wrapf(err, "failed to create mds configmap %s", c.NamespacedName.Namespace)
 	}

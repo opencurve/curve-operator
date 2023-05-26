@@ -1,6 +1,7 @@
 package controllers
 
 import (
+	"context"
 	"github.com/pkg/errors"
 	v1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
@@ -114,7 +115,7 @@ func createConfigMap(c *daemon.Cluster, configMapName string, configMapDataKey s
 	// log.Infof("namespace=%v", c.namespacedName.Namespace)
 
 	// create configmap in cluster
-	_, err = c.Context.Clientset.CoreV1().ConfigMaps(c.NamespacedName.Namespace).Create(cm)
+	_, err = c.Context.Clientset.CoreV1().ConfigMaps(c.NamespacedName.Namespace).Create(context.Background(), cm, metav1.CreateOptions{})
 	if err != nil && !kerrors.IsAlreadyExists(err) {
 		return errors.Wrapf(err, "failed to create configmap %s", configMapName)
 	}

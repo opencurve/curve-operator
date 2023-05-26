@@ -72,8 +72,7 @@ func NewCurvefsReconciler(
 // +kubebuilder:rbac:groups=apps,resources=deployments,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=batch,resources=jobs,verbs=get;list;watch;create;update;patch;delete
 
-func (r *CurvefsReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
-	ctx := context.Background()
+func (r *CurvefsReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	logger := r.Log.WithValues("curve FS cluster", req.NamespacedName)
 
 	logger.Info("reconcileing CurvefsCluster")

@@ -2,15 +2,14 @@ package k8sutil
 
 import (
 	"context"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"time"
 
 	"github.com/pkg/errors"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/util/retry"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	curvev1 "github.com/opencurve/curve-operator/api/v1"
 	"github.com/opencurve/curve-operator/pkg/clusterd"
@@ -201,7 +200,7 @@ func translateConditionType2Phase(conditionType curvev1.ConditionType) curvev1.C
 
 // UpdateStatus updates an object with a given status. The object is updated with the latest version
 // from the server on a successful update.
-func UpdateStatus(client client.Client, namespaceName types.NamespacedName, obj runtime.Object) error {
+func UpdateStatus(client client.Client, namespaceName types.NamespacedName, obj client.Object) error {
 	nsName := types.NamespacedName{
 		Namespace: namespaceName.Namespace,
 		Name:      namespaceName.Name,

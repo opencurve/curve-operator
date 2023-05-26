@@ -1,6 +1,7 @@
 package mds
 
 import (
+	"context"
 	"fmt"
 	"path"
 	"strconv"
@@ -38,7 +39,7 @@ func (c *Cluster) createOverrideMdsCM(mdsEndpoints, clusterMdsDummyAddr, cluster
 		return errors.Wrapf(err, "failed to set owner reference to mds override configmap %q", config.MdsOverrideConfigMapName)
 	}
 
-	_, err = c.Context.Clientset.CoreV1().ConfigMaps(c.NamespacedName.Namespace).Create(mdsOverrideCM)
+	_, err = c.Context.Clientset.CoreV1().ConfigMaps(c.NamespacedName.Namespace).Create(context.Background(), mdsOverrideCM, metav1.CreateOptions{})
 	if err != nil {
 		if !kerrors.IsAlreadyExists(err) {
 			return errors.Wrapf(err, "failed to create override configmap %s", c.NamespacedName.Namespace)
@@ -58,7 +59,7 @@ func (c *Cluster) createOverrideMdsCM(mdsEndpoints, clusterMdsDummyAddr, cluster
 
 // createConfigMap create mds configmap for mds server
 func (c *Cluster) createMdsConfigMap(mdsConfig *mdsConfig) error {
-	mdsCMTemplate, err := c.Context.Clientset.CoreV1().ConfigMaps(c.NamespacedName.Namespace).Get(config.MdsConfigMapTemp, metav1.GetOptions{})
+	mdsCMTemplate, err := c.Context.Clientset.CoreV1().ConfigMaps(c.NamespacedName.Namespace).Get(context.Background(), config.MdsConfigMapTemp, metav1.GetOptions{})
 	if err != nil {
 		if kerrors.IsNotFound(err) {
 			return errors.Wrapf(err, "failed to get configmap %s from cluster", config.MdsConfigMapTemp)
@@ -93,7 +94,7 @@ func (c *Cluster) createMdsConfigMap(mdsConfig *mdsConfig) error {
 	}
 
 	// create mds configmap in cluster
-	_, err = c.Context.Clientset.CoreV1().ConfigMaps(c.NamespacedName.Namespace).Create(cm)
+	_, err = c.Context.Clientset.CoreV1().ConfigMaps(c.NamespacedName.Namespace).Create(context.Background(), cm, metav1.CreateOptions{})
 	if err != nil && !kerrors.IsAlreadyExists(err) {
 		return errors.Wrapf(err, "failed to create mds configmap %s", c.NamespacedName.Namespace)
 	}

@@ -168,7 +168,7 @@ func (c *ClusterController) getCurveNodes(namespace string) ([]string, error) {
 
 	for _, app := range curveAppNames {
 		appLabelSelector := fmt.Sprintf("app=%s", app)
-		podList, err := c.context.Clientset.CoreV1().Pods(namespace).List(metav1.ListOptions{LabelSelector: appLabelSelector})
+		podList, err := c.context.Clientset.CoreV1().Pods(namespace).List(context.Background(), metav1.ListOptions{LabelSelector: appLabelSelector})
 		if err != nil {
 			return hostNameList, errors.Wrapf(err, "could not list the %q pods", app)
 		}

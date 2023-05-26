@@ -3,6 +3,7 @@ package etcd
 import (
 	"context"
 	"fmt"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"path"
 	"strconv"
 	"strings"
@@ -113,7 +114,7 @@ func (c *Cluster) Start(nodesInfo []daemon.NodeInfo) error {
 			return err
 		}
 
-		newDeployment, err := c.Context.Clientset.AppsV1().Deployments(c.NamespacedName.Namespace).Create(d)
+		newDeployment, err := c.Context.Clientset.AppsV1().Deployments(c.NamespacedName.Namespace).Create(context.Background(), d, metav1.CreateOptions{})
 		if err != nil {
 			if !kerrors.IsAlreadyExists(err) {
 				return errors.Wrapf(err, "failed to create etcd deployment %s", resourceName)

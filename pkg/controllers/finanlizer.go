@@ -8,14 +8,13 @@ import (
 	"github.com/pkg/errors"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	curvev1 "github.com/opencurve/curve-operator/api/v1"
 )
 
-func removeFinalizer(cli client.Client, name types.NamespacedName, obj runtime.Object, finalizer string) error {
+func removeFinalizer(cli client.Client, name types.NamespacedName, obj client.Object, finalizer string) error {
 	err := cli.Get(context.Background(), name, obj)
 	if err != nil {
 		if kerrors.IsNotFound(err) {
@@ -63,7 +62,7 @@ func remove(list []string, s string) []string {
 
 // AddFinalizerIfNotPresent adds a finalizer an object to avoid instant deletion
 // of the object without finalizing it.
-func AddFinalizerIfNotPresent(ctx context.Context, cli client.Client, obj runtime.Object) error {
+func AddFinalizerIfNotPresent(ctx context.Context, cli client.Client, obj client.Object) error {
 	objectFinalizer := buildFinalizerName(obj.GetObjectKind().GroupVersionKind().Kind)
 	accessor, err := meta.Accessor(obj)
 	if err != nil {
@@ -83,13 +82,13 @@ func AddFinalizerIfNotPresent(ctx context.Context, cli client.Client, obj runtim
 }
 
 // RemoveFinalizer removes a finalizer from an object
-func RemoveFinalizer(ctx context.Context, cli client.Client, obj runtime.Object, namespacedName types.NamespacedName) error {
+func RemoveFinalizer(ctx context.Context, cli client.Client, obj client.Object, namespacedName types.NamespacedName) error {
 	finalizerName := buildFinalizerName(obj.GetObjectKind().GroupVersionKind().Kind)
 	return RemoveFinalizerWithName(ctx, cli, obj, namespacedName, finalizerName)
 }
 
 // RemoveFinalizerWithName removes finalizer passed as an argument from an object
-func RemoveFinalizerWithName(ctx context.Context, cli client.Client, obj runtime.Object, namespacedName types.NamespacedName, finalizerName string) error {
+func RemoveFinalizerWithName(ctx context.Context, cli client.Client, obj client.Object, namespacedName types.NamespacedName, finalizerName string) error {
 	err := cli.Get(ctx, namespacedName, obj)
 	if err != nil {
 		return errors.Wrap(err, "failed to get the latest version of the object")

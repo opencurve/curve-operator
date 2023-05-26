@@ -1,6 +1,7 @@
 package snapshotclone
 
 import (
+	"context"
 	"fmt"
 	"path"
 	"strconv"
@@ -18,7 +19,7 @@ import (
 // prepareConfigMap
 func (c *Cluster) prepareConfigMap(snapConfig *snapConfig) error {
 	// 1. get s3 configmap that must has been created by chunkserver
-	_, err := c.Context.Clientset.CoreV1().ConfigMaps(c.NamespacedName.Namespace).Get(config.S3ConfigMapName, metav1.GetOptions{})
+	_, err := c.Context.Clientset.CoreV1().ConfigMaps(c.NamespacedName.Namespace).Get(context.Background(), config.S3ConfigMapName, metav1.GetOptions{})
 	if err != nil {
 		return errors.Wrapf(err, "failed to get %s configmap from cluster", config.S3ConfigMapName)
 	}
@@ -50,7 +51,7 @@ func (c *Cluster) prepareConfigMap(snapConfig *snapConfig) error {
 // createSnapClientConf
 func (c *Cluster) createSnapClientConfigMap(snapConfig *snapConfig) error {
 	// 1. get ...-conf-template from cluster
-	snapClientCMTemplate, err := c.Context.Clientset.CoreV1().ConfigMaps(c.NamespacedName.Namespace).Get(config.SnapClientConfigMapTemp, metav1.GetOptions{})
+	snapClientCMTemplate, err := c.Context.Clientset.CoreV1().ConfigMaps(c.NamespacedName.Namespace).Get(context.Background(), config.SnapClientConfigMapTemp, metav1.GetOptions{})
 	if err != nil {
 		logger.Errorf("failed to get configmap %s from cluster", config.SnapClientConfigMapTemp)
 		if kerrors.IsNotFound(err) {
@@ -89,7 +90,7 @@ func (c *Cluster) createSnapClientConfigMap(snapConfig *snapConfig) error {
 	}
 
 	// Create cs_client configmap in cluster
-	_, err = c.Context.Clientset.CoreV1().ConfigMaps(c.NamespacedName.Namespace).Create(cm)
+	_, err = c.Context.Clientset.CoreV1().ConfigMaps(c.NamespacedName.Namespace).Create(context.Background(), cm, metav1.CreateOptions{})
 	if err != nil && !kerrors.IsAlreadyExists(err) {
 		return errors.Wrapf(err, "failed to create snap_client configmap %s", c.NamespacedName.Namespace)
 	}
@@ -99,7 +100,7 @@ func (c *Cluster) createSnapClientConfigMap(snapConfig *snapConfig) error {
 
 func (c *Cluster) createSnapShotCloneConfigMap(snapConfig *snapConfig) error {
 	// 1. get snapshotclone-conf-template from cluster
-	snapShotCloneCMTemplate, err := c.Context.Clientset.CoreV1().ConfigMaps(c.NamespacedName.Namespace).Get(config.SnapShotCloneConfigMapTemp, metav1.GetOptions{})
+	snapShotCloneCMTemplate, err := c.Context.Clientset.CoreV1().ConfigMaps(c.NamespacedName.Namespace).Get(context.Background(), config.SnapShotCloneConfigMapTemp, metav1.GetOptions{})
 	if err != nil {
 		logger.Errorf("failed to get configmap %s from cluster", config.SnapShotCloneConfigMapTemp)
 		if kerrors.IsNotFound(err) {
@@ -135,7 +136,7 @@ func (c *Cluster) createSnapShotCloneConfigMap(snapConfig *snapConfig) error {
 	}
 
 	// Create cs_client configmap in cluster
-	_, err = c.Context.Clientset.CoreV1().ConfigMaps(c.NamespacedName.Namespace).Create(cm)
+	_, err = c.Context.Clientset.CoreV1().ConfigMaps(c.NamespacedName.Namespace).Create(context.Background(), cm, metav1.CreateOptions{})
 	if err != nil && !kerrors.IsAlreadyExists(err) {
 		return errors.Wrapf(err, "failed to create snap_client configmap %s", c.NamespacedName.Namespace)
 	}

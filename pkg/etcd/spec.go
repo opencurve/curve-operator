@@ -1,6 +1,7 @@
 package etcd
 
 import (
+	"context"
 	"fmt"
 	"path"
 	"strconv"
@@ -35,7 +36,7 @@ func (c *Cluster) createOverrideConfigMap(etcdEndpoints string, clusterEtcdAddr 
 		return errors.Wrapf(err, "failed to set owner reference to etcd override configmap %q", config.EtcdConfigMapName)
 	}
 
-	_, err = c.Context.Clientset.CoreV1().ConfigMaps(c.NamespacedName.Namespace).Create(overrideCM)
+	_, err = c.Context.Clientset.CoreV1().ConfigMaps(c.NamespacedName.Namespace).Create(context.Background(), overrideCM, metav1.CreateOptions{})
 	if err != nil {
 		if !kerrors.IsAlreadyExists(err) {
 			return errors.Wrapf(err, "failed to create override configmap %s", c.NamespacedName.Namespace)
@@ -56,7 +57,7 @@ func (c *Cluster) createOverrideConfigMap(etcdEndpoints string, clusterEtcdAddr 
 // createConfigMap create etcd configmap for etcd server
 func (c *Cluster) createEtcdConfigMap(etcdConfig *etcdConfig) error {
 	// get etcd-conf-template from cluster
-	etcdCMTemplate, err := c.Context.Clientset.CoreV1().ConfigMaps(c.NamespacedName.Namespace).Get(config.EtcdConfigTemp, metav1.GetOptions{})
+	etcdCMTemplate, err := c.Context.Clientset.CoreV1().ConfigMaps(c.NamespacedName.Namespace).Get(context.Background(), config.EtcdConfigTemp, metav1.GetOptions{})
 	if err != nil {
 		logger.Errorf("failed to get configmap [ %s ] from cluster", config.MdsConfigMapTemp)
 		if kerrors.IsNotFound(err) {
@@ -92,7 +93,7 @@ func (c *Cluster) createEtcdConfigMap(etcdConfig *etcdConfig) error {
 	}
 
 	// create etcd configmap in cluster
-	_, err = c.Context.Clientset.CoreV1().ConfigMaps(c.NamespacedName.Namespace).Create(cm)
+	_, err = c.Context.Clientset.CoreV1().ConfigMaps(c.NamespacedName.Namespace).Create(context.Background(), cm, metav1.CreateOptions{})
 	if err != nil && !kerrors.IsAlreadyExists(err) {
 		return errors.Wrapf(err, "failed to create etcd configmap %s", c.NamespacedName.Namespace)
 	}

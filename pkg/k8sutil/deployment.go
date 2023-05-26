@@ -22,7 +22,7 @@ import (
 // Basically, we go one resource by one and check if we can stop and then if the resource has been successfully updated
 // we check if we can go ahead and move to the next one.
 func UpdateDeploymentAndWait(ctx context.Context, clusterContext *clusterd.Context, modifiedDeployment *appsv1.Deployment, namespace string, verifyCallback func(action string) error) error {
-	currentDeployment, err := clusterContext.Clientset.AppsV1().Deployments(namespace).Get(modifiedDeployment.Name, metav1.GetOptions{})
+	currentDeployment, err := clusterContext.Clientset.AppsV1().Deployments(namespace).Get(context.Background(), modifiedDeployment.Name, metav1.GetOptions{})
 	if err != nil {
 		return fmt.Errorf("failed to get deployment %s. %+v", modifiedDeployment.Name, err)
 	}
@@ -55,7 +55,7 @@ func UpdateDeploymentAndWait(ctx context.Context, clusterContext *clusterd.Conte
 		return fmt.Errorf("failed to set hash annotation on deployment %q. %v", modifiedDeployment.Name, err)
 	}
 
-	if _, err := clusterContext.Clientset.AppsV1().Deployments(namespace).Update(modifiedDeployment); err != nil {
+	if _, err := clusterContext.Clientset.AppsV1().Deployments(namespace).Update(context.Background(), modifiedDeployment, metav1.UpdateOptions{}); err != nil {
 		return fmt.Errorf("failed to update deployment %q. %v", modifiedDeployment.Name, err)
 	}
 
@@ -76,7 +76,7 @@ func WaitForDeploymentToStart(ctx context.Context, clusterdContext *clusterd.Con
 	attempts := 100
 	for i := 0; i < attempts; i++ {
 		// check for the status of the deployment
-		d, err := clusterdContext.Clientset.AppsV1().Deployments(deployment.Namespace).Get(deployment.Name, metav1.GetOptions{})
+		d, err := clusterdContext.Clientset.AppsV1().Deployments(deployment.Namespace).Get(context.Background(), deployment.Name, metav1.GetOptions{})
 		if err != nil {
 			return fmt.Errorf("failed to get deployment %q. %v", deployment.Name, err)
 		}

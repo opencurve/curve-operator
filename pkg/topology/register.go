@@ -1,6 +1,7 @@
 package topology
 
 import (
+	"context"
 	"fmt"
 	"path"
 
@@ -32,7 +33,7 @@ func RunCreatePoolJob(c *daemon.Cluster, dcs []*DeployConfig, poolType string) (
 		job, _ = makeGenPoolJob(c, poolType, "provision-logical-pool")
 	}
 
-	existingJob, err := c.Context.Clientset.BatchV1().Jobs(job.Namespace).Get(job.Name, metav1.GetOptions{})
+	existingJob, err := c.Context.Clientset.BatchV1().Jobs(job.Namespace).Get(context.Background(), job.Name, metav1.GetOptions{})
 	if err != nil && !kerrors.IsNotFound(err) {
 		logger.Warningf("failed to detect job %s. %+v", job.Name, err)
 	} else if err == nil {
@@ -42,7 +43,7 @@ func RunCreatePoolJob(c *daemon.Cluster, dcs []*DeployConfig, poolType string) (
 		}
 	}
 
-	_, err = c.Context.Clientset.BatchV1().Jobs(job.Namespace).Create(job)
+	_, err = c.Context.Clientset.BatchV1().Jobs(job.Namespace).Create(context.Background(), job, metav1.CreateOptions{})
 	logger.Infof("job created to generate %s", poolType)
 
 	return &batch.Job{}, err
@@ -158,7 +159,7 @@ func CreateTopoConfigMap(c *daemon.Cluster, dcs []*DeployConfig) error {
 	}
 
 	// Create topology-json-conf configmap in cluster
-	_, err = c.Context.Clientset.CoreV1().ConfigMaps(c.Namespace).Create(cm)
+	_, err = c.Context.Clientset.CoreV1().ConfigMaps(c.Namespace).Create(context.Background(), cm, metav1.CreateOptions{})
 	if err != nil && !kerrors.IsAlreadyExists(err) {
 		return err
 	}

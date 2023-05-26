@@ -83,7 +83,7 @@ func createSyncDeployment(c *daemon.Cluster) error {
 	}
 	var deploymentsToWaitFor []*apps.Deployment
 
-	newDeployment, err := c.Context.Clientset.AppsV1().Deployments(c.Namespace).Create(d)
+	newDeployment, err := c.Context.Clientset.AppsV1().Deployments(c.Namespace).Create(context.Background(), d, metav1.CreateOptions{})
 	if err != nil {
 		if !kerrors.IsAlreadyExists(err) {
 			return errors.Wrapf(err, "failed to create deployment %s", SyncConfigDeployment)
