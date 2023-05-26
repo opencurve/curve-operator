@@ -113,9 +113,7 @@ func (c *Cluster) CreateS3ConfigMap() error {
 		data["s3.ak"] = c.SnapShotClone.S3Config.AK
 		data["s3.sk"] = c.SnapShotClone.S3Config.SK
 		data["s3.nos_address"] = c.SnapShotClone.S3Config.NosAddress
-		data["s3.endpoint"] = c.SnapShotClone.S3Config.NosAddress
 		data["s3.snapshot_bucket_name"] = c.SnapShotClone.S3Config.SnapShotBucketName
-		data["s3.bucket_name"] = c.SnapShotClone.S3Config.SnapShotBucketName
 	}
 
 	var configMapData string

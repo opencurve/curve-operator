@@ -17,7 +17,6 @@ import (
 	"github.com/opencurve/curve-operator/pkg/config"
 	"github.com/opencurve/curve-operator/pkg/daemon"
 	"github.com/opencurve/curve-operator/pkg/k8sutil"
-	"github.com/opencurve/curve-operator/pkg/topology"
 )
 
 const (
@@ -41,25 +40,25 @@ func New(c *daemon.Cluster) *Cluster {
 }
 
 // Start Curve snapshotclone daemon
-func (c *Cluster) Start(nodesInfo []daemon.NodeInfo, dcs []*topology.DeployConfig) ([]*topology.DeployConfig, error) {
+func (c *Cluster) Start(nodesInfo []daemon.NodeInfo) error {
 	logger.Info("starting snapshotclone server")
 
 	// get clusterEtcdAddr
 	etcdOverrideCM, err := c.Context.Clientset.CoreV1().ConfigMaps(c.NamespacedName.Namespace).Get(config.EtcdOverrideConfigMapName, metav1.GetOptions{})
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed to get %s configmap from cluster", config.EtcdOverrideConfigMapName)
+		return errors.Wrapf(err, "failed to get %s configmap from cluster", config.EtcdOverrideConfigMapName)
 	}
 	clusterEtcdAddr := etcdOverrideCM.Data[config.ClusterEtcdAddr]
 
 	// get clusterMdsAddr
 	mdsOverrideCM, err := c.Context.Clientset.CoreV1().ConfigMaps(c.NamespacedName.Namespace).Get(config.MdsOverrideConfigMapName, metav1.GetOptions{})
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to get mds override endoints configmap")
+		return errors.Wrap(err, "failed to get mds override endoints configmap")
 	}
 	clusterMdsAddr := mdsOverrideCM.Data[config.MdsOvverideConfigMapDataKey]
 
 	if err := c.createStartSnapConfigMap(); err != nil {
-		return nil, err
+		return err
 	}
 
 	var deploymentsToWaitFor []*appsv1.Deployment
@@ -88,33 +87,21 @@ func (c *Cluster) Start(nodesInfo []daemon.NodeInfo, dcs []*topology.DeployConfi
 			),
 		}
 
-		dc := &topology.DeployConfig{
-			Kind:             c.Kind,
-			Role:             config.SNAPSHOTCLONE_ROLE,
-			NodeName:         node.NodeName,
-			NodeIP:           node.NodeIP,
-			Port:             node.SnapshotCloneDummyPort,
-			ReplicasSequence: node.ReplicasSequence,
-			Replicas:         len(c.Nodes),
-			StandAlone:       node.StandAlone,
-		}
-		dcs = append(dcs, dc)
-
 		err = c.prepareConfigMap(snapConfig)
 		if err != nil {
-			return nil, err
+			return err
 		}
 
 		// make snapshotclone deployment
 		d, err := c.makeDeployment(node.NodeName, node.NodeIP, snapConfig)
 		if err != nil {
-			return nil, err
+			return err
 		}
 
 		newDeployment, err := c.Context.Clientset.AppsV1().Deployments(c.NamespacedName.Namespace).Create(d)
 		if err != nil {
 			if !kerrors.IsAlreadyExists(err) {
-				return nil, errors.Wrapf(err, "failed to create snapshotclone deployment %q in cluster", snapConfig.ResourceName)
+				return errors.Wrapf(err, "failed to create snapshotclone deployment %q in cluster", snapConfig.ResourceName)
 			}
 			logger.Infof("deployment %v for snapshotclone already exists. updating if needed", snapConfig.ResourceName)
 
@@ -131,13 +118,13 @@ func (c *Cluster) Start(nodesInfo []daemon.NodeInfo, dcs []*topology.DeployConfi
 	// wait all Deployments to start
 	for _, d := range deploymentsToWaitFor {
 		if err := k8sutil.WaitForDeploymentToStart(context.TODO(), &c.Context, d); err != nil {
-			return nil, err
+			return err
 		}
 	}
 
 	k8sutil.UpdateStatusCondition(c.Kind, context.TODO(), &c.Context, c.NamespacedName, curvev1.ConditionTypeSnapShotCloneReady, curvev1.ConditionTrue, curvev1.ConditionSnapShotCloneClusterCreatedReason, "Snapshotclone cluster has been created")
 
-	return dcs, nil
+	return nil
 }
 
 func (c *Cluster) createStartSnapConfigMap() error {

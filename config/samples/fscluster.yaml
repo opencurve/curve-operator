@@ -38,22 +38,3 @@ spec:
     port: 16800
     externalPort: 16800
     copySets: 100
-  monitor:
-    enable: true
-    monitorHost: curve-operator-node1
-    nodeExporter:
-      containerImage: prom/node-exporter:latest
-      listenPort: 9100
-    prometheus:
-      containerImage: prom/prometheus:latest
-      dataDir: /tmp/monitor/prometheus
-      listenPort: 9090
-      retentionTime: 7d
-      retentionSize: 256GB
-    grafana:
-      containerImage: grafana/grafana:latest
-      dataDir: /tmp/monitor/grafana
-      listenPort: 3000
-      userName: admin
-      passWord: curve
-    
