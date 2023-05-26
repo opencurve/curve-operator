@@ -46,6 +46,15 @@ const (
 	REGEX_VARIABLE = `\${([^${}]+)}` // ${var_name}
 )
 
+//nolint:unused
+const (
+	ROLE_ETCD          = "etcd"
+	ROLE_MDS           = "mds"
+	ROLE_CHUNKSERVER   = "chunkserver"
+	ROLE_SNAPSHOTCLONE = "snapshotclone"
+	ROLE_METASERVER    = "metaserver"
+)
+
 type ConfigInterface interface {
 	GetPrefix() string
 	GetServiceId() string

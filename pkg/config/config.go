@@ -10,14 +10,6 @@ const (
 )
 
 const (
-	ETCD_ROLE          = "etcd"
-	MDS_ROLE           = "mds"
-	SNAPSHOTCLONE_ROLE = "snapshotclone"
-	METASERVER_ROLE    = "metaserver"
-	CHUNKSERVER_ROLE   = "chunkserver"
-)
-
-const (
 	// configmap to record the endpoints of etcd
 	EtcdOverrideConfigMapName    = "etcd-endpoints-override"
 	EtcdOvverideConfigMapDataKey = "etcdEndpoints"
@@ -94,22 +86,6 @@ const (
 	MetaServerConfigMapName      = "metaserver-conf"
 	MetaServerConfigMapDataKey   = "metaserver.conf"
 	MetaServerConfigMapMountPath = "/curvefs/metaserver/conf"
-
-	// prometheus.yaml
-	PrometheusConfigMapName    = "prometheus-conf"
-	PrometheusConfigMapDataKey = "prometheus.yml"
-
-	// grafana datasource yaml
-	GrafanaDataSourcesConfigMapName      = "grafana-conf"
-	GrafanaDataSourcesConfigMapDataKey   = "all.yml"
-	GrafanaDataSourcesConfigMapMountPath = "/etc/grafana/provisioning/datasources"
-
-	// grafana dashboards
-	GrafanaDashboardsMountPath = "/etc/grafana/provisioning/dashboards"
-
-	// grafana INI config
-	GrafanaINIConfigMapDataKey = "grafana.ini"
-	GrafanaINIConfigMountPath  = "/etc/grafana"
 )
 
 const (
@@ -123,5 +99,4 @@ const (
 	ToolsConfigMapTemp         = "tools-conf-template"
 	NginxConfigMapTemp         = "nginx-conf-template"
 	MetaserverConfigMapTemp    = "metaserver-conf-template"
-	GrafanaDashboardsTemp      = "grafana-dashboard-template"
 )

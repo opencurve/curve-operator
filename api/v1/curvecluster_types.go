@@ -136,9 +136,6 @@ type CurveClusterSpec struct {
 	// +optional
 	// +nullable
 	CleanupConfirm string `json:"cleanupConfirm,omitempty"`
-
-	// +optional
-	Monitor MonitorSpec `json:"monitor,omitempty"`
 }
 
 // CurveClusterStatus defines the observed state of CurveCluster
@@ -278,51 +275,6 @@ type DevicesSpec struct {
 type SelectedNodesSpec struct {
 	Node    string        `json:"node,omitempty"`
 	Devices []DevicesSpec `json:"devices,omitempty"`
-}
-
-type MonitorSpec struct {
-	Enable bool `json:"enable,omitempty"`
-	// +optional
-	MonitorHost string `json:"monitorHost,omitempty"`
-	// +optional
-	Prometheus PrometheusSpec `json:"prometheus,omitempty"`
-	// +optional
-	Grafana GrafanaSpec `json:"grafana,omitempty"`
-	// +optional
-	NodeExporter NodeExporterSpec `json:"nodeExporter,omitempty"`
-}
-
-type PrometheusSpec struct {
-	// +optional
-	ContainerImage string `json:"containerImage,omitempty"`
-	// +optional
-	DataDir string `json:"dataDir,omitempty"`
-	// +optional
-	ListenPort int `json:"listenPort,omitempty"`
-	// +optional
-	RetentionTime string `json:"retentionTime,omitempty"`
-	// +optional
-	RetentionSize string `json:"retentionSize,omitempty"`
-}
-
-type GrafanaSpec struct {
-	// +optional
-	ContainerImage string `json:"containerImage,omitempty"`
-	// +optional
-	DataDir string `json:"dataDir,omitempty"`
-	// +optional
-	ListenPort int `json:"listenPort,omitempty"`
-	// +optional
-	UserName string `json:"userName,omitempty"`
-	// +optional
-	PassWord string `json:"passWord,omitempty"`
-}
-
-type NodeExporterSpec struct {
-	// +optional
-	ContainerImage string `json:"containerImage,omitempty"`
-	// +optional
-	ListenPort int `json:"listenPort,omitempty"`
 }
 
 func init() {

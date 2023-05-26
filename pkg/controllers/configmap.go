@@ -1,8 +1,6 @@
 package controllers
 
 import (
-	"path"
-
 	"github.com/pkg/errors"
 	v1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
@@ -30,20 +28,16 @@ func createConfigMapTemplate(c *daemon.Cluster) error {
 	logger.Infof("sync-config pod is %q", pod.Name)
 
 	var configs []string
-	var pathPrefix string
 	if c.Kind == config.KIND_CURVEBS {
 		configs = BSConfigs
-		pathPrefix = "/curvebs/conf"
 	} else {
 		configs = FSConfigs
-		pathPrefix = "/curvefs/conf"
 	}
 	logger.Infof("current cluster kind is %q", c.Kind)
 	logger.Infof("start syncing config from container %v", configs)
 
 	for _, name := range configs {
-		configPath := path.Join(pathPrefix, name)
-		content, err := readConfigFromContainer(c, pod, configPath)
+		content, err := readConfigFromContainer(c, pod, name)
 		if err != nil {
 			return err
 		}
@@ -123,62 +117,6 @@ func createConfigMap(c *daemon.Cluster, configMapName string, configMapDataKey s
 	_, err = c.Context.Clientset.CoreV1().ConfigMaps(c.NamespacedName.Namespace).Create(cm)
 	if err != nil && !kerrors.IsAlreadyExists(err) {
 		return errors.Wrapf(err, "failed to create configmap %s", configMapName)
-	}
-
-	return nil
-}
-
-// createGrafanaConfigMapTemplate copy grafana dashborads source to grafana container
-func createGrafanaConfigMapTemplate(c *daemon.Cluster) error {
-	labels := getReadConfigJobLabel(c)
-	selector := k8sutil.GetLabelSelector(labels)
-	pods, err := k8sutil.GetPodsByLabelSelector(c.Context.Clientset, c.Namespace, selector)
-	if err != nil {
-		return err
-	}
-
-	if len(pods.Items) != 1 {
-		return errors.New("app=sync-config label matches no pods")
-	}
-	pod := pods.Items[0]
-
-	configMapData := make(map[string]string)
-	for _, name := range GrafanaDashboardsConfigs {
-		var pathPrefix string
-		if c.Kind == config.KIND_CURVEBS {
-			pathPrefix = "/curvebs/monitor/grafana"
-		} else {
-			pathPrefix = "/curvefs/monitor/grafana"
-		}
-		if name != "grafana.ini" {
-			pathPrefix = path.Join(pathPrefix, "/provisioning/dashboards")
-		}
-		configPath := path.Join(pathPrefix, name)
-		content, err := readConfigFromContainer(c, pod, configPath)
-		if err != nil {
-			return err
-		}
-
-		configMapData[name] = content
-	}
-
-	cm := &v1.ConfigMap{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      config.GrafanaDashboardsTemp,
-			Namespace: c.Namespace,
-		},
-		Data: configMapData,
-	}
-
-	err = c.OwnerInfo.SetControllerReference(cm)
-	if err != nil {
-		return errors.Wrapf(err, "failed to set owner reference to configmap %q", config.GrafanaDashboardsTemp)
-	}
-
-	// create configmap in cluster
-	_, err = c.Context.Clientset.CoreV1().ConfigMaps(c.NamespacedName.Namespace).Create(cm)
-	if err != nil && !kerrors.IsAlreadyExists(err) {
-		return errors.Wrapf(err, "failed to create configmap %s", config.GrafanaDashboardsTemp)
 	}
 
 	return nil

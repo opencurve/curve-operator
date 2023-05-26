@@ -43,9 +43,6 @@ type CurvefsSpec struct {
 	// +optional
 	SnapShotClone SnapShotCloneSpec `json:"snapShotClone,omitempty"`
 
-	// +optional
-	Monitor MonitorSpec `json:"monitor,omitempty"`
-
 	// Indicates user intent when deleting a cluster; blocks orchestration and should not be set if cluster
 	// deletion is not imminent.
 	// +optional
