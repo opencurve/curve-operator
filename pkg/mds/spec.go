@@ -56,51 +56,6 @@ func (c *Cluster) createOverrideMdsCM(mdsEndpoints, clusterMdsDummyAddr, cluster
 	return nil
 }
 
-// createConfigMap create mds configmap for mds server
-func (c *Cluster) createMdsConfigMap(mdsConfig *mdsConfig) error {
-	mdsCMTemplate, err := c.Context.Clientset.CoreV1().ConfigMaps(c.NamespacedName.Namespace).Get(config.MdsConfigMapTemp, metav1.GetOptions{})
-	if err != nil {
-		if kerrors.IsNotFound(err) {
-			return errors.Wrapf(err, "failed to get configmap %s from cluster", config.MdsConfigMapTemp)
-		}
-		return errors.Wrapf(err, "failed to get configmap %s from cluster", config.MdsConfigMapTemp)
-	}
-
-	// read configmap data (string)
-	mdsCMData := mdsCMTemplate.Data[config.MdsConfigMapDataKey]
-	// replace ${} to specific parameters
-	replacedMdsData, err := config.ReplaceConfigVars(mdsCMData, mdsConfig)
-	if err != nil {
-		return errors.Wrap(err, "failed to Replace mds config template to generate a new mds configmap to start server.")
-	}
-
-	// create curve-mds-conf-[a,b,...] configmap for each one deployment
-	mdsConfigMapData := map[string]string{
-		config.MdsConfigMapDataKey: replacedMdsData,
-	}
-
-	cm := &v1.ConfigMap{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      mdsConfig.CurrentConfigMapName,
-			Namespace: c.NamespacedName.Namespace,
-		},
-		Data: mdsConfigMapData,
-	}
-
-	err = c.OwnerInfo.SetControllerReference(cm)
-	if err != nil {
-		return errors.Wrapf(err, "failed to set owner reference to mds configmap %q", config.MdsConfigMapName)
-	}
-
-	// create mds configmap in cluster
-	_, err = c.Context.Clientset.CoreV1().ConfigMaps(c.NamespacedName.Namespace).Create(cm)
-	if err != nil && !kerrors.IsAlreadyExists(err) {
-		return errors.Wrapf(err, "failed to create mds configmap %s", c.NamespacedName.Namespace)
-	}
-
-	return nil
-}
-
 // makeDeployment make mds deployment to run mds daemon
 func (c *Cluster) makeDeployment(nodeName string, nodeIP string, mdsConfig *mdsConfig) (*apps.Deployment, error) {
 	volumes := daemon.DaemonVolumes(config.MdsConfigMapDataKey, mdsConfig.ConfigMapMountPath, mdsConfig.DataPathMap, mdsConfig.CurrentConfigMapName)

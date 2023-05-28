@@ -103,7 +103,8 @@ func (c *Cluster) Start(nodesInfo []daemon.NodeInfo) error {
 		}
 
 		// create each etcd configmap for each deployment
-		if err := c.createEtcdConfigMap(etcdConfig); err != nil {
+		err := c.CreateEachConfigMap(config.EtcdConfigMapDataKey, etcdConfig, currentConfigMapName)
+		if err != nil {
 			return err
 		}
 

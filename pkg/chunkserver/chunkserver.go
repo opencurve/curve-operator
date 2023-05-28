@@ -4,10 +4,14 @@ import (
 	"context"
 	"time"
 
+	"emperror.dev/errors"
 	"github.com/coreos/pkg/capnslog"
-	"github.com/pkg/errors"
+	apps "k8s.io/api/apps/v1"
+	kerrors "k8s.io/apimachinery/pkg/api/errors"
 
 	curvev1 "github.com/opencurve/curve-operator/api/v1"
+	"github.com/opencurve/curve-operator/pkg/chunkserver/script"
+	"github.com/opencurve/curve-operator/pkg/config"
 	"github.com/opencurve/curve-operator/pkg/daemon"
 	"github.com/opencurve/curve-operator/pkg/k8sutil"
 	"github.com/opencurve/curve-operator/pkg/topology"
@@ -39,17 +43,17 @@ func New(c *daemon.Cluster) *Cluster {
 
 // Start begins the chunkserver daemon
 func (c *Cluster) Start(nodesInfo []daemon.NodeInfo) error {
-	logger.Infof("start running chunkserver in namespace %q", c.NamespacedName.Namespace)
+	logger.Infof("start running chunkserver in namespace %q", c.Namespace)
 
-	if !c.Chunkserver.UseSelectedNodes && (len(c.Chunkserver.Nodes) == 0 || len(c.Chunkserver.Devices) == 0) {
-		return errors.New("useSelectedNodes is set to false but no node specified")
+	err := c.CreateSpecRoleAllConfigMap(config.ROLE_CHUNKSERVER, config.ChunkserverAllConfigMapName)
+	if err != nil {
+		return err
 	}
 
-	if c.Chunkserver.UseSelectedNodes && len(c.Chunkserver.SelectedNodes) == 0 {
-		return errors.New("useSelectedNodes is set to false but selectedNodes not be specified")
+	err = c.CreateSpecRoleAllConfigMap(config.ROLE_SNAPSHOTCLONE, config.SnapShotCloneAllConfigMapName)
+	if err != nil {
+		return err
 	}
-
-	logger.Info("starting to prepare the chunk file")
 
 	// startProvisioningOverNodes format device and prepare chunk files
 	dcs, err := c.startProvisioningOverNodes(nodesInfo)
@@ -61,6 +65,7 @@ func (c *Cluster) Start(nodesInfo []daemon.NodeInfo) error {
 	if err != nil {
 		return err
 	}
+
 	k8sutil.UpdateStatusCondition(c.Kind, context.TODO(), &c.Context, c.NamespacedName, curvev1.ConditionTypeFormatedReady, curvev1.ConditionTrue, curvev1.ConditionFormatChunkfilePoolReason, "Formating chunkfilepool successed")
 	logger.Info("all jobs run completed in 24 hours")
 
@@ -100,5 +105,92 @@ func (c *Cluster) Start(nodesInfo []daemon.NodeInfo) error {
 		return err
 	}
 	logger.Info("create logical pool successed")
+	return nil
+}
+
+// startChunkServers start all chunkservers for each device of every node
+func (c *Cluster) startChunkServers() error {
+	err := c.preStart()
+	if err != nil {
+		return err
+	}
+
+	var deploymentsToWaitFor []*apps.Deployment
+	for _, csConfig := range chunkserverConfigs {
+		err := c.CreateEachConfigMap(config.ChunkserverConfigMapDataKey, &csConfig, csConfig.CurrentConfigMapName)
+		if err != nil {
+			return err
+		}
+
+		d, err := c.makeDeployment(&csConfig)
+		if err != nil {
+			return err
+		}
+
+		newDeployment, err := c.Context.Clientset.AppsV1().Deployments(c.NamespacedName.Namespace).Create(d)
+		if err != nil {
+			if !kerrors.IsAlreadyExists(err) {
+				return errors.Wrapf(err, "failed to create chunkserver deployment %s", csConfig.ResourceName)
+			}
+			logger.Infof("deployment for chunkserver %s already exists. updating if needed", csConfig.ResourceName)
+
+			// TODO:Update the daemon Deployment
+			// if err := updateDeploymentAndWait(c.Context, c.clusterInfo, d, config.MgrType, mgrConfig.DaemonID, c.spec.SkipUpgradeChecks, false); err != nil {
+			// 	logger.Errorf("failed to update mgr deployment %q. %v", resourceName, err)
+			// }
+		} else {
+			logger.Infof("Deployment %s has been created , waiting for startup", newDeployment.GetName())
+			deploymentsToWaitFor = append(deploymentsToWaitFor, newDeployment)
+		}
+	}
+
+	// wait all Deployments to start
+	for _, d := range deploymentsToWaitFor {
+		if err := k8sutil.WaitForDeploymentToStart(context.TODO(), &c.Context, d); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+// preStart
+func (c *Cluster) preStart() error {
+	if len(job2DeviceInfos) == 0 {
+		logger.Errorf("no job to format device and provision chunk file")
+		return nil
+	}
+
+	if len(chunkserverConfigs) == 0 {
+		logger.Errorf("no device need to start chunkserver")
+		return nil
+	}
+
+	if len(job2DeviceInfos) != len(chunkserverConfigs) {
+		return errors.New("failed to start chunkserver because of job numbers is not equal with chunkserver config")
+	}
+
+	err := c.UpdateSpecRoleAllConfigMap(config.ChunkserverAllConfigMapName, startChunkserverScriptFileDataKey, script.START, nil)
+	if err != nil {
+		return err
+	}
+
+	if c.SnapShotClone.Enable {
+		s3Data, err := c.getS3ConfigMapData()
+		if err != nil {
+			return err
+		}
+
+		err = c.UpdateSpecRoleAllConfigMap(config.SnapShotCloneAllConfigMapName, config.S3ConfigMapDataKey, s3Data, nil)
+		if err != nil {
+			return err
+		}
+	}
+
+	err = c.UpdateSpecRoleAllConfigMap(config.ChunkserverAllConfigMapName, config.CSClientConfigMapDataKey, "", &chunkserverConfigs[0])
+	if err != nil {
+		return err
+	}
+
 	return nil
 }

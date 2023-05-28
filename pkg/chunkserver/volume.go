@@ -1,6 +1,7 @@
 package chunkserver
 
 import (
+	"fmt"
 	"path"
 	"strings"
 
@@ -19,11 +20,10 @@ func (c *Cluster) createFormatVolumeAndMount(device curvev1.DevicesSpec) ([]v1.V
 	vols := []v1.Volume{}
 	mounts := []v1.VolumeMount{}
 
-	// Create format configmap volume and volume path
 	mode := int32(0644)
 	formatCMVolSource := &v1.ConfigMapVolumeSource{
 		LocalObjectReference: v1.LocalObjectReference{
-			Name: formatConfigMapName,
+			Name: config.ChunkserverAllConfigMapName,
 		},
 		Items: []v1.KeyToPath{
 			{
@@ -34,7 +34,7 @@ func (c *Cluster) createFormatVolumeAndMount(device curvev1.DevicesSpec) ([]v1.V
 		},
 	}
 	configVol := v1.Volume{
-		Name: formatConfigMapName,
+		Name: fmt.Sprint(config.ChunkserverAllConfigMapName, "-tool"),
 		VolumeSource: v1.VolumeSource{
 			ConfigMap: formatCMVolSource,
 		},
@@ -42,7 +42,7 @@ func (c *Cluster) createFormatVolumeAndMount(device curvev1.DevicesSpec) ([]v1.V
 
 	// configmap volume mount path
 	formatCMVolumeMount := v1.VolumeMount{
-		Name:      formatConfigMapName,
+		Name:      fmt.Sprint(config.ChunkserverAllConfigMapName, "-tool"),
 		ReadOnly:  true, // should be no reason to write to the config in pods, so enforce this
 		MountPath: formatScriptMountPath,
 		SubPath:   formatScriptFileDataKey,
@@ -111,39 +111,95 @@ func CSConfigConfigMapVolumeAndMount(csConfig *chunkserverConfig) ([]v1.Volume, 
 	vols := []v1.Volume{}
 	mounts := []v1.VolumeMount{}
 
-	// start_chunkserver.sh
+	//  mount cs_client.conf and s3.conf
 	mode := int32(0644)
-	startChunkserverConfigMapVolSource := &v1.ConfigMapVolumeSource{LocalObjectReference: v1.LocalObjectReference{Name: startChunkserverConfigMapName}, Items: []v1.KeyToPath{{Key: startChunkserverScriptFileDataKey, Path: startChunkserverScriptFileDataKey, Mode: &mode}}}
-	startChunkserverConfigVol := v1.Volume{
-		Name: startChunkserverConfigMapName,
-		VolumeSource: v1.VolumeSource{
-			ConfigMap: startChunkserverConfigMapVolSource,
+	CSClientVolSource := &v1.ConfigMapVolumeSource{
+		LocalObjectReference: v1.LocalObjectReference{
+			Name: config.ChunkserverAllConfigMapName,
+		},
+		Items: []v1.KeyToPath{
+			{Key: config.CSClientConfigMapDataKey, Path: config.CSClientConfigMapDataKey, Mode: &mode},
+			// {Key: config.S3ConfigMapDataKey, Path: config.S3ConfigMapDataKey, Mode: &mode},
 		},
 	}
-	vols = append(vols, startChunkserverConfigVol)
 
-	// cs_client.conf
-	CSClientConfigMapVolSource := &v1.ConfigMapVolumeSource{LocalObjectReference: v1.LocalObjectReference{Name: config.CSClientConfigMapName}, Items: []v1.KeyToPath{{Key: config.CSClientConfigMapDataKey, Path: config.CSClientConfigMapDataKey, Mode: &mode}}}
-	CSClientConfigVol := v1.Volume{
-		Name: config.CSClientConfigMapName,
+	csClientVols := v1.Volume{
+		Name: "cs-client-conf",
 		VolumeSource: v1.VolumeSource{
-			ConfigMap: CSClientConfigMapVolSource,
+			ConfigMap: CSClientVolSource,
 		},
 	}
-	vols = append(vols, CSClientConfigVol)
+	vols = append(vols, csClientVols)
+
+	m := v1.VolumeMount{
+		Name:      "cs-client-conf",
+		ReadOnly:  true, // should be no reason to write to the config in pods, so enforce this
+		MountPath: path.Join(config.ChunkserverConfigMapMountPathDir, config.CSClientConfigMapDataKey),
+		SubPath:   config.CSClientConfigMapDataKey,
+	}
+	mounts = append(mounts, m)
 
 	// s3.conf
-	S3ConfigMapVolSource := &v1.ConfigMapVolumeSource{LocalObjectReference: v1.LocalObjectReference{Name: config.S3ConfigMapName}, Items: []v1.KeyToPath{{Key: config.S3ConfigMapDataKey, Path: config.S3ConfigMapDataKey, Mode: &mode}}}
-	S3ConfigVol := v1.Volume{
-		Name: config.S3ConfigMapName,
-		VolumeSource: v1.VolumeSource{
-			ConfigMap: S3ConfigMapVolSource,
+	s3VolSource := &v1.ConfigMapVolumeSource{
+		LocalObjectReference: v1.LocalObjectReference{
+			Name: config.SnapShotCloneAllConfigMapName,
+		},
+		Items: []v1.KeyToPath{
+			{Key: config.S3ConfigMapDataKey, Path: config.S3ConfigMapDataKey, Mode: &mode},
 		},
 	}
-	vols = append(vols, S3ConfigVol)
 
-	// chunkserver.conf
-	configMapVolSource := &v1.ConfigMapVolumeSource{LocalObjectReference: v1.LocalObjectReference{Name: csConfig.CurrentConfigMapName}, Items: []v1.KeyToPath{{Key: config.ChunkserverConfigMapDataKey, Path: config.ChunkserverConfigMapDataKey, Mode: &mode}}}
+	s3Vols := v1.Volume{
+		Name: "s3-conf",
+		VolumeSource: v1.VolumeSource{
+			ConfigMap: s3VolSource,
+		},
+	}
+	vols = append(vols, s3Vols)
+
+	m = v1.VolumeMount{
+		Name:      "s3-conf",
+		ReadOnly:  true, // should be no reason to write to the config in pods, so enforce this
+		MountPath: path.Join(config.ChunkserverConfigMapMountPathDir, config.S3ConfigMapDataKey),
+		SubPath:   config.S3ConfigMapDataKey,
+	}
+	mounts = append(mounts, m)
+
+	// mount start_chunkserver.sh
+	scriptVolSrouce := &v1.ConfigMapVolumeSource{
+		LocalObjectReference: v1.LocalObjectReference{
+			Name: config.ChunkserverAllConfigMapName,
+		},
+		Items: []v1.KeyToPath{
+			{Key: startChunkserverScriptFileDataKey, Path: startChunkserverScriptFileDataKey, Mode: &mode},
+		},
+	}
+
+	scriptVols := v1.Volume{
+		Name: "start-server-volume",
+		VolumeSource: v1.VolumeSource{
+			ConfigMap: scriptVolSrouce,
+		},
+	}
+	vols = append(vols, scriptVols)
+
+	m = v1.VolumeMount{
+		Name:      "start-server-volume",
+		ReadOnly:  true, // should be no reason to write to the config in pods, so enforce this
+		MountPath: startChunkserverMountPath,
+		SubPath:   startChunkserverScriptFileDataKey,
+	}
+	mounts = append(mounts, m)
+
+	// mount chunkserver.conf
+	configMapVolSource := &v1.ConfigMapVolumeSource{
+		LocalObjectReference: v1.LocalObjectReference{
+			Name: csConfig.CurrentConfigMapName,
+		},
+		Items: []v1.KeyToPath{
+			{Key: config.ChunkserverConfigMapDataKey, Path: config.ChunkserverConfigMapDataKey, Mode: &mode},
+		},
+	}
 	configVol := v1.Volume{
 		Name: csConfig.CurrentConfigMapName,
 		VolumeSource: v1.VolumeSource{
@@ -152,34 +208,7 @@ func CSConfigConfigMapVolumeAndMount(csConfig *chunkserverConfig) ([]v1.Volume, 
 	}
 	vols = append(vols, configVol)
 
-	// start_chunkserver.sh volume mount
-	startChunkserverMountPath := v1.VolumeMount{
-		Name:      startChunkserverConfigMapName,
-		ReadOnly:  true, // should be no reason to write to the config in pods, so enforce this
-		MountPath: startChunkserverMountPath,
-		SubPath:   startChunkserverScriptFileDataKey,
-	}
-	mounts = append(mounts, startChunkserverMountPath)
-
-	// cs_client.conf volume mount
-	CSClientMountPath := v1.VolumeMount{
-		Name:      config.CSClientConfigMapName,
-		ReadOnly:  true, // should be no reason to write to the config in pods, so enforce this
-		MountPath: config.CSClientConfigMapMountPathDir + "/" + config.CSClientConfigMapDataKey,
-		SubPath:   config.CSClientConfigMapDataKey,
-	}
-	mounts = append(mounts, CSClientMountPath)
-
-	S3MountPath := v1.VolumeMount{
-		Name:      config.S3ConfigMapName,
-		ReadOnly:  true, // should be no reason to write to the config in pods, so enforce this
-		MountPath: config.S3ConfigMapMountPathDir + "/" + config.S3ConfigMapDataKey,
-		SubPath:   config.S3ConfigMapDataKey,
-	}
-	mounts = append(mounts, S3MountPath)
-
-	// configmap volume mount path
-	m := v1.VolumeMount{
+	m = v1.VolumeMount{
 		Name:      csConfig.CurrentConfigMapName,
 		ReadOnly:  true, // should be no reason to write to the config in pods, so enforce this
 		MountPath: path.Join(config.ChunkserverConfigMapMountPathDir, config.ChunkserverConfigMapDataKey),

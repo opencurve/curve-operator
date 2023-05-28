@@ -1,133 +1,17 @@
 package chunkserver
 
 import (
-	"context"
 	"path"
 	"strconv"
 
-	"github.com/pkg/errors"
 	apps "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
-	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/opencurve/curve-operator/pkg/config"
 	"github.com/opencurve/curve-operator/pkg/daemon"
-	"github.com/opencurve/curve-operator/pkg/k8sutil"
 	"github.com/opencurve/curve-operator/pkg/topology"
 )
-
-// startChunkServers start all chunkservers for each device of every node
-func (c *Cluster) startChunkServers() error {
-	if len(job2DeviceInfos) == 0 {
-		logger.Errorf("no job to format device and provision chunk file")
-		return nil
-	}
-
-	if len(chunkserverConfigs) == 0 {
-		logger.Errorf("no device need to start chunkserver")
-		return nil
-	}
-
-	if len(job2DeviceInfos) != len(chunkserverConfigs) {
-		return errors.New("failed to start chunkserver because of job numbers is not equal with chunkserver config")
-	}
-
-	_ = c.createStartCSConfigMap()
-	_ = c.createCSClientConfigMap()
-	_ = c.CreateS3ConfigMap()
-
-	var deploymentsToWaitFor []*apps.Deployment
-	for _, csConfig := range chunkserverConfigs {
-		err := c.createConfigMap(csConfig)
-		if err != nil {
-			return err
-		}
-
-		d, err := c.makeDeployment(&csConfig)
-		if err != nil {
-			return err
-		}
-
-		newDeployment, err := c.Context.Clientset.AppsV1().Deployments(c.NamespacedName.Namespace).Create(d)
-		if err != nil {
-			if !kerrors.IsAlreadyExists(err) {
-				return errors.Wrapf(err, "failed to create chunkserver deployment %s", csConfig.ResourceName)
-			}
-			logger.Infof("deployment for chunkserver %s already exists. updating if needed", csConfig.ResourceName)
-
-			// TODO:Update the daemon Deployment
-			// if err := updateDeploymentAndWait(c.Context, c.clusterInfo, d, config.MgrType, mgrConfig.DaemonID, c.spec.SkipUpgradeChecks, false); err != nil {
-			// 	logger.Errorf("failed to update mgr deployment %q. %v", resourceName, err)
-			// }
-		} else {
-			logger.Infof("Deployment %s has been created , waiting for startup", newDeployment.GetName())
-			deploymentsToWaitFor = append(deploymentsToWaitFor, newDeployment)
-		}
-	}
-
-	// wait all Deployments to start
-	for _, d := range deploymentsToWaitFor {
-		if err := k8sutil.WaitForDeploymentToStart(context.TODO(), &c.Context, d); err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
-// createConfigMap create chunkserver configmap for chunkserver server
-func (c *Cluster) createConfigMap(csConfig chunkserverConfig) error {
-	// get mds-conf-template from cluster
-	chunkserverCMTemplate, err := c.Context.Clientset.CoreV1().ConfigMaps(c.NamespacedName.Namespace).Get(config.ChunkServerConfigMapTemp, metav1.GetOptions{})
-	if err != nil {
-		logger.Errorf("failed to get configmap %s from cluster", config.ChunkServerConfigMapTemp)
-		if kerrors.IsNotFound(err) {
-			return errors.Wrapf(err, "failed to get configmap %s from cluster", config.ChunkServerConfigMapTemp)
-		}
-		return errors.Wrapf(err, "failed to get configmap %s from cluster", config.ChunkServerConfigMapTemp)
-	}
-
-	// read configmap data (string)
-	var chunkserverData string
-	for k, v := range chunkserverCMTemplate.Data {
-		chunkserverData += k + "=" + v + "\n"
-	}
-
-	// replace ${} to specific parameters
-	replacedChunkServerData, err := config.ReplaceConfigVars(chunkserverData, &csConfig)
-	if err != nil {
-		return err
-	}
-
-	// for debug
-	// log.Info(chunkserverConfigVal)
-
-	chunkserverConfigMap := map[string]string{
-		config.ChunkserverConfigMapDataKey: replacedChunkServerData,
-	}
-
-	cm := &v1.ConfigMap{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      csConfig.CurrentConfigMapName,
-			Namespace: c.NamespacedName.Namespace,
-		},
-		Data: chunkserverConfigMap,
-	}
-
-	err = c.OwnerInfo.SetControllerReference(cm)
-	if err != nil {
-		return err
-	}
-
-	// Create chunkserver config in cluster
-	_, err = c.Context.Clientset.CoreV1().ConfigMaps(c.NamespacedName.Namespace).Create(cm)
-	if err != nil && !kerrors.IsAlreadyExists(err) {
-		return errors.Wrapf(err, "failed to create chunkserver configmap %s", c.NamespacedName.Namespace)
-	}
-
-	return nil
-}
 
 func (c *Cluster) makeDeployment(csConfig *chunkserverConfig) (*apps.Deployment, error) {
 	volumes := CSDaemonVolumes(csConfig)
@@ -175,7 +59,7 @@ func (c *Cluster) makeDeployment(csConfig *chunkserverConfig) (*apps.Deployment,
 	// set ownerReference
 	err := c.OwnerInfo.SetControllerReference(d)
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed to set owner reference to chunkserver deployment %q", d.Name)
+		return nil, err
 	}
 
 	return d, nil
