@@ -21,25 +21,6 @@ const (
 	SyncConfigDeployment = "curve-sync-config"
 )
 
-var BSConfigs = []string{
-	"etcd.conf",
-	"mds.conf",
-	"chunkserver.conf",
-	"snapshotclone.conf",
-	"snap_client.conf",
-	"cs_client.conf",
-	"s3.conf",
-	"nginx.conf",
-	"tools.conf",
-}
-
-var FSConfigs = []string{
-	"etcd.conf",
-	"mds.conf",
-	"metaserver.conf",
-	"tools.conf",
-}
-
 // createSyncDeployment create a deployment for read config file
 func createSyncDeployment(c *daemon.Cluster) error {
 	podSpec := v1.PodTemplateSpec{

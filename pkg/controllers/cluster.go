@@ -35,11 +35,10 @@ func reconcileSharedServer(c *daemon.Cluster) ([]daemon.NodeInfo, error) {
 	}
 	time.Sleep(20 * time.Second)
 
-	err = createConfigMapTemplate(c)
+	err = createDefaultConfigMap(c)
 	if err != nil {
 		return nil, err
 	}
-	logger.Info("create config template configmap successfully")
 
 	// Start etcd cluster
 	etcds := etcd.New(c)

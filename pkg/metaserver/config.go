@@ -2,6 +2,9 @@ package metaserver
 
 import "github.com/opencurve/curve-operator/pkg/config"
 
+// mdsConfig implements config.ConfigInterface
+var _ config.ConfigInterface = &metaserverConfig{}
+
 type metaserverConfig struct {
 	Prefix                string
 	ServiceAddr           string

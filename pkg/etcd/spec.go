@@ -32,7 +32,7 @@ func (c *Cluster) createOverrideConfigMap(etcdEndpoints string, clusterEtcdAddr 
 	}
 	err := c.OwnerInfo.SetControllerReference(overrideCM)
 	if err != nil {
-		return errors.Wrapf(err, "failed to set owner reference to etcd override configmap %q", config.EtcdConfigMapName)
+		return err
 	}
 
 	_, err = c.Context.Clientset.CoreV1().ConfigMaps(c.NamespacedName.Namespace).Create(overrideCM)
@@ -48,53 +48,6 @@ func (c *Cluster) createOverrideConfigMap(etcdEndpoints string, clusterEtcdAddr 
 		// }
 	} else {
 		logger.Infof("ConfigMap %s for override etcd endpoints has been created", config.EtcdOverrideConfigMapName)
-	}
-
-	return nil
-}
-
-// createConfigMap create etcd configmap for etcd server
-func (c *Cluster) createEtcdConfigMap(etcdConfig *etcdConfig) error {
-	// get etcd-conf-template from cluster
-	etcdCMTemplate, err := c.Context.Clientset.CoreV1().ConfigMaps(c.NamespacedName.Namespace).Get(config.EtcdConfigTemp, metav1.GetOptions{})
-	if err != nil {
-		logger.Errorf("failed to get configmap [ %s ] from cluster", config.MdsConfigMapTemp)
-		if kerrors.IsNotFound(err) {
-			return errors.Wrapf(err, "failed to get configmap [ %s ] from cluster", config.MdsConfigMapTemp)
-		}
-		return errors.Wrapf(err, "failed to get configmap [ %s ] from cluster", config.MdsConfigMapTemp)
-	}
-
-	// read configmap data (string)
-	etcdCMData := etcdCMTemplate.Data[config.EtcdConfigMapDataKey]
-	// replace ${} to specific parameters
-	EtcdConfigTemp, err := config.ReplaceConfigVars(etcdCMData, etcdConfig)
-	if err != nil {
-		return errors.Wrap(err, "failed to Replace etcd config template to generate a new etcd configmap to start server.")
-	}
-
-	// create curve-etcd-conf-[a,b,...] configmap for each one deployment
-	etcdConfigMapData := map[string]string{
-		config.EtcdConfigMapDataKey: EtcdConfigTemp,
-	}
-
-	cm := &v1.ConfigMap{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      etcdConfig.CurrentConfigMapName,
-			Namespace: c.NamespacedName.Namespace,
-		},
-		Data: etcdConfigMapData,
-	}
-
-	err = c.OwnerInfo.SetControllerReference(cm)
-	if err != nil {
-		return errors.Wrapf(err, "failed to set owner reference for etcd configmap [ %v ]", etcdConfig.CurrentConfigMapName)
-	}
-
-	// create etcd configmap in cluster
-	_, err = c.Context.Clientset.CoreV1().ConfigMaps(c.NamespacedName.Namespace).Create(cm)
-	if err != nil && !kerrors.IsAlreadyExists(err) {
-		return errors.Wrapf(err, "failed to create etcd configmap %s", c.NamespacedName.Namespace)
 	}
 
 	return nil
@@ -155,8 +108,6 @@ func (c *Cluster) makeDeployment(nodeName string, ip string, etcdConfig *etcdCon
 
 // makeChmodDirInitContainer make init container to chmod 700 of ContainerDataDir('/curvebs/etcd/data')
 func (c *Cluster) makeChmodDirInitContainer(etcdConfig *etcdConfig) v1.Container {
-	// clientPort, _ := strconv.Atoi(etcdConfig.ServiceClientPort)
-	// peerPort, _ := strconv.Atoi(etcdConfig.ServicePort)
 	container := v1.Container{
 		Name: "chmod",
 		// Args:            args,
@@ -165,20 +116,6 @@ func (c *Cluster) makeChmodDirInitContainer(etcdConfig *etcdConfig) v1.Container
 		ImagePullPolicy: c.CurveVersion.ImagePullPolicy,
 		VolumeMounts:    daemon.DaemonVolumeMounts(config.EtcdConfigMapDataKey, config.EtcdConfigMapMountPathDir, etcdConfig.DataPathMap, etcdConfig.CurrentConfigMapName),
 		Env:             []v1.EnvVar{{Name: "TZ", Value: "Asia/Hangzhou"}},
-		Ports: []v1.ContainerPort{
-			{
-				Name:          "listen-port",
-				ContainerPort: 9898,
-				HostPort:      9898,
-				Protocol:      v1.ProtocolTCP,
-			},
-			{
-				Name:          "peer-port",
-				ContainerPort: int32(9899),
-				HostPort:      int32(9899),
-				Protocol:      v1.ProtocolTCP,
-			},
-		},
 	}
 	return container
 }

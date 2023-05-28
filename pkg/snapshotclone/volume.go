@@ -50,9 +50,12 @@ func SnapConfigMapVolumeAndMount(snapConfig *snapConfig) ([]v1.Volume, []v1.Volu
 
 	// nginx.conf
 	mode := int32(0644)
-	nginxConfigMapVolSource := &v1.ConfigMapVolumeSource{LocalObjectReference: v1.LocalObjectReference{Name: config.NginxConfigMapName}, Items: []v1.KeyToPath{{Key: config.NginxConfigMapDataKey, Path: config.NginxConfigMapDataKey, Mode: &mode}}}
+	nginxConfigMapVolSource := &v1.ConfigMapVolumeSource{
+		LocalObjectReference: v1.LocalObjectReference{Name: config.SnapShotCloneAllConfigMapName},
+		Items:                []v1.KeyToPath{{Key: config.NginxConfigMapDataKey, Path: config.NginxConfigMapDataKey, Mode: &mode}},
+	}
 	nginxConfigVol := v1.Volume{
-		Name: config.NginxConfigMapName,
+		Name: "nginx-conf",
 		VolumeSource: v1.VolumeSource{
 			ConfigMap: nginxConfigMapVolSource,
 		},
@@ -60,9 +63,12 @@ func SnapConfigMapVolumeAndMount(snapConfig *snapConfig) ([]v1.Volume, []v1.Volu
 	vols = append(vols, nginxConfigVol)
 
 	// start_snap.sh
-	startSnapConfigMapVolSource := &v1.ConfigMapVolumeSource{LocalObjectReference: v1.LocalObjectReference{Name: config.StartSnapConfigMap}, Items: []v1.KeyToPath{{Key: config.StartSnapConfigMapDataKey, Path: config.StartSnapConfigMapDataKey, Mode: &mode}}}
+	startSnapConfigMapVolSource := &v1.ConfigMapVolumeSource{
+		LocalObjectReference: v1.LocalObjectReference{Name: config.SnapShotCloneAllConfigMapName},
+		Items:                []v1.KeyToPath{{Key: config.StartSnapConfigMapDataKey, Path: config.StartSnapConfigMapDataKey, Mode: &mode}},
+	}
 	startSnapConfigVol := v1.Volume{
-		Name: config.StartSnapConfigMap,
+		Name: "start-snapshot",
 		VolumeSource: v1.VolumeSource{
 			ConfigMap: startSnapConfigMapVolSource,
 		},
@@ -70,9 +76,12 @@ func SnapConfigMapVolumeAndMount(snapConfig *snapConfig) ([]v1.Volume, []v1.Volu
 	vols = append(vols, startSnapConfigVol)
 
 	// snap_client.conf
-	snapClientConfigMapVolSource := &v1.ConfigMapVolumeSource{LocalObjectReference: v1.LocalObjectReference{Name: config.SnapClientConfigMapName}, Items: []v1.KeyToPath{{Key: config.SnapClientConfigMapDataKey, Path: config.SnapClientConfigMapDataKey, Mode: &mode}}}
+	snapClientConfigMapVolSource := &v1.ConfigMapVolumeSource{
+		LocalObjectReference: v1.LocalObjectReference{Name: config.SnapShotCloneAllConfigMapName},
+		Items:                []v1.KeyToPath{{Key: config.SnapClientConfigMapDataKey, Path: config.SnapClientConfigMapDataKey, Mode: &mode}},
+	}
 	snapClientConfigVol := v1.Volume{
-		Name: config.SnapClientConfigMapName,
+		Name: "snap-client-conf",
 		VolumeSource: v1.VolumeSource{
 			ConfigMap: snapClientConfigMapVolSource,
 		},
@@ -80,9 +89,12 @@ func SnapConfigMapVolumeAndMount(snapConfig *snapConfig) ([]v1.Volume, []v1.Volu
 	vols = append(vols, snapClientConfigVol)
 
 	// s3.conf
-	S3ConfigMapVolSource := &v1.ConfigMapVolumeSource{LocalObjectReference: v1.LocalObjectReference{Name: config.S3ConfigMapName}, Items: []v1.KeyToPath{{Key: config.S3ConfigMapDataKey, Path: config.S3ConfigMapDataKey, Mode: &mode}}}
+	S3ConfigMapVolSource := &v1.ConfigMapVolumeSource{
+		LocalObjectReference: v1.LocalObjectReference{Name: config.SnapShotCloneAllConfigMapName},
+		Items:                []v1.KeyToPath{{Key: config.S3ConfigMapDataKey, Path: config.S3ConfigMapDataKey, Mode: &mode}},
+	}
 	S3ConfigVol := v1.Volume{
-		Name: config.S3ConfigMapName + "-snapshotclone",
+		Name: "s3-conf",
 		VolumeSource: v1.VolumeSource{
 			ConfigMap: S3ConfigMapVolSource,
 		},
@@ -90,7 +102,10 @@ func SnapConfigMapVolumeAndMount(snapConfig *snapConfig) ([]v1.Volume, []v1.Volu
 	vols = append(vols, S3ConfigVol)
 
 	// snapshotclone.conf
-	snapShotConfigMapVolSource := &v1.ConfigMapVolumeSource{LocalObjectReference: v1.LocalObjectReference{Name: snapConfig.CurrentConfigMapName}, Items: []v1.KeyToPath{{Key: config.SnapShotCloneConfigMapDataKey, Path: config.SnapShotCloneConfigMapDataKey, Mode: &mode}}}
+	snapShotConfigMapVolSource := &v1.ConfigMapVolumeSource{
+		LocalObjectReference: v1.LocalObjectReference{Name: snapConfig.CurrentConfigMapName},
+		Items:                []v1.KeyToPath{{Key: config.SnapShotCloneConfigMapDataKey, Path: config.SnapShotCloneConfigMapDataKey, Mode: &mode}},
+	}
 	configVol := v1.Volume{
 		Name: snapConfig.CurrentConfigMapName,
 		VolumeSource: v1.VolumeSource{
@@ -99,35 +114,36 @@ func SnapConfigMapVolumeAndMount(snapConfig *snapConfig) ([]v1.Volume, []v1.Volu
 	}
 	vols = append(vols, configVol)
 
-	// nginx.conf volume mount
+	// nginx.conf volumeMount
 	nginxMountPath := v1.VolumeMount{
-		Name:      config.NginxConfigMapName,
+		Name:      "nginx-conf",
 		ReadOnly:  true, // should be no reason to write to the config in pods, so enforce this
 		MountPath: path.Join(config.NginxConfigMapMountPath, config.NginxConfigMapDataKey),
 		SubPath:   config.NginxConfigMapDataKey,
 	}
 	mounts = append(mounts, nginxMountPath)
 
+	// start_snap.sh volumeMount
 	startSnapMountPath := v1.VolumeMount{
-		Name:      config.StartSnapConfigMap,
+		Name:      "start-snapshot",
 		ReadOnly:  true, // should be no reason to write to the config in pods, so enforce this
 		MountPath: config.StartSnapConfigMapMountPath,
 		SubPath:   config.StartSnapConfigMapDataKey,
 	}
 	mounts = append(mounts, startSnapMountPath)
 
-	// snap_client.conf volume mount
+	// snap_client.conf volumeMount
 	snapClientMountPath := v1.VolumeMount{
-		Name:      config.SnapClientConfigMapName,
+		Name:      "snap-client-conf",
 		ReadOnly:  true, // should be no reason to write to the config in pods, so enforce this
 		MountPath: path.Join(config.SnapClientConfigMapMountPath, config.SnapClientConfigMapDataKey),
 		SubPath:   config.SnapClientConfigMapDataKey,
 	}
 	mounts = append(mounts, snapClientMountPath)
 
-	// s3.conf volume mount
+	// s3.conf volumeMount
 	S3MountPath := v1.VolumeMount{
-		Name:      config.S3ConfigMapName + "-snapshotclone",
+		Name:      "s3-conf",
 		ReadOnly:  true, // should be no reason to write to the config in pods, so enforce this
 		MountPath: path.Join(config.S3ConfigMapMountSnapPathDir, config.S3ConfigMapDataKey),
 		SubPath:   config.S3ConfigMapDataKey,

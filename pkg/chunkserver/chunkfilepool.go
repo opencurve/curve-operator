@@ -9,7 +9,6 @@ import (
 	"github.com/pkg/errors"
 	batch "k8s.io/api/batch/v1"
 	v1 "k8s.io/api/core/v1"
-	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	curvev1 "github.com/opencurve/curve-operator/api/v1"
@@ -83,10 +82,9 @@ func (c *Cluster) startProvisioningOverNodes(nodesInfo []daemon.NodeInfo) ([]*to
 			})
 		}
 
-		// create FORMAT configmap
-		err = c.createFormatConfigMap()
+		err = c.UpdateSpecRoleAllConfigMap(config.ChunkserverAllConfigMapName, formatScriptFileDataKey, script.FORMAT, nil)
 		if err != nil {
-			return nil, errors.Wrap(err, "failed to create format ConfigMap")
+			return nil, err
 		}
 
 		// get ClusterEtcdAddr
@@ -197,33 +195,6 @@ func (c *Cluster) startProvisioningOverNodes(nodesInfo []daemon.NodeInfo) ([]*to
 	}
 
 	return dcs, nil
-}
-
-// createConfigMap create configmap to store format.sh script
-func (c *Cluster) createFormatConfigMap() error {
-	formatConfigMapData := map[string]string{
-		formatScriptFileDataKey: script.FORMAT,
-	}
-
-	cm := &v1.ConfigMap{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      formatConfigMapName,
-			Namespace: c.NamespacedName.Namespace,
-		},
-		Data: formatConfigMapData,
-	}
-
-	err := c.OwnerInfo.SetControllerReference(cm)
-	if err != nil {
-		return errors.Wrapf(err, "failed to set owner reference to format configmap %q", formatConfigMapName)
-	}
-
-	_, err = c.Context.Clientset.CoreV1().ConfigMaps(c.NamespacedName.Namespace).Create(cm)
-	if err != nil && !kerrors.IsAlreadyExists(err) {
-		return errors.Wrapf(err, "failed to create override configmap %s", c.NamespacedName.Namespace)
-	}
-
-	return nil
 }
 
 // runPrepareJob create job and run job

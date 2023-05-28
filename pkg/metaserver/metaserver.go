@@ -46,7 +46,7 @@ func (c *Cluster) Start(nodesInfo []daemon.NodeInfo) error {
 	}
 
 	// create tool ConfigMap
-	if err := c.createToolConfigMap(msConfigs); err != nil {
+	if err := c.CreateEachConfigMap(config.ToolsConfigMapDataKey, msConfigs[0], config.ToolsConfigMapName); err != nil {
 		return err
 	}
 
@@ -63,7 +63,7 @@ func (c *Cluster) Start(nodesInfo []daemon.NodeInfo) error {
 
 	var deploymentsToWaitFor []*appsv1.Deployment
 	for _, msConfig := range msConfigs {
-		if err := c.createMetaserverConfigMap(msConfig); err != nil {
+		if err := c.CreateEachConfigMap(config.MetaServerConfigMapDataKey, msConfig, msConfig.CurrentConfigMapName); err != nil {
 			return err
 		}
 		d, err := c.makeDeployment(msConfig, msConfig.NodeName, msConfig.NodeIP)

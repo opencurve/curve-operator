@@ -108,7 +108,8 @@ func (c *Cluster) Start(nodesInfo []daemon.NodeInfo) error {
 			ConfigMapMountPath: configMapMountPath,
 		}
 
-		if err := c.createMdsConfigMap(mdsConfig); err != nil {
+		err := c.CreateEachConfigMap(config.MdsConfigMapDataKey, mdsConfig, currentConfigMapName)
+		if err != nil {
 			return err
 		}
 

@@ -9,7 +9,6 @@ import (
 	"github.com/coreos/pkg/capnslog"
 	"github.com/pkg/errors"
 	appsv1 "k8s.io/api/apps/v1"
-	v1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -57,7 +56,8 @@ func (c *Cluster) Start(nodesInfo []daemon.NodeInfo) error {
 	}
 	clusterMdsAddr := mdsOverrideCM.Data[config.MdsOvverideConfigMapDataKey]
 
-	if err := c.createStartSnapConfigMap(); err != nil {
+	err = c.UpdateSpecRoleAllConfigMap(config.SnapShotCloneAllConfigMapName, config.StartSnapConfigMapDataKey, START, nil)
+	if err != nil {
 		return err
 	}
 
@@ -127,27 +127,31 @@ func (c *Cluster) Start(nodesInfo []daemon.NodeInfo) error {
 	return nil
 }
 
-func (c *Cluster) createStartSnapConfigMap() error {
-	startSnapShotConfigMap := map[string]string{
-		config.StartSnapConfigMapDataKey: START,
-	}
-
-	cm := &v1.ConfigMap{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      config.StartSnapConfigMap,
-			Namespace: c.NamespacedName.Namespace,
-		},
-		Data: startSnapShotConfigMap,
-	}
-
-	err := c.OwnerInfo.SetControllerReference(cm)
+// prepareConfigMap
+func (c *Cluster) prepareConfigMap(snapConfig *snapConfig) error {
+	// 1. get s3 configmap that must has been created by chunkserver
+	_, err := c.Context.Clientset.CoreV1().ConfigMaps(c.NamespacedName.Namespace).Get(config.ChunkserverAllConfigMapName, metav1.GetOptions{})
 	if err != nil {
-		return errors.Wrapf(err, "failed to set owner reference to start_snapshot.sh configmap %q", config.StartSnapConfigMap)
+		return errors.Wrapf(err, "failed to get %s configmap from cluster", config.ChunkserverAllConfigMapName)
 	}
-	// create nginx configmap in cluster
-	_, err = c.Context.Clientset.CoreV1().ConfigMaps(c.NamespacedName.Namespace).Create(cm)
-	if err != nil && !kerrors.IsAlreadyExists(err) {
-		return errors.Wrapf(err, "failed to create start snapshotclone configmap %s", c.NamespacedName.Namespace)
+	logger.Infof("check %s configmap has been exist", config.ChunkserverAllConfigMapName)
+
+	// 2. create snap_client.conf configmap
+	err = c.UpdateSpecRoleAllConfigMap(config.SnapShotCloneAllConfigMapName, config.SnapClientConfigMapDataKey, "", snapConfig)
+	if err != nil {
+		return err
+	}
+
+	// 3. create nginx.conf configmap
+	err = c.UpdateSpecRoleAllConfigMap(config.SnapShotCloneAllConfigMapName, config.NginxConfigMapDataKey, "", snapConfig)
+	if err != nil {
+		return err
+	}
+
+	// 4. create snapshotclone.conf configmap
+	err = c.CreateEachConfigMap(config.SnapShotCloneConfigMapDataKey, snapConfig, snapConfig.CurrentConfigMapName)
+	if err != nil {
+		return err
 	}
 
 	return nil
