@@ -23,6 +23,7 @@ const (
 	ConfigMapNamePrefix = "curve-snapshotclone-conf"
 
 	// ContainerPath is the mount path of data and log
+
 	Prefix           = "/curvebs/snapshotclone"
 	ContainerDataDir = "/curvebs/snapshotclone/data"
 	ContainerLogDir  = "/curvebs/snapshotclone/logs"

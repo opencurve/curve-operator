@@ -24,7 +24,7 @@ type NodesToDeploy struct {
 	NodeIP   string
 }
 
-// getNodeInfoMap get node ip by node name that user specified and return a mapping of nodeName:nodeIP
+// GetNodeInfoMap get node ip by node name that user specified and return a mapping of nodeName:nodeIP
 func GetNodeInfoMap(nodes []string, clientset kubernetes.Interface) ([]NodesToDeploy, error) {
 	nodeNameIP := []NodesToDeploy{}
 	for _, nodeName := range nodes {
