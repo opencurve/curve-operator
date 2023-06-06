@@ -66,6 +66,9 @@ func (c *Cluster) getS3ConfigMapData() (string, error) {
 	s3MapData := translateS3StringToMap(s3Data)
 	s3MapData["s3.ak"] = c.SnapShotClone.S3Config.AK
 	s3MapData["s3.sk"] = c.SnapShotClone.S3Config.SK
+	s3MapData["s3.endpoint"] = c.SnapShotClone.S3Config.NosAddress
+	s3MapData["s3.bucket_name"] = c.SnapShotClone.S3Config.SnapShotBucketName
+	// reserved for backward compatible
 	s3MapData["s3.nos_address"] = c.SnapShotClone.S3Config.NosAddress
 	s3MapData["s3.snapshot_bucket_name"] = c.SnapShotClone.S3Config.SnapShotBucketName
 

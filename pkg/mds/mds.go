@@ -17,6 +17,7 @@ import (
 	"github.com/opencurve/curve-operator/pkg/config"
 	"github.com/opencurve/curve-operator/pkg/daemon"
 	"github.com/opencurve/curve-operator/pkg/k8sutil"
+	"github.com/opencurve/curve-operator/pkg/topology"
 )
 
 const (
@@ -44,10 +45,10 @@ func New(c *daemon.Cluster) *Cluster {
 var logger = capnslog.NewPackageLogger("github.com/opencurve/curve-operator", "mds")
 
 // Start Curve mds daemon
-func (c *Cluster) Start(nodesInfo []daemon.NodeInfo) error {
+func (c *Cluster) Start(nodesInfo []daemon.NodeInfo, dcs []*topology.DeployConfig) ([]*topology.DeployConfig, error) {
 	overrideCM, err := c.Context.Clientset.CoreV1().ConfigMaps(c.NamespacedName.Namespace).Get(config.EtcdOverrideConfigMapName, metav1.GetOptions{})
 	if err != nil {
-		return err
+		return nil, err
 	}
 	clusterEtcdAddr := overrideCM.Data[config.ClusterEtcdAddr]
 
@@ -64,7 +65,7 @@ func (c *Cluster) Start(nodesInfo []daemon.NodeInfo) error {
 	// create mds override configmap to record mds endpoints
 	err = c.createOverrideMdsCM(mdsEndpoints, clusterMdsDummyAddr, clusterMdsDummyPort)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	var configMapMountPath, prefix, containerDataDir, containerLogDir string
@@ -107,21 +108,32 @@ func (c *Cluster) Start(nodesInfo []daemon.NodeInfo) error {
 			),
 			ConfigMapMountPath: configMapMountPath,
 		}
+		dc := &topology.DeployConfig{
+			Kind:             c.Kind,
+			Role:             config.ROLE_MDS,
+			NodeName:         node.NodeName,
+			NodeIP:           node.NodeIP,
+			Port:             node.MdsPort,
+			ReplicasSequence: node.ReplicasSequence,
+			Replicas:         len(c.Nodes),
+			StandAlone:       node.StandAlone,
+		}
+		dcs = append(dcs, dc)
 
 		err := c.CreateEachConfigMap(config.MdsConfigMapDataKey, mdsConfig, currentConfigMapName)
 		if err != nil {
-			return err
+			return nil, err
 		}
 
 		d, err := c.makeDeployment(node.NodeName, node.NodeIP, mdsConfig)
 		if err != nil {
-			return err
+			return nil, err
 		}
 
 		newDeployment, err := c.Context.Clientset.AppsV1().Deployments(c.NamespacedName.Namespace).Create(d)
 		if err != nil {
 			if !kerrors.IsAlreadyExists(err) {
-				return errors.Wrapf(err, "failed to create mds deployment %s", resourceName)
+				return nil, errors.Wrapf(err, "failed to create mds deployment %s", resourceName)
 			}
 			logger.Infof("deployment for mds %s already exists. updating if needed", resourceName)
 
@@ -138,11 +150,11 @@ func (c *Cluster) Start(nodesInfo []daemon.NodeInfo) error {
 	// wait all Deployments to start
 	for _, d := range deploymentsToWaitFor {
 		if err := k8sutil.WaitForDeploymentToStart(context.TODO(), &c.Context, d); err != nil {
-			return err
+			return nil, err
 		}
 	}
 
 	k8sutil.UpdateStatusCondition(c.Kind, context.TODO(), &c.Context, c.NamespacedName, curvev1.ConditionTypeMdsReady, curvev1.ConditionTrue, curvev1.ConditionMdsClusterCreatedReason, "MDS cluster has been created")
 
-	return nil
+	return dcs, nil
 }

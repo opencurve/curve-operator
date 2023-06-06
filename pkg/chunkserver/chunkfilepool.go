@@ -44,7 +44,7 @@ var job2DeviceInfos []*Job2DeviceInfo
 var chunkserverConfigs []chunkserverConfig
 
 // startProvisioningOverNodes format device and provision chunk files
-func (c *Cluster) startProvisioningOverNodes(nodesInfo []daemon.NodeInfo) ([]*topology.DeployConfig, error) {
+func (c *Cluster) startProvisioningOverNodes(nodesInfo []daemon.NodeInfo, globakDCs []*topology.DeployConfig) ([]*topology.DeployConfig, []*topology.DeployConfig, error) {
 	dcs := []*topology.DeployConfig{}
 	if !c.Chunkserver.UseSelectedNodes {
 		// clear slice
@@ -52,7 +52,7 @@ func (c *Cluster) startProvisioningOverNodes(nodesInfo []daemon.NodeInfo) ([]*to
 		chunkserverConfigs = []chunkserverConfig{}
 		hostnameMap, err := k8sutil.GetNodeHostNames(c.Context.Clientset)
 		if err != nil {
-			return nil, errors.Wrap(err, "failed to get node hostnames")
+			return nil, nil, errors.Wrap(err, "failed to get node hostnames")
 		}
 
 		var storageNodes []string
@@ -64,7 +64,7 @@ func (c *Cluster) startProvisioningOverNodes(nodesInfo []daemon.NodeInfo) ([]*to
 		validNodes, _ := k8sutil.GetValidNodes(c.Context, storageNodes)
 		if len(validNodes) == 0 {
 			logger.Warningf("no valid nodes available to run chunkservers on nodes in namespace %q", c.NamespacedName.Namespace)
-			return nil, nil
+			return nil, nil, nil
 		}
 		logger.Infof("%d of the %d storage nodes are valid", len(validNodes), len(c.Chunkserver.Nodes))
 
@@ -84,20 +84,20 @@ func (c *Cluster) startProvisioningOverNodes(nodesInfo []daemon.NodeInfo) ([]*to
 
 		err = c.UpdateSpecRoleAllConfigMap(config.ChunkserverAllConfigMapName, formatScriptFileDataKey, script.FORMAT, nil)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 
 		// get ClusterEtcdAddr
 		etcdOverrideCM, err := c.Context.Clientset.CoreV1().ConfigMaps(c.NamespacedName.Namespace).Get(config.EtcdOverrideConfigMapName, metav1.GetOptions{})
 		if err != nil {
-			return nil, errors.Wrap(err, "failed to get etcd override endoints configmap")
+			return nil, nil, errors.Wrap(err, "failed to get etcd override endoints configmap")
 		}
 		clusterEtcdAddr := etcdOverrideCM.Data[config.ClusterEtcdAddr]
 
 		// get ClusterMdsAddr
 		mdsOverrideCM, err := c.Context.Clientset.CoreV1().ConfigMaps(c.NamespacedName.Namespace).Get(config.MdsOverrideConfigMapName, metav1.GetOptions{})
 		if err != nil {
-			return nil, errors.Wrap(err, "failed to get mds override endoints configmap")
+			return nil, nil, errors.Wrap(err, "failed to get mds override endoints configmap")
 		}
 		clusterMdsAddr := mdsOverrideCM.Data[config.MdsOvverideConfigMapDataKey]
 		clusterMdsDummyPort := mdsOverrideCM.Data[config.ClusterMdsDummyPort]
@@ -134,7 +134,7 @@ func (c *Cluster) startProvisioningOverNodes(nodesInfo []daemon.NodeInfo) ([]*to
 
 				job, err := c.runPrepareJob(node.nodeName, device)
 				if err != nil {
-					return nil, err
+					return nil, nil, err
 				}
 
 				jobInfo := &Job2DeviceInfo{
@@ -174,7 +174,7 @@ func (c *Cluster) startProvisioningOverNodes(nodesInfo []daemon.NodeInfo) ([]*to
 
 				dc := &topology.DeployConfig{
 					Kind:             c.Kind,
-					Role:             "chunkserver",
+					Role:             config.ROLE_CHUNKSERVER,
 					Copysets:         c.Chunkserver.CopySets,
 					NodeName:         node.nodeName,
 					NodeIP:           node.nodeIP,
@@ -186,6 +186,7 @@ func (c *Cluster) startProvisioningOverNodes(nodesInfo []daemon.NodeInfo) ([]*to
 				}
 				chunkserverConfigs = append(chunkserverConfigs, chunkserverConfig)
 				dcs = append(dcs, dc)
+				globakDCs = append(globakDCs, dc)
 				portBase++
 				replicasSequence++
 				daemonID++
@@ -194,7 +195,7 @@ func (c *Cluster) startProvisioningOverNodes(nodesInfo []daemon.NodeInfo) ([]*to
 		}
 	}
 
-	return dcs, nil
+	return dcs, globakDCs, nil
 }
 
 // runPrepareJob create job and run job

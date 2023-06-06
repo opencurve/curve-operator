@@ -39,42 +39,42 @@ func New(c *daemon.Cluster) *Cluster {
 
 var logger = capnslog.NewPackageLogger("github.com/opencurve/curve-operator", "metaserver")
 
-func (c *Cluster) Start(nodesInfo []daemon.NodeInfo) error {
-	msConfigs, dcs, err := c.buildConfigs(nodesInfo)
+func (c *Cluster) Start(nodesInfo []daemon.NodeInfo, globalDCs []*topology.DeployConfig) ([]*topology.DeployConfig, error) {
+	msConfigs, dcs, globalDCs, err := c.buildConfigs(nodesInfo, globalDCs)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	// create tool ConfigMap
 	if err := c.CreateEachConfigMap(config.ToolsConfigMapDataKey, msConfigs[0], config.ToolsConfigMapName); err != nil {
-		return err
+		return nil, err
 	}
 
 	// create topology ConfigMap
 	if err := topology.CreateTopoConfigMap(c.Cluster, dcs); err != nil {
-		return err
+		return nil, err
 	}
 
 	// create logic pool
 	_, err = topology.RunCreatePoolJob(c.Cluster, dcs, topology.LOGICAL_POOL)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	var deploymentsToWaitFor []*appsv1.Deployment
 	for _, msConfig := range msConfigs {
 		if err := c.CreateEachConfigMap(config.MetaServerConfigMapDataKey, msConfig, msConfig.CurrentConfigMapName); err != nil {
-			return err
+			return nil, err
 		}
 		d, err := c.makeDeployment(msConfig, msConfig.NodeName, msConfig.NodeIP)
 		if err != nil {
-			return err
+			return nil, err
 		}
 
 		newDeployment, err := c.Context.Clientset.AppsV1().Deployments(c.NamespacedName.Namespace).Create(d)
 		if err != nil {
 			if !kerrors.IsAlreadyExists(err) {
-				return errors.Wrapf(err, "failed to create mds deployment %s", msConfig.ResourceName)
+				return nil, errors.Wrapf(err, "failed to create mds deployment %s", msConfig.ResourceName)
 			}
 			logger.Infof("deployment for mds %s already exists. updating if needed", msConfig.ResourceName)
 
@@ -91,29 +91,29 @@ func (c *Cluster) Start(nodesInfo []daemon.NodeInfo) error {
 	// wait all Deployments to start
 	for _, d := range deploymentsToWaitFor {
 		if err := k8sutil.WaitForDeploymentToStart(context.TODO(), &c.Context, d); err != nil {
-			return err
+			return nil, err
 		}
 	}
 
 	k8sutil.UpdateStatusCondition(c.Kind, context.TODO(), &c.Context, c.NamespacedName, curvev1.ConditionTypeMetaServerReady, curvev1.ConditionTrue, curvev1.ConditionMetaServerClusterCreatedReason, "MetaServer cluster has been created")
-	return nil
+	return globalDCs, nil
 }
 
 // Start Curve metaserver daemon
-func (c *Cluster) buildConfigs(nodesInfo []daemon.NodeInfo) ([]*metaserverConfig, []*topology.DeployConfig, error) {
+func (c *Cluster) buildConfigs(nodesInfo []daemon.NodeInfo, globalDCs []*topology.DeployConfig) ([]*metaserverConfig, []*topology.DeployConfig, []*topology.DeployConfig, error) {
 	logger.Infof("starting to run metaserver in namespace %q", c.NamespacedName.Namespace)
 
 	// get ClusterEtcdAddr
 	etcdOverrideCM, err := c.Context.Clientset.CoreV1().ConfigMaps(c.NamespacedName.Namespace).Get(config.EtcdOverrideConfigMapName, metav1.GetOptions{})
 	if err != nil {
-		return nil, nil, errors.Wrap(err, "failed to get etcd override endoints configmap")
+		return nil, nil, nil, errors.Wrap(err, "failed to get etcd override endoints configmap")
 	}
 	clusterEtcdAddr := etcdOverrideCM.Data[config.ClusterEtcdAddr]
 
 	// get ClusterMdsAddr
 	mdsOverrideCM, err := c.Context.Clientset.CoreV1().ConfigMaps(c.NamespacedName.Namespace).Get(config.MdsOverrideConfigMapName, metav1.GetOptions{})
 	if err != nil {
-		return nil, nil, errors.Wrap(err, "failed to get mds override endoints configmap")
+		return nil, nil, nil, errors.Wrap(err, "failed to get mds override endoints configmap")
 	}
 	clusterMdsAddr := mdsOverrideCM.Data[config.MdsOvverideConfigMapDataKey]
 	clusterMdsDummyAddr := mdsOverrideCM.Data[config.ClusterMdsDummyAddr]
@@ -159,7 +159,7 @@ func (c *Cluster) buildConfigs(nodesInfo []daemon.NodeInfo) ([]*metaserverConfig
 
 		dc := &topology.DeployConfig{
 			Kind:             c.Kind,
-			Role:             "metaserver",
+			Role:             config.ROLE_METASERVER,
 			Copysets:         c.Metaserver.CopySets,
 			NodeName:         node.NodeName,
 			NodeIP:           node.NodeIP,
@@ -170,7 +170,8 @@ func (c *Cluster) buildConfigs(nodesInfo []daemon.NodeInfo) ([]*metaserverConfig
 		}
 		metaserverConfigs = append(metaserverConfigs, metaserverConfig)
 		dcs = append(dcs, dc)
+		globalDCs = append(globalDCs, dc)
 	}
 
-	return metaserverConfigs, dcs, nil
+	return metaserverConfigs, dcs, globalDCs, nil
 }

@@ -138,6 +138,8 @@ Create the cluster:
 
 ```shell
 $ kubectl apply -f config/samples/cluster.yaml
+
+// or you can deploy stand-alone cluster using `bscluster-onhost.yaml`
 ```
 
 using `kubectl` to list pods in the curve namespace. You should be able to see the following pods once they are all running. The chunkserver numbers of will depend on the number of nodes in the cluster and the the number of devices configured. 
@@ -169,8 +171,7 @@ To verify that the cluster is in healthy state, enter one curve-chunkserver pod 
 
 ```shell
 $ kubectl exec -it <any one chunkserver pod> -- bash
-$ cd /curvebs/tools/sbin
-$ ./curve_ops_tool status
+$ curve_ops_tool status
 
 Cluster status:
 cluster is healthy

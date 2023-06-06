@@ -16,6 +16,7 @@ import (
 	"github.com/opencurve/curve-operator/pkg/config"
 	"github.com/opencurve/curve-operator/pkg/daemon"
 	"github.com/opencurve/curve-operator/pkg/k8sutil"
+	"github.com/opencurve/curve-operator/pkg/topology"
 )
 
 const (
@@ -43,7 +44,7 @@ func New(c *daemon.Cluster) *Cluster {
 }
 
 // Start begins the process of running a cluster of curve etcds.
-func (c *Cluster) Start(nodesInfo []daemon.NodeInfo) error {
+func (c *Cluster) Start(nodesInfo []daemon.NodeInfo) ([]*topology.DeployConfig, error) {
 	var etcdEndpoints, clusterEtcdAddr, initialCluster string
 	for _, node := range nodesInfo {
 		etcdEndpoints = fmt.Sprint(etcdEndpoints, node.NodeIP, ":", node.PeerPort, ",")
@@ -57,7 +58,7 @@ func (c *Cluster) Start(nodesInfo []daemon.NodeInfo) error {
 
 	// Create etcd override configmap
 	if err := c.createOverrideConfigMap(etcdEndpoints, clusterEtcdAddr); err != nil {
-		return err
+		return nil, err
 	}
 
 	// create ConfigMap and referred Deployment by travel all nodes that have been labeled - "app=etcd"
@@ -75,6 +76,7 @@ func (c *Cluster) Start(nodesInfo []daemon.NodeInfo) error {
 	}
 
 	var deploymentsToWaitFor []*appsv1.Deployment
+	var dcs []*topology.DeployConfig
 
 	for _, node := range nodesInfo {
 		daemonIDString := k8sutil.IndexToName(node.HostID)
@@ -101,23 +103,35 @@ func (c *Cluster) Start(nodesInfo []daemon.NodeInfo) error {
 			),
 			ConfigMapMountPath: configMapMountPath,
 		}
+		dc := &topology.DeployConfig{
+			Kind:             c.Kind,
+			Role:             config.ROLE_ETCD,
+			NodeName:         node.NodeName,
+			NodeIP:           node.NodeIP,
+			Port:             node.ClientPort,
+			ReplicasSequence: node.ReplicasSequence,
+			Replicas:         len(c.Nodes),
+			StandAlone:       node.StandAlone,
+		}
+
+		dcs = append(dcs, dc)
 
 		// create each etcd configmap for each deployment
 		err := c.CreateEachConfigMap(config.EtcdConfigMapDataKey, etcdConfig, currentConfigMapName)
 		if err != nil {
-			return err
+			return nil, err
 		}
 
 		// make etcd deployment
 		d, err := c.makeDeployment(node.NodeName, node.NodeIP, etcdConfig)
 		if err != nil {
-			return err
+			return nil, err
 		}
 
 		newDeployment, err := c.Context.Clientset.AppsV1().Deployments(c.NamespacedName.Namespace).Create(d)
 		if err != nil {
 			if !kerrors.IsAlreadyExists(err) {
-				return errors.Wrapf(err, "failed to create etcd deployment %s", resourceName)
+				return nil, errors.Wrapf(err, "failed to create etcd deployment %s", resourceName)
 			}
 			logger.Infof("deployment for etcd %s already exists. updating if needed", resourceName)
 
@@ -133,11 +147,11 @@ func (c *Cluster) Start(nodesInfo []daemon.NodeInfo) error {
 	// wait all Deployments to start
 	for _, d := range deploymentsToWaitFor {
 		if err := k8sutil.WaitForDeploymentToStart(context.TODO(), &c.Context, d); err != nil {
-			return err
+			return nil, err
 		}
 	}
 
 	k8sutil.UpdateStatusCondition(c.Kind, context.TODO(), &c.Context, c.NamespacedName, curvev1.ConditionTypeEtcdReady, curvev1.ConditionTrue, curvev1.ConditionEtcdClusterCreatedReason, "Etcd cluster has been created")
 
-	return nil
+	return dcs, nil
 }

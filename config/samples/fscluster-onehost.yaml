@@ -8,7 +8,7 @@ metadata:
 spec:
   # The container image used to launch the Curve daemon pods(etcd, mds, metaserver).
   curveVersion:
-    image: opencurvedocker/curvefs:v2.3
+    image: curve2operator/curvefs:monitor-v2.4.0-beta2
     # Container image pull policy, 
     # By default the pull policy of all containers in that pod will be set to IfNotPresent if it is not explicitly specified and no modification necessary.
     imagePullPolicy: IfNotPresent
@@ -32,3 +32,19 @@ spec:
     port: 16800
     externalPort: 16800
     copySets: 100
+  monitor:
+    enable: false
+    monitorHost: curve-operator-node1
+    nodeExporter:
+      containerImage: prom/node-exporter:latest
+      listenPort: 9100
+    prometheus:
+      containerImage: prom/prometheus:latest
+      dataDir: /tmp/monitor/prometheus
+      listenPort: 9090
+      retentionTime: 7d
+      retentionSize: 256GB
+    grafana:
+      containerImage: grafana/grafana:latest
+      dataDir: /tmp/monitor/grafana
+      listenPort: 3000

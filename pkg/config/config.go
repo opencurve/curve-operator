@@ -10,6 +10,14 @@ const (
 )
 
 const (
+	ROLE_ETCD          = "etcd"
+	ROLE_MDS           = "mds"
+	ROLE_SNAPSHOTCLONE = "snapshotclone"
+	ROLE_METASERVER    = "metaserver"
+	ROLE_CHUNKSERVER   = "chunkserver"
+)
+
+const (
 	// template configmap
 	DefaultConfigMapName = "curve-conf-default"
 
@@ -83,4 +91,22 @@ const (
 	// metaserver.conf
 	MetaServerConfigMapDataKey   = "metaserver.conf"
 	MetaServerConfigMapMountPath = "/curvefs/metaserver/conf"
+
+	// prometheus.yaml
+	PrometheusConfigMapName    = "prometheus-conf"
+	PrometheusConfigMapDataKey = "prometheus.yml"
+
+	// grafana datasource yaml
+	GrafanaDataSourcesConfigMapName      = "grafana-conf"
+	GrafanaDataSourcesConfigMapDataKey   = "all.yml"
+	GrafanaDataSourcesConfigMapMountPath = "/etc/grafana/provisioning/datasources"
+
+	// grafana dashboards
+	GrafanaDashboardsMountPath = "/etc/grafana/provisioning/dashboards"
+
+	// grafana INI config
+	GrafanaINIConfigMapDataKey = "grafana.ini"
+	GrafanaINIConfigMountPath  = "/etc/grafana"
 )
+
+const GrafanaDashboardsTemp = "grafana-dashboard-temp"

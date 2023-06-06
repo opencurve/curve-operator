@@ -5,7 +5,6 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/opencurve/curve-operator/pkg/config"
 	"github.com/opencurve/curve-operator/pkg/daemon"
 	"github.com/opencurve/curve-operator/pkg/k8sutil"
 	"github.com/pkg/errors"
@@ -34,6 +33,7 @@ func createSyncDeployment(c *daemon.Cluster) error {
 			},
 			RestartPolicy: v1.RestartPolicyAlways,
 			HostNetwork:   true,
+			NodeName:      c.Nodes[0],
 			DNSPolicy:     v1.DNSClusterFirstWithHostNet,
 		},
 	}
@@ -107,13 +107,7 @@ func createSyncContainer(c *daemon.Cluster) v1.Container {
 	return container
 }
 
-func readConfigFromContainer(c *daemon.Cluster, pod v1.Pod, configName string) (string, error) {
-	var configPath string
-	if c.Kind == config.KIND_CURVEBS {
-		configPath = "/curvebs/conf/" + configName
-	} else {
-		configPath = "/curvefs/conf/" + configName
-	}
+func readConfigFromContainer(c *daemon.Cluster, pod v1.Pod, configPath string) (string, error) {
 	logger.Infof("syncing %v", configPath)
 	var (
 		execOut bytes.Buffer
