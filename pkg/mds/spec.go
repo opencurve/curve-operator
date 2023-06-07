@@ -5,7 +5,6 @@ import (
 	"path"
 	"strconv"
 
-	"github.com/pkg/errors"
 	apps "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
@@ -13,6 +12,8 @@ import (
 
 	"github.com/opencurve/curve-operator/pkg/config"
 	"github.com/opencurve/curve-operator/pkg/daemon"
+	"github.com/opencurve/curve-operator/pkg/k8sutil"
+	"github.com/pkg/errors"
 )
 
 // createOverrideMdsCM create mds-endpoints-override configmap to record mds endpoints
@@ -61,54 +62,19 @@ func (c *Cluster) makeDeployment(nodeName string, nodeIP string, mdsConfig *mdsC
 	volumes := daemon.DaemonVolumes(config.MdsConfigMapDataKey, mdsConfig.ConfigMapMountPath, mdsConfig.DataPathMap, mdsConfig.CurrentConfigMapName)
 	labels := daemon.CephDaemonAppLabels(AppName, c.Namespace, "mds", mdsConfig.DaemonID, c.Kind)
 
-	podSpec := v1.PodTemplateSpec{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:   mdsConfig.ResourceName,
-			Labels: labels,
-		},
-		Spec: v1.PodSpec{
-			Containers: []v1.Container{
-				c.makeMdsDaemonContainer(nodeIP, mdsConfig),
-			},
-			NodeName:      nodeName,
-			RestartPolicy: v1.RestartPolicyAlways,
-			HostNetwork:   true,
-			DNSPolicy:     v1.DNSClusterFirstWithHostNet,
-			Volumes:       volumes,
-		},
-	}
-
-	replicas := int32(1)
-
-	d := &apps.Deployment{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      mdsConfig.ResourceName,
-			Namespace: c.NamespacedName.Namespace,
-			Labels:    labels,
-		},
-		Spec: apps.DeploymentSpec{
-			Selector: &metav1.LabelSelector{
-				MatchLabels: labels,
-			},
-			Template: podSpec,
-			Replicas: &replicas,
-			Strategy: apps.DeploymentStrategy{
-				Type: apps.RecreateDeploymentStrategyType,
-			},
-		},
-	}
-
-	// set ownerReference
-	err := c.OwnerInfo.SetControllerReference(d)
+	containers := []v1.Container{c.makeMdsDaemonContainer(mdsConfig)}
+	deploymentConfig := k8sutil.DeploymentConfig{Name: mdsConfig.ResourceName, NodeName: nodeName, Namespace: c.NamespacedName.Namespace,
+		Labels: labels, Volumes: volumes, Containers: containers, OwnerInfo: c.OwnerInfo}
+	d, err := k8sutil.MakeDeployment(deploymentConfig)
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed to set owner reference to mon deployment %q", d.Name)
+		return nil, err
 	}
 
 	return d, nil
 }
 
 // makeMdsDaemonContainer create mds container
-func (c *Cluster) makeMdsDaemonContainer(nodeIP string, mdsConfig *mdsConfig) v1.Container {
+func (c *Cluster) makeMdsDaemonContainer(mdsConfig *mdsConfig) v1.Container {
 	port, _ := strconv.Atoi(mdsConfig.ServicePort)
 	dummyPort, _ := strconv.Atoi(mdsConfig.ServiceDummyPort)
 	var commandLine string
