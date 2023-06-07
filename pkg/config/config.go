@@ -37,7 +37,7 @@ const (
 	ClusterMdsDummyPort         = "clusterMdsDummyPort"
 
 	// configuration
-	// etcd.conf - it not be used
+	// etcd.conf
 	EtcdConfigMapDataKey        = "etcd.conf"
 	EtcdConfigMapMountPathDir   = "/curvebs/etcd/conf"
 	FSEtcdConfigMapMountPathDir = "/curvefs/etcd/conf"
@@ -107,6 +107,11 @@ const (
 	// grafana INI config
 	GrafanaINIConfigMapDataKey = "grafana.ini"
 	GrafanaINIConfigMountPath  = "/etc/grafana"
+
+	// report.sh
+	ReportConfigMapName            = "report-conf"
+	ReportConfigMapDataKey         = "report.sh"
+	ReportConfigMapMountPathCommon = "tools/sbin/report" // a new path
 )
 
 const GrafanaDashboardsTemp = "grafana-dashboard-temp"

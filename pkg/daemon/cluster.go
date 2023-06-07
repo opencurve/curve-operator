@@ -8,6 +8,7 @@ import (
 )
 
 type Cluster struct {
+	UUID               string
 	Kind               string
 	Context            clusterd.Context
 	Namespace          string
@@ -30,3 +31,6 @@ type Cluster struct {
 	LogDirHostPath  string
 	ConfDirHostPath string
 }
+
+func (c *Cluster) GetUUID() string { return c.UUID }
+func (c *Cluster) GetKind() string { return c.Kind }

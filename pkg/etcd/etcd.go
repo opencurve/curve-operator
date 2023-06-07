@@ -85,6 +85,7 @@ func (c *Cluster) Start(nodesInfo []daemon.NodeInfo) ([]*topology.DeployConfig, 
 		currentConfigMapName := fmt.Sprintf("%s-%s", ConfigMapNamePrefix, daemonIDString)
 		etcdConfig := &etcdConfig{
 			Prefix:                 prefix,
+			ServiceRole:            config.ROLE_ETCD,
 			ServiceHostSequence:    strconv.Itoa(node.HostID),
 			ServiceReplicaSequence: strconv.Itoa(node.ReplicasSequence),
 			ServiceAddr:            node.NodeIP,

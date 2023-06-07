@@ -21,6 +21,7 @@ import (
 	"path"
 
 	"github.com/go-logr/logr"
+	"github.com/google/uuid"
 	"github.com/pkg/errors"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -144,7 +145,8 @@ func (c *ClusterController) reconcileCurvefsCluster(clusterObj *curvev1.Curvefs,
 	cluster, ok := c.clusterMap[clusterObj.Namespace]
 	if !ok {
 		logger.Info("A new curve FS Cluster will be created!!!")
-		cluster = newCluster(config.KIND_CURVEFS, false)
+		newUUID := uuid.New().String()
+		cluster = newCluster(newUUID, config.KIND_CURVEFS, false)
 		// TODO: update cluster spec if the cluster has already exist!
 	} else {
 		logger.Infof("Cluster has been exist but need configured but we don't apply it now, you need delete it and recreate it!!!namespace=%q", cluster.Namespace)
