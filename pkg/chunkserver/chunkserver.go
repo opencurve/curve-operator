@@ -175,17 +175,17 @@ func (c *Cluster) preStart() error {
 		return err
 	}
 
-	if c.SnapShotClone.Enable {
-		s3Data, err := c.getS3ConfigMapData()
-		if err != nil {
-			return err
-		}
-
-		err = c.UpdateSpecRoleAllConfigMap(config.SnapShotCloneAllConfigMapName, config.S3ConfigMapDataKey, s3Data, nil)
-		if err != nil {
-			return err
-		}
+	// if c.SnapShotClone.Enable {
+	s3Data, err := c.getS3ConfigMapData()
+	if err != nil {
+		return err
 	}
+
+	err = c.UpdateSpecRoleAllConfigMap(config.SnapShotCloneAllConfigMapName, config.S3ConfigMapDataKey, s3Data, nil)
+	if err != nil {
+		return err
+	}
+	// }
 
 	err = c.UpdateSpecRoleAllConfigMap(config.ChunkserverAllConfigMapName, config.CSClientConfigMapDataKey, "", &chunkserverConfigs[0])
 	if err != nil {

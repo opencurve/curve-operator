@@ -8,6 +8,7 @@ var _ config.ConfigInterface = &etcdConfig{}
 // etcdConfig for a single etcd
 type etcdConfig struct {
 	Prefix                 string
+	ServiceRole            string
 	ServiceHostSequence    string
 	ServiceReplicaSequence string
 	ServiceAddr            string
@@ -24,7 +25,7 @@ type etcdConfig struct {
 
 func (c *etcdConfig) GetPrefix() string                  { return c.Prefix }
 func (c *etcdConfig) GetServiceId() string               { return "" }
-func (c *etcdConfig) GetServiceRole() string             { return "" }
+func (c *etcdConfig) GetServiceRole() string             { return c.ServiceRole }
 func (c *etcdConfig) GetServiceHost() string             { return "" }
 func (c *etcdConfig) GetServiceHostSequence() string     { return c.ServiceHostSequence }
 func (c *etcdConfig) GetServiceReplicaSequence() string  { return c.ServiceReplicaSequence }

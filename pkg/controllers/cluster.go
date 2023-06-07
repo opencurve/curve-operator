@@ -17,8 +17,9 @@ import (
 
 var logger = capnslog.NewPackageLogger("github.com/opencurve/curve-operator", "controller")
 
-func newCluster(kind string, isUpgrade bool) *daemon.Cluster {
+func newCluster(uuid, kind string, isUpgrade bool) *daemon.Cluster {
 	return &daemon.Cluster{
+		UUID:      uuid,
 		Kind:      kind,
 		IsUpgrade: isUpgrade,
 	}
@@ -50,6 +51,11 @@ func reconcileSharedServer(c *daemon.Cluster) ([]daemon.NodeInfo, []*topology.De
 	}
 
 	logger.Info("create config template configmap successfully")
+
+	err = createReportConfigMap(c)
+	if err != nil {
+		return nil, nil, err
+	}
 
 	// Start etcd cluster
 	etcds := etcd.New(c)
@@ -103,6 +109,12 @@ func reconcileCurveDaemons(c *daemon.Cluster) error {
 		}
 	}
 
+	// report cluster
+	err = runReportCronJob(c, c.SnapShotClone.Enable)
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -127,6 +139,12 @@ func reconcileCurveFSDaemons(c *daemon.Cluster) error {
 		if err != nil {
 			return err
 		}
+	}
+
+	// report cluster
+	err = runReportCronJob(c, c.SnapShotClone.Enable)
+	if err != nil {
+		return err
 	}
 
 	return nil
