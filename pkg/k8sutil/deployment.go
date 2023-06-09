@@ -6,11 +6,23 @@ import (
 	"time"
 
 	appsv1 "k8s.io/api/apps/v1"
+	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/opencurve/curve-operator/pkg/clusterd"
 	"github.com/opencurve/curve-operator/pkg/k8sutil/patch"
 )
+
+type DeploymentConfig struct {
+	Name           string
+	Namespace      string
+	Labels         map[string]string
+	InitContainers []v1.Container
+	Containers     []v1.Container
+	NodeName       string
+	Volumes        []v1.Volume
+	OwnerInfo      *OwnerInfo
+}
 
 // UpdateDeploymentAndWait updates a deployment and waits until it is running to return. It will
 // error if the deployment does not exist to be updated or if it takes too long.
@@ -98,4 +110,57 @@ func WaitForDeploymentToStart(ctx context.Context, clusterdContext *clusterd.Con
 		time.Sleep(time.Duration(sleepTime) * time.Second)
 	}
 	return fmt.Errorf("gave up waiting for deployment %q to update", deployment.Name)
+}
+
+func MakeDeployment(c DeploymentConfig) (*appsv1.Deployment, error) {
+	runAsUser := int64(0)
+	runAsNonRoot := false
+
+	podSpec := v1.PodTemplateSpec{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:   c.Name,
+			Labels: c.Labels,
+		},
+		Spec: v1.PodSpec{
+			InitContainers: c.InitContainers,
+			Containers:     c.Containers,
+			NodeName:       c.NodeName,
+			RestartPolicy:  v1.RestartPolicyAlways,
+			HostNetwork:    true,
+			DNSPolicy:      v1.DNSClusterFirstWithHostNet,
+			Volumes:        c.Volumes,
+			SecurityContext: &v1.PodSecurityContext{
+				RunAsUser:    &runAsUser,
+				RunAsNonRoot: &runAsNonRoot,
+			},
+		},
+	}
+
+	replicas := int32(1)
+
+	d := &appsv1.Deployment{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      c.Name,
+			Namespace: c.Namespace,
+			Labels:    c.Labels,
+		},
+		Spec: appsv1.DeploymentSpec{
+			Selector: &metav1.LabelSelector{
+				MatchLabels: c.Labels,
+			},
+			Template: podSpec,
+			Replicas: &replicas,
+			Strategy: appsv1.DeploymentStrategy{
+				Type: appsv1.RecreateDeploymentStrategyType,
+			},
+		},
+	}
+
+	// set ownerReference
+	err := c.OwnerInfo.SetControllerReference(d)
+	if err != nil {
+		return nil, err
+	}
+
+	return d, nil
 }

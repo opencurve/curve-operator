@@ -4,13 +4,15 @@ import (
 	"fmt"
 	"path"
 
-	"github.com/opencurve/curve-operator/pkg/config"
-	"github.com/opencurve/curve-operator/pkg/daemon"
-	"github.com/pkg/errors"
 	apps "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	"github.com/opencurve/curve-operator/pkg/config"
+	"github.com/opencurve/curve-operator/pkg/daemon"
+	"github.com/opencurve/curve-operator/pkg/k8sutil"
+	"github.com/pkg/errors"
 )
 
 // createPrometheusConfigMap create prometheus.yml configmap and mount to prometheus container
@@ -183,54 +185,12 @@ func (c *Cluster) makeGrafanaDeployment() (*apps.Deployment, error) {
 	vols = daemon.DaemonVolumes(config.GrafanaINIConfigMapDataKey, config.GrafanaINIConfigMountPath, nil, config.GrafanaDashboardsTemp)
 	volumes = append(volumes, vols...)
 
-	runAsUser := int64(0)
-	runAsNonRoot := false
-
-	podSpec := v1.PodTemplateSpec{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:   GrafanaAppName,
-			Labels: grafanaLables,
-		},
-		Spec: v1.PodSpec{
-			Containers: []v1.Container{
-				c.createGrafaContainer(dataPath),
-			},
-			NodeName:      c.Monitor.MonitorHost,
-			RestartPolicy: v1.RestartPolicyAlways,
-			HostNetwork:   true,
-			DNSPolicy:     v1.DNSClusterFirstWithHostNet,
-			Volumes:       volumes,
-			SecurityContext: &v1.PodSecurityContext{
-				RunAsUser:    &runAsUser,
-				RunAsNonRoot: &runAsNonRoot,
-			},
-		},
-	}
-
-	replicas := int32(1)
-
-	d := &apps.Deployment{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      GrafanaAppName,
-			Namespace: c.NamespacedName.Namespace,
-			Labels:    grafanaLables,
-		},
-		Spec: apps.DeploymentSpec{
-			Selector: &metav1.LabelSelector{
-				MatchLabels: grafanaLables,
-			},
-			Template: podSpec,
-			Replicas: &replicas,
-			Strategy: apps.DeploymentStrategy{
-				Type: apps.RecreateDeploymentStrategyType,
-			},
-		},
-	}
-
-	// set ownerReference
-	err := c.OwnerInfo.SetControllerReference(d)
+	containers := []v1.Container{c.createGrafaContainer(dataPath)}
+	deploymentConfig := k8sutil.DeploymentConfig{Name: GrafanaAppName, NodeName: c.Monitor.MonitorHost, Namespace: c.NamespacedName.Namespace,
+		Labels: grafanaLables, Volumes: volumes, Containers: containers, OwnerInfo: c.OwnerInfo}
+	d, err := k8sutil.MakeDeployment(deploymentConfig)
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed to set owner reference to mon deployment %q", d.Name)
+		return nil, err
 	}
 
 	return d, nil

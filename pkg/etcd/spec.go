@@ -5,7 +5,6 @@ import (
 	"path"
 	"strconv"
 
-	"github.com/pkg/errors"
 	apps "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
@@ -13,6 +12,8 @@ import (
 
 	"github.com/opencurve/curve-operator/pkg/config"
 	"github.com/opencurve/curve-operator/pkg/daemon"
+	"github.com/opencurve/curve-operator/pkg/k8sutil"
+	"github.com/pkg/errors"
 )
 
 // createOverrideConfigMap create configMap override to record the endpoints of etcd for mds use
@@ -58,49 +59,13 @@ func (c *Cluster) makeDeployment(nodeName string, ip string, etcdConfig *etcdCon
 	volumes := daemon.DaemonVolumes(config.EtcdConfigMapDataKey, etcdConfig.ConfigMapMountPath, etcdConfig.DataPathMap, etcdConfig.CurrentConfigMapName)
 	labels := daemon.CephDaemonAppLabels(AppName, c.Namespace, "etcd", etcdConfig.DaemonID, c.Kind)
 
-	podSpec := v1.PodTemplateSpec{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:   etcdConfig.ResourceName,
-			Labels: labels,
-		},
-		Spec: v1.PodSpec{
-			InitContainers: []v1.Container{
-				c.makeChmodDirInitContainer(etcdConfig),
-			},
-			Containers: []v1.Container{
-				c.makeEtcdDaemonContainer(nodeName, ip, etcdConfig, etcdConfig.ClusterEtcdHttpAddr),
-			},
-			NodeName:      nodeName,
-			RestartPolicy: v1.RestartPolicyAlways,
-			HostNetwork:   true,
-			DNSPolicy:     v1.DNSClusterFirstWithHostNet,
-			Volumes:       volumes,
-		},
-	}
-
-	replicas := int32(1)
-
-	d := &apps.Deployment{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      etcdConfig.ResourceName,
-			Namespace: c.NamespacedName.Namespace,
-			Labels:    labels,
-		},
-		Spec: apps.DeploymentSpec{
-			Selector: &metav1.LabelSelector{
-				MatchLabels: labels,
-			},
-			Template: podSpec,
-			Replicas: &replicas,
-			Strategy: apps.DeploymentStrategy{
-				Type: apps.RecreateDeploymentStrategyType,
-			},
-		},
-	}
-	// set ownerReference
-	err := c.OwnerInfo.SetControllerReference(d)
+	initContainers := []v1.Container{c.makeChmodDirInitContainer(etcdConfig)}
+	containers := []v1.Container{c.makeEtcdDaemonContainer(nodeName, ip, etcdConfig, etcdConfig.ClusterEtcdHttpAddr)}
+	deploymentConfig := k8sutil.DeploymentConfig{Name: etcdConfig.ResourceName, NodeName: nodeName, Namespace: c.NamespacedName.Namespace,
+		Labels: labels, Volumes: volumes, Containers: containers, InitContainers: initContainers}
+	d, err := k8sutil.MakeDeployment(deploymentConfig)
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed to set owner reference to etcd deployment %q", d.Name)
+		return nil, err
 	}
 
 	return d, nil
@@ -121,7 +86,7 @@ func (c *Cluster) makeChmodDirInitContainer(etcdConfig *etcdConfig) v1.Container
 }
 
 // makeEtcdDaemonContainer create etcd container
-func (c *Cluster) makeEtcdDaemonContainer(nodeName string, ip string, etcdConfig *etcdConfig, init_cluster string) v1.Container {
+func (c *Cluster) makeEtcdDaemonContainer(nodeName string, ip string, etcdConfig *etcdConfig, initCluster string) v1.Container {
 	clientPort, _ := strconv.Atoi(etcdConfig.ServiceClientPort)
 	peerPort, _ := strconv.Atoi(etcdConfig.ServicePort)
 	var commandLine string
