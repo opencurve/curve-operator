@@ -55,6 +55,7 @@ manifests: generate
 # Run go fmt against code
 fmt:
 	go fmt ./...
+	find . -name '*.go' | grep -Ev 'vendor|thrift_gen' | xargs goimports -w
 
 # Run go vet against code
 vet:
