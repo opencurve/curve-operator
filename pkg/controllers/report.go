@@ -95,7 +95,7 @@ func runReportCronJob(c *daemon.Cluster, snapshotEnable bool) error {
 			Name:      "report-crontab",
 		},
 		Spec: batchv1beta1.CronJobSpec{
-			Schedule: "* * * * *",
+			Schedule: "0 * * * *",
 			JobTemplate: batchv1beta1.JobTemplateSpec{
 				Spec: jobSpec,
 			},
