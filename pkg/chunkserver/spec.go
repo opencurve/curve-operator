@@ -6,10 +6,10 @@ import (
 
 	apps "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/opencurve/curve-operator/pkg/config"
 	"github.com/opencurve/curve-operator/pkg/daemon"
-	"github.com/opencurve/curve-operator/pkg/k8sutil"
 	"github.com/opencurve/curve-operator/pkg/topology"
 )
 
@@ -19,10 +19,45 @@ func (c *Cluster) makeDeployment(csConfig *chunkserverConfig) (*apps.Deployment,
 	volumes = append(volumes, vols...)
 	labels := daemon.CephDaemonAppLabels(AppName, c.Namespace, "chunkserver", csConfig.DaemonId, c.Kind)
 
-	containers := []v1.Container{c.makeCSDaemonContainer(csConfig)}
-	deploymentConfig := k8sutil.DeploymentConfig{Name: csConfig.ResourceName, NodeName: csConfig.NodeName, Namespace: c.NamespacedName.Namespace,
-		Labels: labels, Volumes: volumes, Containers: containers, OwnerInfo: c.OwnerInfo}
-	d, err := k8sutil.MakeDeployment(deploymentConfig)
+	podSpec := v1.PodTemplateSpec{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:   csConfig.ResourceName,
+			Labels: labels,
+		},
+		Spec: v1.PodSpec{
+			Containers: []v1.Container{
+				c.makeCSDaemonContainer(csConfig),
+			},
+			NodeName:      csConfig.NodeName,
+			RestartPolicy: v1.RestartPolicyAlways,
+			HostNetwork:   true,
+			DNSPolicy:     v1.DNSClusterFirstWithHostNet,
+			Volumes:       volumes,
+		},
+	}
+
+	replicas := int32(1)
+
+	d := &apps.Deployment{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      csConfig.ResourceName,
+			Namespace: c.NamespacedName.Namespace,
+			Labels:    labels,
+		},
+		Spec: apps.DeploymentSpec{
+			Selector: &metav1.LabelSelector{
+				MatchLabels: labels,
+			},
+			Template: podSpec,
+			Replicas: &replicas,
+			Strategy: apps.DeploymentStrategy{
+				Type: apps.RecreateDeploymentStrategyType,
+			},
+		},
+	}
+
+	// set ownerReference
+	err := c.OwnerInfo.SetControllerReference(d)
 	if err != nil {
 		return nil, err
 	}
