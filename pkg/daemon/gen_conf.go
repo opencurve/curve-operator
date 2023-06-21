@@ -36,7 +36,7 @@ func (c *Cluster) CreateSpecRoleAllConfigMap(role, configMapName string) error {
 	return nil
 }
 
-// UpdateSpecRoleAllConfigMap update configmap of role to store all config need by start role server.
+// updateSpecRoleAllConfigMap update configmap of role to store all config need by start role server.
 func (c *Cluster) UpdateSpecRoleAllConfigMap(configMapName, configMapDataKey, configMapDataVal string, conf config.ConfigInterface) error {
 	var value string
 	if configMapDataVal != "" || len(configMapDataVal) != 0 {
@@ -81,7 +81,7 @@ func (c *Cluster) UpdateSpecRoleAllConfigMap(configMapName, configMapDataKey, co
 	return nil
 }
 
-// CreateEachConfigMap create each configmap
+// createConfigMap create each configmap
 func (c *Cluster) CreateEachConfigMap(configMapDataKey string, conf config.ConfigInterface, currentConfigMapName string) error {
 	// get curve-conf-default configmap from cluster
 	defaultConfigMap, err := c.Context.Clientset.CoreV1().ConfigMaps(c.Namespace).Get(config.DefaultConfigMapName, metav1.GetOptions{})
