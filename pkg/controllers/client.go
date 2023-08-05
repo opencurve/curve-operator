@@ -4,16 +4,28 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"strings"
+	"time"
 
-	"github.com/opencurve/curve-operator/pkg/daemon"
-	"github.com/opencurve/curve-operator/pkg/k8sutil"
 	"github.com/pkg/errors"
 	apps "k8s.io/api/apps/v1"
+	batch "k8s.io/api/batch/v1"
 	v1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/tools/remotecommand"
+
+	"github.com/opencurve/curve-operator/pkg/chunkserver"
+	"github.com/opencurve/curve-operator/pkg/config"
+	"github.com/opencurve/curve-operator/pkg/daemon"
+	"github.com/opencurve/curve-operator/pkg/etcd"
+	"github.com/opencurve/curve-operator/pkg/k8sutil"
+	"github.com/opencurve/curve-operator/pkg/mds"
+	"github.com/opencurve/curve-operator/pkg/metaserver"
+	"github.com/opencurve/curve-operator/pkg/monitor"
+	"github.com/opencurve/curve-operator/pkg/snapshotclone"
+	"github.com/opencurve/curve-operator/pkg/topology"
 )
 
 const (
@@ -86,6 +98,10 @@ func createSyncDeployment(c *daemon.Cluster) error {
 			return err
 		}
 	}
+
+	// delete the SyncConfigDeployment after the cluster is deployed.
+	go deleteSyncDeployment(c, newDeployment.GetName())
+
 	// update condition type and phase etc.
 	return nil
 }
@@ -153,4 +169,144 @@ func getReadConfigJobLabel(c *daemon.Cluster) map[string]string {
 	labels["app"] = SyncConfigDeployment
 	labels["curve"] = c.Kind
 	return labels
+}
+
+// deleteSyncDeployment delete the SyncConfigDeployment after the cluster is deployed.
+func deleteSyncDeployment(c *daemon.Cluster, deployName string) {
+
+	time.Sleep(1 * time.Minute)
+
+	clusterKind := c.Kind
+	nodesCount := len(c.Nodes)
+	chunkServerCount := len(c.Chunkserver.Nodes) * len(c.Chunkserver.Devices)
+
+	if clusterKind == config.KIND_CURVEBS {
+		logger.Infof("node count is %d, wanted chunk server count is %d", nodesCount, chunkServerCount)
+	}
+
+	checkTicker := time.NewTicker(30 * time.Second)
+	for {
+		isAllReady := true
+		chunkSrvReady, etcdReady, mdsReady, metaSrvReady, snapShotCloneReady, prometheusReady, grafanaReady, nodeExporterReady :=
+			0, 0, 0, 0, 0, 0, 0, 0
+
+		jobPreChunkFileCompleted, jobProPhysicalPoolCompleted, jobProLogicPoolCompleted := 0, 0, 0
+
+		deploymentList, err := c.Context.Clientset.AppsV1().Deployments(c.Namespace).List(metav1.ListOptions{})
+		if err != nil {
+			logger.Errorf("failed to list deployment in namespace %s for delete curve-sync-config", c.Namespace)
+		}
+
+		jobs, err := c.Context.Clientset.BatchV1().Jobs(c.Namespace).List(metav1.ListOptions{})
+		if err != nil {
+			logger.Errorf("failed to list jobs in namespace %s for delete curve-sync-config", c.Namespace)
+		}
+
+		for _, job := range jobs.Items {
+			switch {
+			case strings.HasPrefix(job.Name, topology.JOB_PYHSICAL_POOL):
+				if isJobCompleted(job) {
+					jobProPhysicalPoolCompleted++
+				}
+			case strings.HasPrefix(job.Name, topology.JOB_LOGICAL_POOL):
+				if isJobCompleted(job) {
+					jobProLogicPoolCompleted++
+				}
+			case strings.HasPrefix(job.Name, chunkserver.PrepareJobName):
+				if isJobCompleted(job) {
+					jobPreChunkFileCompleted++
+				}
+			}
+		}
+
+		for _, deploy := range deploymentList.Items {
+			switch {
+			case strings.HasPrefix(deploy.Name, chunkserver.AppName):
+				if isAllReplicasReady(deploy) {
+					chunkSrvReady++
+				}
+			case strings.HasPrefix(deploy.Name, etcd.AppName):
+				if isAllReplicasReady(deploy) {
+					etcdReady++
+				}
+			case strings.HasPrefix(deploy.Name, monitor.GrafanaAppName):
+				if isAllReplicasReady(deploy) {
+					grafanaReady++
+				}
+			case strings.HasPrefix(deploy.Name, mds.AppName):
+				if isAllReplicasReady(deploy) {
+					mdsReady++
+				}
+			case strings.HasPrefix(deploy.Name, metaserver.AppName):
+				if isAllReplicasReady(deploy) {
+					metaSrvReady++
+				}
+			case strings.HasPrefix(deploy.Name, monitor.PromAppName):
+				if isAllReplicasReady(deploy) {
+					prometheusReady++
+				}
+			case strings.HasPrefix(deploy.Name, snapshotclone.AppName):
+				if isAllReplicasReady(deploy) {
+					snapShotCloneReady++
+				}
+			case strings.HasPrefix(deploy.Name, monitor.NodeExporterAppName):
+				if isAllReplicasReady(deploy) {
+					nodeExporterReady++
+				}
+			}
+		}
+
+		if c.SnapShotClone.Enable {
+			if snapShotCloneReady != nodesCount {
+				isAllReady = false
+			}
+		}
+
+		if c.Monitor.Enable {
+			if grafanaReady == 0 || prometheusReady == 0 || nodeExporterReady != nodesCount {
+				isAllReady = false
+			}
+		}
+
+		if clusterKind == config.KIND_CURVEBS &&
+			(chunkSrvReady != chunkServerCount || jobPreChunkFileCompleted != chunkServerCount ||
+				jobProLogicPoolCompleted == 0 || jobProPhysicalPoolCompleted == 0) {
+			isAllReady = false
+		}
+
+		if clusterKind == config.KIND_CURVEFS &&
+			(metaSrvReady != nodesCount || jobProLogicPoolCompleted == 0) {
+			isAllReady = false
+		}
+
+		if etcdReady != nodesCount || mdsReady != nodesCount {
+			isAllReady = false
+		}
+
+		if isAllReady {
+			break
+		}
+		<-checkTicker.C
+	}
+
+	err := c.Context.Clientset.AppsV1().Deployments(c.Namespace).Delete(deployName, &metav1.DeleteOptions{})
+	if err != nil {
+		logger.Errorf("failed to delete deployment about \"curve-sync-config\", error: %s", err)
+	}
+
+	logger.Infof("cluster is deployed, deployment about \"curve-sync-config\" will be deleted")
+}
+
+func isAllReplicasReady(deployment apps.Deployment) bool {
+	if deployment.Status.Replicas == deployment.Status.ReadyReplicas {
+		return true
+	}
+	return false
+}
+
+func isJobCompleted(job batch.Job) bool {
+	if *job.Spec.Completions == job.Status.Succeeded {
+		return true
+	}
+	return false
 }
