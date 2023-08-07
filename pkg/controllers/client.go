@@ -188,7 +188,7 @@ type checkClusterDeployedInfo struct {
 	jobProPhysicalPoolCompleted int
 }
 
-// deleteSyncDeployment delete the SyncConfigDeployment after the cluster is deployed.
+// deleteSyncConfigDeployment delete the SyncConfigDeployment after the cluster is deployed.
 func deleteSyncConfigDeployment(c *daemon.Cluster, syncConfigDeployment string) {
 
 	wantChunkServer := len(c.Chunkserver.Devices) * len(c.Chunkserver.Nodes)
