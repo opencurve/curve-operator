@@ -115,6 +115,12 @@ func reconcileCurveDaemons(c *daemon.Cluster) error {
 		return err
 	}
 
+	// clean up the cluster install environment
+	err = cleanClusterInstallEnv(c)
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -147,5 +153,16 @@ func reconcileCurveFSDaemons(c *daemon.Cluster) error {
 		return err
 	}
 
+	// clean up the cluster install environment
+	err = cleanClusterInstallEnv(c)
+	if err != nil {
+		return err
+	}
+
 	return nil
+}
+
+// cleanClusterInstallEnv clean up the cluster install environment
+func cleanClusterInstallEnv(c *daemon.Cluster) error {
+	return deleteSyncConfigDeployment(c, SyncConfigDeployment)
 }
