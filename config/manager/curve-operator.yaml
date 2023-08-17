@@ -35,8 +35,22 @@ spec:
       - command:
         - ./curve-operator
         args:
+        - operator
         - --enable-leader-election=true
-        image: curve2operator/curve-operator:v1.0.0
+        image: curve2operator/curve-operator:v1.0.6
+        env:
+          - name: DISCOVER_DISK
+            value: "true"
+          - name: DISCOVER_UDEV_BLACKLIST
+            value: "(?i)loop[0-9]+,(?i)fd[0-9]+,(?i)sr[0-9]+,(?i)ram[0-9]+,(?i)dm-[0-9]+,(?i)md[0-9]+,(?i)zd[0-9]+,(?i)rbd[0-9]+,(?i)nbd[0-9]+"
+          - name: DISCOVER_INTERVAL
+            value: "60m"
+          - name: POD_NAMESPACE
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.namespace
+          - name: OPERATOR_IMAGE
+            value: curve2operator/curve-operator:v1.0.6
         name: curve-operator
         resources:
           limits:

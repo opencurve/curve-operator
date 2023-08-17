@@ -79,6 +79,7 @@ func NewCurveClusterReconciler(
 // +kubebuilder:rbac:groups=core,resources=configmaps,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=core,resources=events,verbs=get;list;watch;create;update;patch
 // +kubebuilder:rbac:groups=apps,resources=deployments,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=apps,resources=daemonsets,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=batch,resources=jobs,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=batch,resources=cronjobs,verbs=get;list;watch;create;update;patch;delete
 
@@ -188,6 +189,8 @@ func (c *ClusterController) reconcileCurveCluster(clusterObj *curvev1.CurveClust
 	cluster.DataDirHostPath = path.Join(clusterObj.Spec.HostDataDir, "data")
 	cluster.LogDirHostPath = path.Join(clusterObj.Spec.HostDataDir, "logs")
 	cluster.ConfDirHostPath = path.Join(clusterObj.Spec.HostDataDir, "conf")
+	cluster.EnableReport = clusterObj.Spec.EnableReport
+
 	c.clusterMap[cluster.Namespace] = cluster
 
 	log.Log.Info("reconcileing CurveCluster in namespace", "namespace", cluster.Namespace)

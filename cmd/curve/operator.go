@@ -1,48 +1,48 @@
-/*
-
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-*/
-
-package main
+package curve
 
 import (
 	"fmt"
-	"os"
-
+	operatorv1 "github.com/opencurve/curve-operator/api/v1"
+	"github.com/opencurve/curve-operator/pkg/clusterd"
+	"github.com/opencurve/curve-operator/pkg/controllers"
+	"github.com/opencurve/curve-operator/pkg/discover"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
-	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
+	"os"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
-
-	operatorv1 "github.com/opencurve/curve-operator/api/v1"
-	"github.com/opencurve/curve-operator/pkg/clusterd"
-	"github.com/opencurve/curve-operator/pkg/controllers"
 )
 
 var (
 	scheme   = runtime.NewScheme()
 	setupLog = ctrl.Log.WithName("setup")
+
+	OperatorCmd = &cobra.Command{
+		Use: "operator",
+		// TODO: Rewrite this long message.
+		Long: `The Curve-Operator is a daemon to deploy Curve and auto it on kubernetes. 
+		It support for Curve storage to natively integrate with cloud-native environments.`,
+	}
 )
 
 func init() {
 	_ = clientgoscheme.AddToScheme(scheme)
 	_ = operatorv1.AddToScheme(scheme)
 	// +kubebuilder:scaffold:scheme
+
+	options, err := NewCurveOptions()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error: %v\n", err)
+		os.Exit(1)
+	}
+	options.AddFlags(OperatorCmd.Flags())
+	OperatorCmd.Run = func(cmd *cobra.Command, args []string) {
+		setupLog.Error(options.Run(), "failed to run curve-operator")
+		os.Exit(1)
+	}
 }
 
 type CurveOptions struct {
@@ -56,32 +56,6 @@ func NewCurveOptions() (*CurveOptions, error) {
 		MetricsAddr:          ":8080",
 		EnableLeaderElection: false,
 	}, nil
-}
-
-func main() {
-	opts, err := NewCurveOptions()
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "error: %v\n", err)
-		os.Exit(1)
-	}
-
-	cmd := &cobra.Command{
-		Use: "curve-operator",
-		// TODO: Rewrite this long message.
-		Long: `The Curve-Operator is a daemon to deploy Curve and auto it on kubernetes. 
-		It support for Curve storage to natively integrate with cloud-native environments.`,
-		Run: func(cmd *cobra.Command, args []string) {
-			setupLog.Error(opts.Run(), "failed to run curve-operator")
-			os.Exit(1)
-		},
-	}
-
-	opts.AddFlags(cmd.Flags())
-
-	if err := cmd.Execute(); err != nil {
-		fmt.Fprintf(os.Stderr, "error: %v\n", err)
-		os.Exit(1)
-	}
 }
 
 func (opts *CurveOptions) Run() error {
@@ -131,6 +105,13 @@ func (opts *CurveOptions) Run() error {
 		os.Exit(1)
 	}
 	// +kubebuilder:scaffold:builder
+
+	// reconcile discover daemonSet
+	err = discover.ReconcileDiscoveryDaemon()
+	if err != nil {
+		setupLog.Error(err, "problem discover")
+		os.Exit(1)
+	}
 
 	setupLog.Info("starting manager")
 	if err := mgr.Start(ctrl.SetupSignalHandler()); err != nil {

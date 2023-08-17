@@ -52,9 +52,11 @@ func reconcileSharedServer(c *daemon.Cluster) ([]daemon.NodeInfo, []*topology.De
 
 	logger.Info("create config template configmap successfully")
 
-	err = createReportConfigMap(c)
-	if err != nil {
-		return nil, nil, err
+	if c.EnableReport {
+		err = createReportConfigMap(c)
+		if err != nil {
+			return nil, nil, err
+		}
 	}
 
 	// Start etcd cluster
@@ -109,10 +111,12 @@ func reconcileCurveDaemons(c *daemon.Cluster) error {
 		}
 	}
 
-	// report cluster
-	err = runReportCronJob(c, c.SnapShotClone.Enable)
-	if err != nil {
-		return err
+	if c.EnableReport {
+		// report cluster
+		err = runReportCronJob(c, c.SnapShotClone.Enable)
+		if err != nil {
+			return err
+		}
 	}
 
 	return nil
@@ -141,10 +145,12 @@ func reconcileCurveFSDaemons(c *daemon.Cluster) error {
 		}
 	}
 
-	// report cluster
-	err = runReportCronJob(c, c.SnapShotClone.Enable)
-	if err != nil {
-		return err
+	if c.EnableReport {
+		// report cluster
+		err = runReportCronJob(c, c.SnapShotClone.Enable)
+		if err != nil {
+			return err
+		}
 	}
 
 	return nil
