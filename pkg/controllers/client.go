@@ -12,7 +12,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/tools/remotecommand"
-	"k8s.io/client-go/util/retry"
 
 	"github.com/opencurve/curve-operator/pkg/daemon"
 	"github.com/opencurve/curve-operator/pkg/k8sutil"
@@ -156,23 +155,4 @@ func getReadConfigJobLabel(c *daemon.Cluster) map[string]string {
 	labels["app"] = SyncConfigDeployment
 	labels["curve"] = c.Kind
 	return labels
-}
-
-// deleteSyncConfigDeployment delete the SyncConfigDeployment after the cluster is deployed.
-func deleteSyncConfigDeployment(c *daemon.Cluster, syncConfigDeployment string) error {
-	err := retry.OnError(retry.DefaultRetry, func(err error) bool {
-		// retrying for any error that occurs
-		return true
-	}, func() error {
-		return c.Context.Clientset.AppsV1().Deployments(c.Namespace).Delete(syncConfigDeployment, &metav1.DeleteOptions{})
-	})
-
-	if err != nil {
-		return errors.Wrapf(err, "failed to delete deployment %s after the %s has been deployed",
-			SyncConfigDeployment, c.Kind)
-	}
-
-	logger.Infof("the %s has been deployed and the deployment %s has been deleted", c.Kind, SyncConfigDeployment)
-
-	return nil
 }

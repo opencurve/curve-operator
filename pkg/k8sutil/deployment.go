@@ -7,6 +7,7 @@ import (
 
 	appsv1 "k8s.io/api/apps/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/util/retry"
 
 	"github.com/opencurve/curve-operator/pkg/clusterd"
 	"github.com/opencurve/curve-operator/pkg/k8sutil/patch"
@@ -98,4 +99,23 @@ func WaitForDeploymentToStart(ctx context.Context, clusterdContext *clusterd.Con
 		time.Sleep(time.Duration(sleepTime) * time.Second)
 	}
 	return fmt.Errorf("gave up waiting for deployment %q to update", deployment.Name)
+}
+
+// DeleteSyncConfigDeployment delete the SyncConfigDeployment after the cluster is deployed.
+func DeleteSyncConfigDeployment(ctx context.Context, clusterdContext *clusterd.Context, syncConfigDeployment, namespace string) error {
+	err := retry.OnError(retry.DefaultRetry, func(err error) bool {
+		// retrying for any error that occurs
+		return true
+	}, func() error {
+		return clusterdContext.Clientset.AppsV1().Deployments(namespace).Delete(syncConfigDeployment, &metav1.DeleteOptions{})
+	})
+
+	if err != nil {
+		return fmt.Errorf("failed to delete deployment %q after the curve cluster has been deployed. %v",
+			syncConfigDeployment, err)
+	}
+
+	logger.Infof("the curve cluster has been deployed and the deployment %q has been deleted", syncConfigDeployment)
+
+	return nil
 }
