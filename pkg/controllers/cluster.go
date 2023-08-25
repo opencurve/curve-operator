@@ -1,6 +1,7 @@
 package controllers
 
 import (
+	"context"
 	"time"
 
 	"github.com/coreos/pkg/capnslog"
@@ -8,6 +9,7 @@ import (
 	"github.com/opencurve/curve-operator/pkg/chunkserver"
 	"github.com/opencurve/curve-operator/pkg/daemon"
 	"github.com/opencurve/curve-operator/pkg/etcd"
+	"github.com/opencurve/curve-operator/pkg/k8sutil"
 	"github.com/opencurve/curve-operator/pkg/mds"
 	"github.com/opencurve/curve-operator/pkg/metaserver"
 	"github.com/opencurve/curve-operator/pkg/monitor"
@@ -164,5 +166,5 @@ func reconcileCurveFSDaemons(c *daemon.Cluster) error {
 
 // cleanClusterInstallEnv clean up the cluster install environment
 func cleanClusterInstallEnv(c *daemon.Cluster) error {
-	return deleteSyncConfigDeployment(c, SyncConfigDeployment)
+	return k8sutil.DeleteSyncConfigDeployment(context.TODO(), &c.Context, SyncConfigDeployment, c.Namespace)
 }
