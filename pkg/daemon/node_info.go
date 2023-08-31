@@ -9,6 +9,12 @@ type NodeInfo struct {
 	ReplicasSequence       int
 	PeerPort               int // etcd
 	ClientPort             int // etcd
+	SnapshotCount          int // etcd
+	HeartbeatInterval      int // etcd
+	ElectionTimeout        int // etcd
+	QuotaBackendBytes      int // etcd
+	MaxSnapshots           int // etcd
+	MaxWals                int // etcd
 	MdsPort                int // mds
 	DummyPort              int // mds
 	SnapshotClonePort      int // snapshotclone
@@ -27,6 +33,9 @@ func ConfigureNodeInfo(c *Cluster) ([]NodeInfo, error) {
 
 	var (
 		peerPort, clientPort                                              int
+		snapshotCount, heartbeatInterval                                  int
+		electionTimeout, quotaBackendBytes                                int
+		maxSnapshots, maxWals                                             int
 		mdsPort, dummyPort                                                int
 		snapshotClonePort, snapshotCloneDummyPort, snapshotCloneProxyPort int
 		metaserverPort, metaserverExternalPort                            int
@@ -43,6 +52,12 @@ func ConfigureNodeInfo(c *Cluster) ([]NodeInfo, error) {
 			replicasSequence++
 			peerPort++
 			clientPort++
+			snapshotCount++
+			heartbeatInterval++
+			electionTimeout++
+			quotaBackendBytes++
+			maxSnapshots++
+			maxWals++
 			mdsPort++
 			dummyPort++
 			snapshotClonePort++
@@ -54,6 +69,12 @@ func ConfigureNodeInfo(c *Cluster) ([]NodeInfo, error) {
 			replicasSequence = 0
 			peerPort = c.Etcd.PeerPort
 			clientPort = c.Etcd.ClientPort
+			snapshotCount = c.Etcd.Config["snapshot-count"]
+			heartbeatInterval = c.Etcd.Config["heartbeat-interval"]
+			electionTimeout = c.Etcd.Config["election-timeout"]
+			quotaBackendBytes = c.Etcd.Config["quota-backend-bytes"]
+			maxSnapshots = c.Etcd.Config["max-snapshots"]
+			maxWals = c.Etcd.Config["max-wals"]
 			mdsPort = c.Mds.Port
 			dummyPort = c.Mds.DummyPort
 			snapshotClonePort = c.SnapShotClone.Port
@@ -70,6 +91,12 @@ func ConfigureNodeInfo(c *Cluster) ([]NodeInfo, error) {
 			ReplicasSequence:       replicasSequence,
 			PeerPort:               peerPort,
 			ClientPort:             clientPort,
+			SnapshotCount:          snapshotCount,
+			HeartbeatInterval:      heartbeatInterval,
+			ElectionTimeout:        electionTimeout,
+			QuotaBackendBytes:      quotaBackendBytes,
+			MaxSnapshots:           maxSnapshots,
+			MaxWals:                maxWals,
 			MdsPort:                mdsPort,
 			DummyPort:              dummyPort,
 			SnapshotClonePort:      snapshotClonePort,

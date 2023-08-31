@@ -159,7 +159,15 @@ func (c *Cluster) makeEtcdDaemonContainer(nodeName string, ip string, etcdConfig
 				Protocol:      v1.ProtocolTCP,
 			},
 		},
-		Env: []v1.EnvVar{{Name: "TZ", Value: "Asia/Hangzhou"}},
+		Env: []v1.EnvVar{
+			{Name: "TZ", Value: "Asia/Hangzhou"},
+			{Name: "ETCD_SNAPSHOT_COUNT", Value: etcdConfig.ServiceSnapshotCount},
+			{Name: "ETCD_HEARTBEAT_INTERVAL", Value: etcdConfig.ServiceHeartbeatInterval},
+			{Name: "ETCD_ELECTION_TIMEOUT", Value: etcdConfig.ServiceElectionTimeout},
+			{Name: "ETCD_QUOTA_BACKEND_BYTES", Value: etcdConfig.ServiceQuotaBackendBytes},
+			{Name: "ETCD_MAX_SNAPSHOTS", Value: etcdConfig.ServiceMaxSnapshots},
+			{Name: "ETCD_MAX_WALS", Value: etcdConfig.ServiceMaxWals},
+		},
 	}
 	return container
 }
