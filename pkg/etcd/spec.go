@@ -13,6 +13,7 @@ import (
 
 	"github.com/opencurve/curve-operator/pkg/config"
 	"github.com/opencurve/curve-operator/pkg/daemon"
+	"github.com/opencurve/curve-operator/pkg/logrotate"
 )
 
 // createOverrideConfigMap create configMap override to record the endpoints of etcd for mds use
@@ -58,6 +59,10 @@ func (c *Cluster) makeDeployment(nodeName string, ip string, etcdConfig *etcdCon
 	volumes := daemon.DaemonVolumes(config.EtcdConfigMapDataKey, etcdConfig.ConfigMapMountPath, etcdConfig.DataPathMap, etcdConfig.CurrentConfigMapName)
 	labels := daemon.CephDaemonAppLabels(AppName, c.Namespace, "etcd", etcdConfig.DaemonID, c.Kind)
 
+	// add log config volume
+	logConfCMVolSource := &v1.ConfigMapVolumeSource{LocalObjectReference: v1.LocalObjectReference{Name: "log-conf"}}
+	volumes = append(volumes, v1.Volume{Name: "log-conf", VolumeSource: v1.VolumeSource{ConfigMap: logConfCMVolSource}})
+
 	podSpec := v1.PodTemplateSpec{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:   etcdConfig.ResourceName,
@@ -69,6 +74,7 @@ func (c *Cluster) makeDeployment(nodeName string, ip string, etcdConfig *etcdCon
 			},
 			Containers: []v1.Container{
 				c.makeEtcdDaemonContainer(nodeName, ip, etcdConfig, etcdConfig.ClusterEtcdHttpAddr),
+				logrotate.MakeLogrotateContainer(),
 			},
 			NodeName:      nodeName,
 			RestartPolicy: v1.RestartPolicyAlways,

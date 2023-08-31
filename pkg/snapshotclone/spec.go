@@ -12,12 +12,17 @@ import (
 
 	"github.com/opencurve/curve-operator/pkg/config"
 	"github.com/opencurve/curve-operator/pkg/daemon"
+	"github.com/opencurve/curve-operator/pkg/logrotate"
 )
 
 // makeDeployment make snapshotclone deployment to run snapshotclone daemon
 func (c *Cluster) makeDeployment(nodeName string, nodeIP string, snapConfig *snapConfig) (*apps.Deployment, error) {
 	volumes := SnapDaemonVolumes(snapConfig)
 	labels := daemon.CephDaemonAppLabels(AppName, c.Namespace, "snapshotclone", snapConfig.DaemonID, c.Kind)
+
+	// add log config volume
+	logConfCMVolSource := &v1.ConfigMapVolumeSource{LocalObjectReference: v1.LocalObjectReference{Name: "log-conf"}}
+	volumes = append(volumes, v1.Volume{Name: "log-conf", VolumeSource: v1.VolumeSource{ConfigMap: logConfCMVolSource}})
 
 	// for debug
 	// log.Infof("snapConfig %+v", snapConfig)
@@ -33,6 +38,7 @@ func (c *Cluster) makeDeployment(nodeName string, nodeIP string, snapConfig *sna
 		Spec: v1.PodSpec{
 			Containers: []v1.Container{
 				c.makeSnapshotDaemonContainer(nodeIP, snapConfig),
+				logrotate.MakeLogrotateContainer(),
 			},
 			NodeName:      nodeName,
 			RestartPolicy: v1.RestartPolicyAlways,

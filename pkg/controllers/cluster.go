@@ -10,6 +10,7 @@ import (
 	"github.com/opencurve/curve-operator/pkg/daemon"
 	"github.com/opencurve/curve-operator/pkg/etcd"
 	"github.com/opencurve/curve-operator/pkg/k8sutil"
+	"github.com/opencurve/curve-operator/pkg/logrotate"
 	"github.com/opencurve/curve-operator/pkg/mds"
 	"github.com/opencurve/curve-operator/pkg/metaserver"
 	"github.com/opencurve/curve-operator/pkg/monitor"
@@ -55,6 +56,11 @@ func reconcileSharedServer(c *daemon.Cluster) ([]daemon.NodeInfo, []*topology.De
 	logger.Info("create config template configmap successfully")
 
 	err = createReportConfigMap(c)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	err = logrotate.CreateLogrotateConfigMap(c)
 	if err != nil {
 		return nil, nil, err
 	}
