@@ -10,6 +10,7 @@ import (
 
 	"github.com/opencurve/curve-operator/pkg/config"
 	"github.com/opencurve/curve-operator/pkg/daemon"
+	"github.com/opencurve/curve-operator/pkg/logrotate"
 	"github.com/opencurve/curve-operator/pkg/topology"
 )
 
@@ -19,6 +20,10 @@ func (c *Cluster) makeDeployment(csConfig *chunkserverConfig) (*apps.Deployment,
 	volumes = append(volumes, vols...)
 	labels := daemon.CephDaemonAppLabels(AppName, c.Namespace, "chunkserver", csConfig.DaemonId, c.Kind)
 
+	// add log config volume
+	logConfCMVolSource := &v1.ConfigMapVolumeSource{LocalObjectReference: v1.LocalObjectReference{Name: "log-conf"}}
+	volumes = append(volumes, v1.Volume{Name: "log-conf", VolumeSource: v1.VolumeSource{ConfigMap: logConfCMVolSource}})
+
 	podSpec := v1.PodTemplateSpec{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:   csConfig.ResourceName,
@@ -27,6 +32,7 @@ func (c *Cluster) makeDeployment(csConfig *chunkserverConfig) (*apps.Deployment,
 		Spec: v1.PodSpec{
 			Containers: []v1.Container{
 				c.makeCSDaemonContainer(csConfig),
+				logrotate.MakeLogrotateContainer(),
 			},
 			NodeName:      csConfig.NodeName,
 			RestartPolicy: v1.RestartPolicyAlways,

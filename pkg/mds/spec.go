@@ -13,6 +13,7 @@ import (
 
 	"github.com/opencurve/curve-operator/pkg/config"
 	"github.com/opencurve/curve-operator/pkg/daemon"
+	"github.com/opencurve/curve-operator/pkg/logrotate"
 )
 
 // createOverrideMdsCM create mds-endpoints-override configmap to record mds endpoints
@@ -61,6 +62,10 @@ func (c *Cluster) makeDeployment(nodeName string, nodeIP string, mdsConfig *mdsC
 	volumes := daemon.DaemonVolumes(config.MdsConfigMapDataKey, mdsConfig.ConfigMapMountPath, mdsConfig.DataPathMap, mdsConfig.CurrentConfigMapName)
 	labels := daemon.CephDaemonAppLabels(AppName, c.Namespace, "mds", mdsConfig.DaemonID, c.Kind)
 
+	// add log config volume
+	logConfCMVolSource := &v1.ConfigMapVolumeSource{LocalObjectReference: v1.LocalObjectReference{Name: "log-conf"}}
+	volumes = append(volumes, v1.Volume{Name: "log-conf", VolumeSource: v1.VolumeSource{ConfigMap: logConfCMVolSource}})
+
 	podSpec := v1.PodTemplateSpec{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:   mdsConfig.ResourceName,
@@ -69,6 +74,7 @@ func (c *Cluster) makeDeployment(nodeName string, nodeIP string, mdsConfig *mdsC
 		Spec: v1.PodSpec{
 			Containers: []v1.Container{
 				c.makeMdsDaemonContainer(nodeIP, mdsConfig),
+				logrotate.MakeLogrotateContainer(),
 			},
 			NodeName:      nodeName,
 			RestartPolicy: v1.RestartPolicyAlways,
