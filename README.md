@@ -1,20 +1,19 @@
-#### English | [简体中文](https://github.com/opencurve/curve-operator/tree/master/docs/readme_cn.md)
-
 # Curve-Operator
 
 ## What's curve-operator
 
-curve-operator manages [Curve](https://github.com/opencurve/curve) cluster on [Kuberentes](https://kubernetes.io/docs/home/). It make Curve a truly cloud-native distributed storage system.
+The curve-operator project helps deploy a Curve cluster orchestrated by Kubernetes.(Currently only supports CurveBS cluster deployment)
 
-![Curve BS deploy architecture](https://github.com/opencurve/curve-operator/tree/master/docs/images/curve-deploy-arch.jpg)
+![Curve BS deploy architecture](./docs/images/curvebs-deploy-arch.png)
 
-## Setup
-
-### 0.Prerequisite
+## Prerequisite
 
 * Kubernetes 1.19,1.20
+* Three-nodes cluster(stand-alone deployment is not supported at persent)
 
-### 1.Install Operator
+## Install and Deploy
+
+### 1. Install Operator
 
 The first step is to install the Curve Operator.
 
@@ -24,35 +23,126 @@ $ cd curve-operator
 $ kubectl apply -f config/deploy/
 ```
 
-verify the curve-operator on the `Running` state in `curve` namespace.
+verify the curve-operator is in the `Running` state in `curve` namespace.
 
 ```shell
 $ kubectl get pod -n curve
+
 NAME                              READY   STATUS    RESTARTS   AGE
 curve-operator-69bc69c75d-jfsjg   1/1     Running   0          7s
 ```
 
-### 2. Deploy Curve Cluster
+### 2. Deploy Curve cluster
 
-Operator deploys Curve cluster based on declarative API. You can get and modify customized the cluster yaml file in [config/sample.](https://github.com/opencurve/curve-operator/tree/master/config/samples)
+#### Modify the cluster Declarative yaml file
 
-[CurveBS Stand-alone deployment](https://github.com/opencurve/curve-operator/blob/master/config/samples/bscluster-onehost.yaml)
+```shell
+$ vim config/samples/cluster.yaml
+```
 
-[CurveBS three replicas deployment](https://github.com/opencurve/curve-operator/blob/master/config/samples/cluster.yaml)
+```yaml
+apiVersion: operator.curve.io/v1
+kind: CurveCluster
+metadata:
+  name: curvebs-cluster-cloud
+  # The namespace to deploy CurveBS cluster. 
+  # Curve operator is deployed in this namespace,Do not modify if not necessary
+  namespace: curve
+spec:
+  # The container image used to launch the Curve daemon pods(etcd, mds, chunkserver, snapshotclone).
+  # v1.2 is Pacific and v1.3 is not tested.
+  curveVersion:
+    image: opencurvedocker/curvebs:v1.2.6
+    # Container image pull policy, 
+    # By default the pull policy of all containers in that pod will be set to IfNotPresent if it is not explicitly specified and no modification necessary.
+    imagePullPolicy: IfNotPresent
+  # The K8s cluster nodes name in cluster that prepare to deploy Curve daemon pods(etcd, mds, snapshotclone).
+  # For stand-alone deploy, set one node here and see bscluster-onehost.yaml
+  # - node1 -> etcd-a, mds-a, snapshotclone-a
+  # - node2 -> etcd-b, mds-b, snapshotclone-b
+  # - node3 -> etcd-c, mds-c, snapshotclone-c
+  nodes:
+  - curve-operator-node1
+  - curve-operator-node2
+  - curve-operator-node3
+  # hostDataDir where data files and log files will be persisted on host machine. Must be specified.
+  # If you reinstall the cluster, make surce that you delete this directory from each host.
+  hostDataDir: /curvebs
+  etcd:
+    # Port for listening to partner communication. 
+    # Etcd member accept incoming requests from its peers on a specific scheme://IP:port combination and the IP is host ip because we use hostnetwork:true.
+    peerPort: 23800
+    # clientPort for listening server port.
+    clientPort: 23790
+  mds:
+    port: 6700
+    dummyPort: 7700
+  storage:
+    # useSelectedNodes is to control whether to use individual nodes and their configured devices can be specified as well.
+    # This field is not implemented at present and is must set false here.
+    # You can refer following selectoedNodes setting commented if the function is completed later.
+    # But the func is not implemented yet.
+    useSelectedNodes: false
+    # The hosts specified to deployment chunkserver as storage resource.
+    # And you can configure the same nodes above configure that deploy etcd, mds and snapshotclone service.
+    nodes:
+    - curve-operator-node1
+    - curve-operator-node2
+    - curve-operator-node3
+    port: 8200
+    copySets: 100
+    # Make sure the devices configured are available on hosts above.
+    devices:
+    - name: /dev/vdc
+      mountPath: /data/chunkserver0
+      percentage: 80
+    # Not implement yet
+    #selectedNodes:
+    #- node: curve-operator-node1
+    #  - devices:
+    #    name: /dev/vdd
+    #    mountPath: /data/chunkserver1
+    #    percentage: 90
+    #  - devices:
+    #    name: /dev/vdf
+    #    mountPath: /data/chunkserver2
+    #    percentage: 80
+    #- node: curve-operator-node2
+    #  - devices:
+    #    name: 
+    #    mountPath: 
+    #    percentage: 
+  snapShotClone:
+    # set false if there is no S3 service available temporarily or don't need to use the snapshot clone service
+    # Make sure s3 service exist if enable is set true
+    enable: false
+    port: 5555
+    dummyPort: 8800
+    proxyPort: 8900
+    s3Config:
+      # Access Key for the S3 service. Uploading snapshots
+      ak: <>
+      # Access Key for the S3 service. Uploading snapshots
+      sk: <>
+      # S3 service address
+      nosAddress: <>
+      # S3 service bucket name to store snapshots
+      bucketName: <>
+```
 
-[CurveFS Stand-alone deployment](https://github.com/opencurve/curve-operator/blob/master/config/samples/fscluster-onehost.yaml)
+#### Deploy cluster
 
-[CurveFS three replicase deployment](https://github.com/opencurve/curve-operator/blob/master/config/samples/fscluster.yaml)
+The specific meaning of each configuration item is already in the comments above `cluster.yaml`, which can be modified according to the instructions. Then you can deploy it in cluster.
 
-Here we take the deployment of a three-node `CurveBS` cluster as an example. The yaml file is [cluster.yaml](https://github.com/opencurve/curve-operator/blob/master/config/samples/cluster.yaml) and you can learn more about how to modify this configuration file through the comments in it.
-
-Type the command to create the cluster：
+Create the cluster:
 
 ```shell
 $ kubectl apply -f config/samples/cluster.yaml
+
+// or you can deploy stand-alone cluster using `bscluster-onhost.yaml`
 ```
 
-list all pods in the `curve` namespace:
+using `kubectl` to list pods in the curve namespace. You should be able to see the following pods once they are all running. The chunkserver numbers of will depend on the number of nodes in the cluster and the the number of devices configured. 
 
 ```shell
 $ kubectl -n curve get pod
@@ -77,9 +167,7 @@ read-config-k272k                                             0/1     Completed 
 
 > Tips: The chunkserver pods may not start immediately, because the disk needs to be formatted in the background(`prepare-chunkfile` jobs), so it may take a while to see the chunkserver pod. The waiting time is determined according to the number and percentage of configured disks, and it may be a long time.
 
-### 3. Check cluster health
-
-To verify that the cluster is in healthy state, enter one `curve-chunkserver` pod and type `curve_ops_tools status` command to check.
+To verify that the cluster is in healthy state, enter one curve-chunkserver pod and `curve_ops_tools status` command to check.
 
 ```shell
 $ kubectl exec -it <any one chunkserver pod> -- bash
@@ -98,31 +186,35 @@ nebd-server: version-1.2.5+2c4861ca: 1
 ...
 ```
 
-The cluster deployment completed and successfully if you see `cluster is healthy` prompt.
+The cluster is deploymented completed and successfully if you see `cluster is healthy` prompt.
 
-## Curve CSI
+### 3. Use Curve CSI
 
-Create a PVC that to use curvebs as pod storage.
+After installing the operator and curve cluster, you can create a PVC that to use curvebs as pod storage.
 
-you can deploy and get more details from [curve-csi](https://github.com/opencurve/curve-csi) project that dock `curvebs` cluster or [curvefs-csi](https://github.com/opencurve/curvefs-csi) project that dock `curvefs` cluster.
+Refer to the documentation [deploy curve-csi](https://ask.opencurve.io/t/topic/89) to deploy curve-csi and use curve as backend storage of pod.
 
-## Remove
+More details can see `curve-csi` project at [curve-csi github](https://github.com/opencurve/curve-csi).
 
-Remove curve cluster deployed already and clean up data on host.
+## Uninstall curve cluster
 
-### 1.Delete the cluster cr
+You can uninstall curve cluster deployed and clean up data on host.
+
+### 1. Delete the `Curvecluster` CR:
 
 ```shell
 $ kubectl -n curve delete curvecluster my-cluster
 ```
 
-Verify the cluster CR has been deleted before continuing to the next step.
+Verify that the cluster CR has been deleted before continuing to the next step.
 
 ```shell
 $ kubectl -n curve get curvecluster
 ```
 
-### 2.Delete the Operator and related Resources
+### 2. Delete the Operator and related Resources
+
+This will begin the process of the curve-operator and all other resources being cleaned up.
 
 ```shell
 $ kubectl delete -f config/deploy/
@@ -130,7 +222,7 @@ $ kubectl delete -f config/deploy/
 
 ### 3. Delete data and log on host
 
-The final cleanup step requires deleting files on each host in the cluster. All files under the `hostDataDir` property specified in the cluster CRD will need to be deleted. Otherwise, inconsistent state will remain when a new cluster is started.
+The final cleanup setp requires deleting files on each host in the cluster. All files under the `hostDataDir` property specified in the cluster CRD will need to be deleted. Otherwise, inconsistent state will remain when a new cluster is started.
 
 Connect to each machine and delete `/curvebs`, or the path specified by the `dataDirHostPath` and `logDirHostPath`.
 
@@ -138,18 +230,4 @@ Connect to each machine and delete `/curvebs`, or the path specified by the `dat
 $ rm -rf /curvebs
 ```
 
-## Contributing
-
-We welcome help in any form, including but not limited to improving documentation, asking questions, fixing bugs, and adding features. 
-
-## Meeting
-
-We have an online community meeting every two weeks which talk about what `Curve` is doing and planning to do. You can view meeting minutes and agenda here [Double Week Meetings](https://github.com/opencurve/curve-meetup-slides/tree/main/2023/Double%20Week%20Meetings).
-
-## License
-
-You are required to comply with the [CNCF](https://www.cncf.io/) Code of Conduct while participating in this project. 
-
-## Contact
-
-If you encounter any problems during use, please submit an [Issue](https://github.com/opencurve/curve-operator/issues) for feedback. You can also scan [the WeChat QR code](https://github.com/opencurve/curve-operator/tree/master/docs/images/curve-wechat.jpeg) to join the technical exchange group.
+In the future this setp will not neccssary that we can delete it by running job on cluster if `cleanUpConfirm` is set.
