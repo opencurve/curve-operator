@@ -28,7 +28,7 @@ test: generate fmt vet manifests
 
 # Build curve-operator binary
 curve-operator: generate fmt vet
-	go build -o bin/curve-operator main.go
+	go build -o bin/curve-operator cmd/main.go
 
 # Run against the configured Kubernetes cluster in ~/.kube/config
 run: generate fmt vet

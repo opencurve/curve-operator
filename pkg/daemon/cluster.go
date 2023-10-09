@@ -30,6 +30,8 @@ type Cluster struct {
 	DataDirHostPath string
 	LogDirHostPath  string
 	ConfDirHostPath string
+
+	EnableReport bool
 }
 
 func (c *Cluster) GetUUID() string { return c.UUID }

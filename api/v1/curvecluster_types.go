@@ -139,6 +139,9 @@ type CurveClusterSpec struct {
 
 	// +optional
 	Monitor MonitorSpec `json:"monitor,omitempty"`
+
+	// +optional
+	EnableReport bool `json:"enableReport,omitempty"`
 }
 
 // CurveClusterStatus defines the observed state of CurveCluster

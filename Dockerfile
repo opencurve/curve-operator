@@ -10,13 +10,13 @@ COPY go.sum go.sum
 # RUN go mod download
 
 # Copy the go source
-COPY main.go main.go
+COPY cmd/ cmd/
 COPY api/ api/
 COPY pkg/ pkg/
 COPY vendor/ vendor/
 
 # Build
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 GO111MODULE=on go build -a -mod vendor -o curve-operator main.go
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 GO111MODULE=on go build -a -mod vendor -o curve-operator cmd/main.go
 
 ## 
 # Use debian-9 as base image to package the curve-operator binary
@@ -41,7 +41,7 @@ RUN echo "deb http://mirrors.aliyun.com/ubuntu/ focal main restricted" > /etc/ap
 
 # Install utility tools
 RUN apt-get update -y && \
-    apt-get install -y coreutils dnsutils iputils-ping iproute2 telnet curl vim less wget graphviz unzip tcpdump gdb && \
+    apt-get install -y coreutils dnsutils iputils-ping iproute2 telnet curl vim less wget graphviz unzip tcpdump gdb udev gdisk && \
     apt-get clean
 
 # Install Go
