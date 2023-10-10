@@ -201,7 +201,7 @@ type EtcdSpec struct {
 	ClientPort int `json:"clientPort,omitempty"`
 
 	// +optional
-	Config map[string]string `json:"config,omitempty"`
+	Config map[string]int `json:"config,omitempty"`
 }
 
 // MdsSpec is the spec of mds

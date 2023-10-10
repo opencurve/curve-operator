@@ -31,6 +31,13 @@ spec:
     peerPort: 23800
     # clientPort for listening server port.
     clientPort: 23790
+    config:
+      snapshot-count: "10000"
+      heartbeat-interval: "80"
+      election-timeout: "1000"
+      quota-backend-bytes: "0"
+      max-snapshots: "5"
+      max-wals: "5"
   mds:
     port: 6700
     dummyPort: 7700

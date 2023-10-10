@@ -7,14 +7,20 @@ var _ config.ConfigInterface = &etcdConfig{}
 
 // etcdConfig for a single etcd
 type etcdConfig struct {
-	Prefix                 string
-	ServiceRole            string
-	ServiceHostSequence    string
-	ServiceReplicaSequence string
-	ServiceAddr            string
-	ServicePort            string
-	ServiceClientPort      string
-	ClusterEtcdHttpAddr    string
+	Prefix                   string
+	ServiceRole              string
+	ServiceHostSequence      string
+	ServiceReplicaSequence   string
+	ServiceAddr              string
+	ServicePort              string
+	ServiceClientPort        string
+	ServiceSnapshotCount     string
+	ServiceHeartbeatInterval string
+	ServiceElectionTimeout   string
+	ServiceQuotaBackendBytes string
+	ServiceMaxSnapshots      string
+	ServiceMaxWals           string
+	ClusterEtcdHttpAddr      string
 
 	ResourceName         string
 	CurrentConfigMapName string
