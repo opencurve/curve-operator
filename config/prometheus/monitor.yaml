@@ -6,7 +6,7 @@ metadata:
   labels:
     control-plane: curve-operator
   name: curve-operator-metrics-monitor
-  namespace: curvebs
+  namespace: curve
 spec:
   endpoints:
     - path: /metrics

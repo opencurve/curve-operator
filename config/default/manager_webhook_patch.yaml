@@ -2,7 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: curve-operator
-  namespace: curvebs
+  namespace: curve
 spec:
   template:
     spec:

@@ -24,70 +24,48 @@ import (
 type CurvefsSpec struct {
 	// +optional
 	CurveVersion CurveVersionSpec `json:"curveVersion,omitempty"`
-
 	// +optional
 	Nodes []string `json:"nodes,omitempty"`
-
 	// +optional
-	HostDataDir string `json:"hostDataDir,omitempty"`
-
+	DataDir string `json:"dataDir,omitempty"`
 	// +optional
-	Etcd EtcdSpec `json:"etcd,omitempty"`
-
+	LogDir string `json:"logDir,omitempty"`
 	// +optional
-	Mds MdsSpec `json:"mds,omitempty"`
-
+	Copysets *int `json:"copysets,omitempty"`
 	// +optional
-	MetaServer MetaServerSpec `json:"metaserver,omitempty"`
-
+	Etcd *EtcdSpec `json:"etcd,omitempty"`
 	// +optional
-	SnapShotClone SnapShotCloneSpec `json:"snapShotClone,omitempty"`
-
+	Mds *MdsSpec `json:"mds,omitempty"`
 	// +optional
-	Monitor MonitorSpec `json:"monitor,omitempty"`
-
-	// Indicates user intent when deleting a cluster; blocks orchestration and should not be set if cluster
-	// deletion is not imminent.
-	// +optional
-	// +nullable
-	CleanupConfirm string `json:"cleanupConfirm,omitempty"`
-}
-
-// MdsSpec is the spec of mds
-type MetaServerSpec struct {
-	// +optional
-	Port int `json:"port,omitempty"`
-
-	// +optional
-	ExternalPort int `json:"externalPort,omitempty"`
-
-	// +optional
-	CopySets int `json:"copySets,omitempty"`
-
-	// +optional
-	Config map[string]string `json:"config,omitempty"`
+	MetaServer *MetaServerSpec `json:"metaserver,omitempty"`
 }
 
 // CurvefsStatus defines the observed state of Curvefs
 type CurvefsStatus struct {
 	// Phase is a summary of cluster state.
 	// It can be translated from the last conditiontype
-	Phase ConditionType `json:"phase,omitempty"`
-
+	// ClusterPending: The cluster has been accepted by system, but in the process
+	// ClusterRunning: The cluster is healthy and is running process
+	// ClusterDeleting: The cluster is in deleting process
+	// ClusterUnknown: The cluster state is unknown
+	Phase ClusterPhase `json:"phase,omitempty"`
 	// Condition contains current service state of cluster such as progressing/Ready/Failure...
 	Conditions []ClusterCondition `json:"conditions,omitempty"`
-
 	// Message shows summary message of cluster from ClusterState
 	// such as 'Curve Cluster Created successfully'
 	Message string `json:"message,omitempty"`
-
-	// CurveVersion shows curve version info on status field
-	CurveVersion ClusterVersion `json:"curveVersion,omitempty"`
+	// CurveVersion shows curve version info on status field that judge iff upgrade
+	CurveVersion CurveVersionSpec `json:"curveVersion,omitempty"`
+	// LastModContextSet means that need to modify operatrion context
+	LastModContextSet LastModContextSet `json:"lastModContextSet,omitempty"`
+	// DataDir and LogDir is to compare and update
+	StorageDir StorageStatusDir `json:"storageStatusDir,omitempty"`
 }
 
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
-// +kubebuilder:printcolumn:name="HostDataDir",JSONPath=".spec.hostDataDir",type=string
+// +kubebuilder:printcolumn:name="DataDir",JSONPath=".spec.dataDir",type=string
+// +kubebuilder:printcolumn:name="LogDir",JSONPath=".spec.logDir",type=string
 // +kubebuilder:printcolumn:name="Version",JSONPath=".spec.curveVersion.image",type=string
 // +kubebuilder:printcolumn:name="Phase",JSONPath=".status.phase",type=string
 

@@ -14,8 +14,8 @@ else
 GOBIN=$(shell go env GOBIN)
 endif
 
-# 1. make generator : generate hack/boilerplate.go.txt
-# 2. make manfifests: generator crd/base and manager and rbac resources to manifests yaml
+# 1. make generator : generate DeepCopy, DeepCopyInto and DeepCopyObject
+# 2. make manfifests: generator crd and rbac and webhook resources to manifests yaml
 # 3. make install: install crd into cluster
 # 4. make deploy: deploy all resource of manifests.yaml into cluster.
 # 5. make run: generate fmt vet manifests then go run ./main.go
@@ -27,11 +27,11 @@ test: generate fmt vet manifests
 	go test ./... -coverprofile cover.out -v
 
 # Build curve-operator binary
-curve-operator: generate fmt vet
+curve-operator: manifests fmt vet
 	go build -o bin/curve-operator main.go
 
 # Run against the configured Kubernetes cluster in ~/.kube/config
-run: generate fmt vet
+run: curve-operator
 	go run ./main.go
 
 # Install CRDs into a cluster

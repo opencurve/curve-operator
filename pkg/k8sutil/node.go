@@ -12,72 +12,38 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/validation"
 	"k8s.io/client-go/kubernetes"
-
-	curvev1 "github.com/opencurve/curve-operator/api/v1"
-	"github.com/opencurve/curve-operator/pkg/clusterd"
 )
 
 var logger = capnslog.NewPackageLogger("github.com/opencurve/curve-operator", "k8sutil")
 
-type NodesToDeploy struct {
-	NodeName string
-	NodeIP   string
-}
-
-// GetNodeInfoMap get node ip by node name that user specified and return a mapping of nodeName:nodeIP
-func GetNodeInfoMap(nodes []string, clientset kubernetes.Interface) ([]NodesToDeploy, error) {
-	nodeNameIP := []NodesToDeploy{}
-	for _, nodeName := range nodes {
-		n, err := clientset.CoreV1().Nodes().Get(nodeName, metav1.GetOptions{})
-		if err != nil {
-			return nil, errors.Wrapf(err, "failed to find node %s from cluster", nodeName)
-		}
-
-		for _, address := range n.Status.Addresses {
-			if address.Type == "InternalIP" {
-				nodeNameIP = append(nodeNameIP, NodesToDeploy{
-					NodeName: nodeName,
-					NodeIP:   address.Address,
-				})
-			}
-		}
-	}
-
-	if len(nodeNameIP) == 1 {
-		for i := 0; i < 2; i++ {
-			nodeNameIP = append(nodeNameIP, nodeNameIP[0])
-		}
-	}
-
-	logger.Infof("using %v to deploy cluster", nodeNameIP)
-
-	return nodeNameIP, nil
-}
-
-// GetNodeHostNames returns the name of the node resource mapped to their hostname label.
-// Typically these will be the same name, but sometimes they are not such as when nodes have a longer
-// dns name, but the hostname is short.
-func GetNodeHostNames(clientset kubernetes.Interface) (map[string]string, error) {
-	nodes, err := clientset.CoreV1().Nodes().List(metav1.ListOptions{})
+func GetNodeIpByName(nodeName string, clientset kubernetes.Interface) (string, error) {
+	n, err := clientset.CoreV1().Nodes().Get(nodeName, metav1.GetOptions{})
 	if err != nil {
-		return nil, err
+		return "", errors.Wrapf(err, "failed to find %s's ip by node name", nodeName)
 	}
 
-	nodeMap := map[string]string{}
-	for _, node := range nodes.Items {
-		nodeMap[node.Name] = node.Labels[v1.LabelHostname]
+	var addr string
+	for _, address := range n.Status.Addresses {
+		if address.Type == "InternalIP" {
+			addr = address.Address
+			return addr, nil
+		}
 	}
-	return nodeMap, nil
+
+	if len(addr) == 0 {
+		return "", errors.Errorf("failed to get host ip of %s by node name", nodeName)
+	}
+
+	return "", nil
 }
 
 // GetValidNodes returns all nodes that are ready and is schedulable
-func GetValidNodes(c clusterd.Context, storageNodes []string) ([]v1.Node, error) {
-	nodes := []v1.Node{}
-	for _, curveNode := range storageNodes {
-		n, err := c.Clientset.CoreV1().Nodes().Get(curveNode, metav1.GetOptions{})
+func GetValidNodes(clientset kubernetes.Interface, nodes []string) ([]v1.Node, error) {
+	validNodes := []v1.Node{}
+	for _, node := range nodes {
+		n, err := clientset.CoreV1().Nodes().Get(node, metav1.GetOptions{})
 		if err != nil {
-			logger.Errorf("failed to get node %v info", curveNode)
-			return nil, errors.Wrap(err, "failed to get node info by node name")
+			return nil, err
 		}
 
 		// not scheduled
@@ -88,57 +54,12 @@ func GetValidNodes(c clusterd.Context, storageNodes []string) ([]v1.Node, error)
 		// ready status
 		for _, c := range n.Status.Conditions {
 			if c.Type == v1.NodeReady && c.Status == v1.ConditionTrue {
-				nodes = append(nodes, *n)
+				validNodes = append(validNodes, *n)
 			}
 		}
 	}
 
-	return nodes, nil
-}
-
-func GetValidDaemonHosts(c clusterd.Context, cluster *curvev1.CurveCluster) ([]v1.Node, error) {
-	daemonHosts := cluster.Spec.Nodes
-	validDaemonHosts, err := GetValidNodes(c, daemonHosts)
-	return validDaemonHosts, err
-}
-
-func GetValidFSDaemonHosts(c clusterd.Context, cluster *curvev1.Curvefs) ([]v1.Node, error) {
-	daemonHosts := cluster.Spec.Nodes
-	validDaemonHosts, err := GetValidNodes(c, daemonHosts)
-	return validDaemonHosts, err
-}
-
-func GetValidChunkserverHosts(c clusterd.Context, curveCluster *curvev1.CurveCluster) ([]v1.Node, error) {
-	if !curveCluster.Spec.Storage.UseSelectedNodes {
-		chunkserverHosts := curveCluster.Spec.Storage.Nodes
-		validNodes, err := GetValidNodes(c, chunkserverHosts)
-		return validNodes, err
-	}
-	// useSelectedNodes == true
-	var chunkserverHosts []string
-
-	for _, s := range curveCluster.Spec.Storage.SelectedNodes {
-		chunkserverHosts = append(chunkserverHosts, s.Node)
-	}
-	valiedChunkHosts, err := GetValidNodes(c, chunkserverHosts)
-
-	return valiedChunkHosts, err
-}
-
-func MergeNodesOfDaemonAndChunk(daemonHosts []v1.Node, chunkserverHosts []v1.Node) []v1.Node {
-	var nodes []v1.Node
-	nodes = append(nodes, daemonHosts...)
-	nodes = append(nodes, chunkserverHosts...)
-
-	var retNodes []v1.Node
-	tmpMap := make(map[string]struct{}, len(nodes))
-	for _, n := range nodes {
-		if _, ok := tmpMap[n.Name]; !ok {
-			tmpMap[n.Name] = struct{}{}
-			retNodes = append(retNodes, n)
-		}
-	}
-	return retNodes
+	return validNodes, nil
 }
 
 // TruncateNodeNameForJob hashes the nodeName in case it would case the name to be longer than 63 characters
@@ -164,7 +85,6 @@ func Hash(s string) string {
 func truncateNodeName(format, nodeName string, maxLength int) string {
 	if len(nodeName)+len(fmt.Sprintf(format, "")) > maxLength {
 		hashed := Hash(nodeName)
-		logger.Infof("format and nodeName longer than %d chars, nodeName %s will be %s", maxLength, nodeName, hashed)
 		nodeName = hashed
 	}
 	return fmt.Sprintf(format, nodeName)

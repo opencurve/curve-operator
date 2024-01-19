@@ -14,8 +14,11 @@ metadata:
   name: curveclusters.operator.curve.io
 spec:
   additionalPrinterColumns:
-  - JSONPath: .spec.hostDataDir
-    name: HostDataDir
+  - JSONPath: .spec.dataDir
+    name: DataDir
+    type: string
+  - JSONPath: .spec.logDir
+    name: LogDir
     type: string
   - JSONPath: .spec.curveVersion.image
     name: Version
@@ -51,27 +54,29 @@ spec:
         spec:
           description: CurveClusterSpec defines the desired state of CurveCluster
           properties:
-            cleanupConfirm:
-              description: Indicates user intent when deleting a cluster; blocks orchestration
-                and should not be set if cluster deletion is not imminent.
-              nullable: true
-              type: string
+            chunkserver:
+              description: StorageScopeSpec is the spec of storage scope
+              properties:
+                config:
+                  additionalProperties:
+                    type: string
+                  type: object
+                instances:
+                  type: integer
+                port:
+                  type: integer
+              type: object
+            copysets:
+              type: integer
             curveVersion:
               description: CurveVersionSpec represents the settings for the Curve
                 version
               properties:
                 image:
                   type: string
-                imagePullPolicy:
-                  description: PullPolicy describes a policy for if/when to pull a
-                    container image
-                  enum:
-                  - IfNotPresent
-                  - Always
-                  - Never
-                  - ""
-                  type: string
               type: object
+            dataDir:
+              type: string
             etcd:
               description: EtcdSpec is the spec of etcd
               properties:
@@ -84,7 +89,7 @@ spec:
                 peerPort:
                   type: integer
               type: object
-            hostDataDir:
+            logDir:
               type: string
             mds:
               description: MdsSpec is the spec of mds
@@ -98,53 +103,17 @@ spec:
                 port:
                   type: integer
               type: object
-            monitor:
-              properties:
-                enable:
-                  type: boolean
-                grafana:
-                  properties:
-                    containerImage:
-                      type: string
-                    dataDir:
-                      type: string
-                    listenPort:
-                      type: integer
-                    passWord:
-                      type: string
-                    userName:
-                      type: string
-                  type: object
-                monitorHost:
-                  type: string
-                nodeExporter:
-                  properties:
-                    containerImage:
-                      type: string
-                    listenPort:
-                      type: integer
-                  type: object
-                prometheus:
-                  properties:
-                    containerImage:
-                      type: string
-                    dataDir:
-                      type: string
-                    listenPort:
-                      type: integer
-                    retentionSize:
-                      type: string
-                    retentionTime:
-                      type: string
-                  type: object
-              type: object
             nodes:
               items:
                 type: string
               type: array
-            snapShotClone:
+            snapshotclone:
               description: SnapShotCloneSpec is the spec of snapshot clone
               properties:
+                config:
+                  additionalProperties:
+                    type: string
+                  type: object
                 dummyPort:
                   type: integer
                 enable:
@@ -153,7 +122,7 @@ spec:
                   type: integer
                 proxyPort:
                   type: integer
-                s3Config:
+                s3:
                   description: S3ConfigSpec is the spec of s3 config
                   properties:
                     ak:
@@ -165,52 +134,6 @@ spec:
                     sk:
                       type: string
                   type: object
-              type: object
-            storage:
-              description: StorageScopeSpec is the spec of storage scope
-              properties:
-                copySets:
-                  type: integer
-                devices:
-                  items:
-                    description: DevicesSpec represents a disk to use in the cluster
-                    properties:
-                      mountPath:
-                        type: string
-                      name:
-                        type: string
-                      percentage:
-                        type: integer
-                    type: object
-                  type: array
-                nodes:
-                  items:
-                    type: string
-                  type: array
-                port:
-                  type: integer
-                selectedNodes:
-                  items:
-                    properties:
-                      devices:
-                        items:
-                          description: DevicesSpec represents a disk to use in the
-                            cluster
-                          properties:
-                            mountPath:
-                              type: string
-                            name:
-                              type: string
-                            percentage:
-                              type: integer
-                          type: object
-                        type: array
-                      node:
-                        type: string
-                    type: object
-                  type: array
-                useSelectedNodes:
-                  type: boolean
               type: object
           type: object
         status:
@@ -230,10 +153,6 @@ spec:
                     description: Message is a human readable message indicating details
                       about last transition.
                     type: string
-                  observedGeneration:
-                    description: ObservedGeneration
-                    format: int64
-                    type: integer
                   reason:
                     description: Reason is a unique, one-word, CamelCase reason for
                       the condition's last transition.
@@ -284,8 +203,11 @@ metadata:
   name: curvefs.operator.curve.io
 spec:
   additionalPrinterColumns:
-  - JSONPath: .spec.hostDataDir
-    name: HostDataDir
+  - JSONPath: .spec.dataDir
+    name: DataDir
+    type: string
+  - JSONPath: .spec.logDir
+    name: LogDir
     type: string
   - JSONPath: .spec.curveVersion.image
     name: Version
@@ -321,27 +243,17 @@ spec:
         spec:
           description: CurvefsSpec defines the desired state of Curvefs
           properties:
-            cleanupConfirm:
-              description: Indicates user intent when deleting a cluster; blocks orchestration
-                and should not be set if cluster deletion is not imminent.
-              nullable: true
-              type: string
+            copysets:
+              type: integer
             curveVersion:
               description: CurveVersionSpec represents the settings for the Curve
                 version
               properties:
                 image:
                   type: string
-                imagePullPolicy:
-                  description: PullPolicy describes a policy for if/when to pull a
-                    container image
-                  enum:
-                  - IfNotPresent
-                  - Always
-                  - Never
-                  - ""
-                  type: string
               type: object
+            dataDir:
+              type: string
             etcd:
               description: EtcdSpec is the spec of etcd
               properties:
@@ -354,7 +266,7 @@ spec:
                 peerPort:
                   type: integer
               type: object
-            hostDataDir:
+            logDir:
               type: string
             mds:
               description: MdsSpec is the spec of mds
@@ -375,81 +287,17 @@ spec:
                   additionalProperties:
                     type: string
                   type: object
-                copySets:
-                  type: integer
                 externalPort:
+                  type: integer
+                instances:
                   type: integer
                 port:
                   type: integer
-              type: object
-            monitor:
-              properties:
-                enable:
-                  type: boolean
-                grafana:
-                  properties:
-                    containerImage:
-                      type: string
-                    dataDir:
-                      type: string
-                    listenPort:
-                      type: integer
-                    passWord:
-                      type: string
-                    userName:
-                      type: string
-                  type: object
-                monitorHost:
-                  type: string
-                nodeExporter:
-                  properties:
-                    containerImage:
-                      type: string
-                    listenPort:
-                      type: integer
-                  type: object
-                prometheus:
-                  properties:
-                    containerImage:
-                      type: string
-                    dataDir:
-                      type: string
-                    listenPort:
-                      type: integer
-                    retentionSize:
-                      type: string
-                    retentionTime:
-                      type: string
-                  type: object
               type: object
             nodes:
               items:
                 type: string
               type: array
-            snapShotClone:
-              description: SnapShotCloneSpec is the spec of snapshot clone
-              properties:
-                dummyPort:
-                  type: integer
-                enable:
-                  type: boolean
-                port:
-                  type: integer
-                proxyPort:
-                  type: integer
-                s3Config:
-                  description: S3ConfigSpec is the spec of s3 config
-                  properties:
-                    ak:
-                      type: string
-                    bucketName:
-                      type: string
-                    nosAddress:
-                      type: string
-                    sk:
-                      type: string
-                  type: object
-              type: object
           type: object
         status:
           description: CurvefsStatus defines the observed state of Curvefs
@@ -468,10 +316,6 @@ spec:
                     description: Message is a human readable message indicating details
                       about last transition.
                     type: string
-                  observedGeneration:
-                    description: ObservedGeneration
-                    format: int64
-                    type: integer
                   reason:
                     description: Reason is a unique, one-word, CamelCase reason for
                       the condition's last transition.
@@ -486,19 +330,51 @@ spec:
                 type: object
               type: array
             curveVersion:
-              description: CurveVersion shows curve version info on status field
+              description: CurveVersion shows curve version info on status field that
+                judge iff upgrade
               properties:
                 image:
                   type: string
+              type: object
+            lastModContextSet:
+              description: LastModContextSet means that need to modify operatrion
+                context
+              properties:
+                modContextSet:
+                  items:
+                    properties:
+                      parameters:
+                        additionalProperties:
+                          type: string
+                        description: Parameter represents the parameters of modification
+                        type: object
+                      role:
+                        description: Role represents the service role of modification
+                        type: string
+                    type: object
+                  type: array
               type: object
             message:
               description: Message shows summary message of cluster from ClusterState
                 such as 'Curve Cluster Created successfully'
               type: string
             phase:
-              description: Phase is a summary of cluster state. It can be translated
-                from the last conditiontype
+              description: 'Phase is a summary of cluster state. It can be translated
+                from the last conditiontype ClusterPending: The cluster has been accepted
+                by system, but in the process ClusterRunning: The cluster is healthy
+                and is running process ClusterDeleting: The cluster is in deleting
+                process ClusterUnknown: The cluster state is unknown'
               type: string
+            storageStatusDir:
+              description: DataDir and LogDir is to compare and update
+              properties:
+                dataDir:
+                  description: DataDir record the cluster data storage directory
+                  type: string
+                logDir:
+                  description: LogDir record the cluster log storage directory
+                  type: string
+              type: object
           type: object
       type: object
   version: v1
@@ -715,6 +591,18 @@ subjects:
   name: curve-operator
   namespace: curve
 ---
+apiVersion: v1
+kind: Service
+metadata:
+  name: webhook-service
+  namespace: curve
+spec:
+  ports:
+  - port: 443
+    targetPort: 9443
+  selector:
+    control-plane: curve-operator
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -736,6 +624,15 @@ spec:
         curve: operator
     spec:
       containers:
+      - name: manager
+        ports:
+        - containerPort: 9443
+          name: webhook-server
+          protocol: TCP
+        volumeMounts:
+        - mountPath: /tmp/k8s-webhook-server/serving-certs
+          name: cert
+          readOnly: true
       - args:
         - --enable-leader-election=true
         command:
@@ -751,3 +648,120 @@ spec:
             memory: 100Mi
       serviceAccountName: curve-operator
       terminationGracePeriodSeconds: 10
+      volumes:
+      - name: cert
+        secret:
+          defaultMode: 420
+          secretName: webhook-server-cert
+---
+apiVersion: cert-manager.io/v1alpha2
+kind: Certificate
+metadata:
+  name: serving-cert
+  namespace: curve
+spec:
+  dnsNames:
+  - webhook-service.curve.svc
+  - webhook-service.curve.svc.cluster.local
+  issuerRef:
+    kind: Issuer
+    name: selfsigned-issuer
+  secretName: webhook-server-cert
+---
+apiVersion: cert-manager.io/v1alpha2
+kind: Issuer
+metadata:
+  name: selfsigned-issuer
+  namespace: curve
+spec:
+  selfSigned: {}
+---
+apiVersion: admissionregistration.k8s.io/v1beta1
+kind: MutatingWebhookConfiguration
+metadata:
+  annotations:
+    cert-manager.io/inject-ca-from: curve/serving-cert
+  name: mutating-webhook-configuration
+webhooks:
+- clientConfig:
+    caBundle: Cg==
+    service:
+      name: webhook-service
+      namespace: curve
+      path: /mutate-operator-curve-io-v1-curvecluster
+  failurePolicy: Fail
+  name: mcurvecluster.kb.io
+  rules:
+  - apiGroups:
+    - operator.curve.io
+    apiVersions:
+    - v1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - curveclusters
+- clientConfig:
+    caBundle: Cg==
+    service:
+      name: webhook-service
+      namespace: curve
+      path: /mutate-operator-curve-io-v1-curvefs
+  failurePolicy: Fail
+  name: mcurvefs.kb.io
+  rules:
+  - apiGroups:
+    - operator.curve.io
+    apiVersions:
+    - v1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - curvefs
+---
+apiVersion: admissionregistration.k8s.io/v1beta1
+kind: ValidatingWebhookConfiguration
+metadata:
+  annotations:
+    cert-manager.io/inject-ca-from: curve/serving-cert
+  name: validating-webhook-configuration
+webhooks:
+- clientConfig:
+    caBundle: Cg==
+    service:
+      name: webhook-service
+      namespace: curve
+      path: /validate-operator-curve-io-v1-curvecluster
+  failurePolicy: Fail
+  name: vcurvecluster.kb.io
+  rules:
+  - apiGroups:
+    - operator.curve.io
+    apiVersions:
+    - v1
+    operations:
+    - CREATE
+    - UPDATE
+    - DELETE
+    resources:
+    - curveclusters
+- clientConfig:
+    caBundle: Cg==
+    service:
+      name: webhook-service
+      namespace: curve
+      path: /validate-operator-curve-io-v1-curvefs
+  failurePolicy: Fail
+  name: vcurvefs.kb.io
+  rules:
+  - apiGroups:
+    - operator.curve.io
+    apiVersions:
+    - v1
+    operations:
+    - CREATE
+    - UPDATE
+    - DELETE
+    resources:
+    - curvefs

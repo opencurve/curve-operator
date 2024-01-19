@@ -3,7 +3,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: webhook-service
-  namespace: curvebs
+  namespace: curve
 spec:
   ports:
     - port: 443

@@ -4,64 +4,39 @@ import (
 	"context"
 	"time"
 
-	"github.com/pkg/errors"
-	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/client-go/util/retry"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	curvev1 "github.com/opencurve/curve-operator/api/v1"
 	"github.com/opencurve/curve-operator/pkg/clusterd"
-	"github.com/opencurve/curve-operator/pkg/config"
 )
 
-func UpdateStatusCondition(kind string, ctx context.Context, c *clusterd.Context, namespaceName types.NamespacedName, conditionType curvev1.ConditionType, status curvev1.ConditionStatus, reason curvev1.ConditionReason, message string) error {
-	if kind == config.KIND_CURVEBS {
-		err := UpdateCondition(ctx, c, namespaceName, conditionType, status, reason, message)
-		if err != nil {
-			return err
-		}
-	} else {
-		err := UpdateFSCondition(ctx, c, namespaceName, conditionType, status, reason, message)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-// UpdateCondition function will export each condition into the BS cluster custom resource
-func UpdateCondition(ctx context.Context, c *clusterd.Context, namespaceName types.NamespacedName, conditionType curvev1.ConditionType, status curvev1.ConditionStatus, reason curvev1.ConditionReason, message string) error {
-	return retry.RetryOnConflict(retry.DefaultBackoff, func() (err error) {
+// UpdateCondition function will export each condition into the cluster custom resource
+func UpdateCondition(ctx context.Context, client client.Client, kind string, namespacedName types.NamespacedName, phase curvev1.ClusterPhase, condition curvev1.ClusterCondition) {
+	// use client.Client unit test this more easily with updating statuses which must use the client
+	switch kind {
+	case clusterd.KIND_CURVEBS:
 		cluster := &curvev1.CurveCluster{}
-		if err := c.Client.Get(ctx, namespaceName, cluster); err != nil {
-			logger.Errorf("failed to get cluster %v to update the conditions. %v", namespaceName, err)
-			return err
+		if err := client.Get(ctx, namespacedName, cluster); err != nil {
+			logger.Errorf("failed to get cluster %v to update the conditions. %v", namespacedName, err)
+			return
 		}
-
-		return UpdateClusterCondition(c, cluster, namespaceName, conditionType, status, reason, message, false)
-	})
-}
-
-// UpdateFSCondition function will export each condition into the FS cluster custom resource
-func UpdateFSCondition(ctx context.Context, c *clusterd.Context, namespaceName types.NamespacedName, conditionType curvev1.ConditionType, status curvev1.ConditionStatus, reason curvev1.ConditionReason, message string) error {
-	return retry.RetryOnConflict(retry.DefaultBackoff, func() (err error) {
+		UpdateBsClusterCondition(client, cluster, phase, condition)
+	case clusterd.KIND_CURVEFS:
 		cluster := &curvev1.Curvefs{}
-		if err := c.Client.Get(ctx, namespaceName, cluster); err != nil {
-			logger.Errorf("failed to get cluster %v to update the conditions. %v", namespaceName, err)
-			return err
+		if err := client.Get(ctx, namespacedName, cluster); err != nil {
+			logger.Errorf("failed to get cluster %v to update the conditions. %v", namespacedName, err)
+			return
 		}
-
-		return UpdateFSClusterCondition(c, cluster, namespaceName, conditionType, status, reason, message, false)
-	})
+		UpdateFsClusterCondition(client, cluster, phase, condition)
+	default:
+		logger.Errorf("Unknown cluster kind %q", kind)
+	}
 }
 
-// UpdateFSClusterCondition function will export each condition into the cluster custom resource
-func UpdateFSClusterCondition(c *clusterd.Context, cluster *curvev1.Curvefs, namespaceName types.NamespacedName, conditionType curvev1.ConditionType, status curvev1.ConditionStatus,
-	reason curvev1.ConditionReason, message string, preserveAllConditions bool) error {
-
+// UpdateFsClusterCondition function will export each condition into the cluster custom resource
+func UpdateFsClusterCondition(client client.Client, cluster *curvev1.Curvefs, phase curvev1.ClusterPhase, newCondition curvev1.ClusterCondition) {
 	// Keep the conditions that already existed if they are in the list of long-term conditions,
 	// otherwise discard the temporary conditions
 	var currentCondition *curvev1.ClusterCondition
@@ -69,64 +44,52 @@ func UpdateFSClusterCondition(c *clusterd.Context, cluster *curvev1.Curvefs, nam
 	for _, condition := range cluster.Status.Conditions {
 		// Only keep conditions in the list if it's a persisted condition such as the cluster creation being completed.
 		// The transient conditions are not persisted. However, if the currently requested condition is not expected to
-		// reset the transient conditions, they are retained. For example, if the operator is checking for curve health
+		// reset the transient conditions, they are retained. For example, if the operator is checking for ceph health
 		// in the middle of the reconcile, the progress condition should not be reset by the status check update.
-		if preserveAllConditions ||
-			condition.Type == curvev1.ConditionTypeEtcdReady ||
-			condition.Type == curvev1.ConditionTypeMdsReady ||
-			condition.Type == curvev1.ConditionTypeMetaServerReady ||
-			condition.Type == curvev1.ConditionTypeSnapShotCloneReady {
-			if conditionType != condition.Type {
-				conditions = append(conditions, condition)
+		if condition.Type == curvev1.ConditionClusterReady {
+			if newCondition.Type != condition.Type {
+				conditions = append(conditions, newCondition)
 				continue
 			}
-
 			// Update the existing condition with the new status
 			currentCondition = condition.DeepCopy()
-			if currentCondition.Status != status || currentCondition.Message != message {
+			if currentCondition.Status != newCondition.Status || currentCondition.Message != newCondition.Message {
 				// Update the last transition time since the status changed
 				currentCondition.LastTransitionTime = metav1.NewTime(time.Now())
 			}
-			currentCondition.Status = status
-			currentCondition.Reason = reason
-			currentCondition.Message = message
+			currentCondition.Status = newCondition.Status
+			currentCondition.Reason = newCondition.Reason
+			currentCondition.Message = newCondition.Message
 		}
 	}
-
-	// Create a new condition since not found in the existing conditions
 	if currentCondition == nil {
+		// Create a new condition since not found in the existing conditions
 		currentCondition = &curvev1.ClusterCondition{
-			Type:               conditionType,
-			Status:             status,
-			Reason:             reason,
-			Message:            message,
+			Type:               newCondition.Type,
+			Status:             newCondition.Status,
+			Reason:             newCondition.Reason,
+			Message:            newCondition.Message,
 			LastTransitionTime: metav1.NewTime(time.Now()),
 		}
 	}
-
 	conditions = append(conditions, *currentCondition)
 	cluster.Status.Conditions = conditions
 
 	// Once the cluster begins deleting, the phase should not revert back to any other phase
-	if cluster.Status.Phase != curvev1.ClusterPhaseDeleting {
-		cluster.Status.Phase = translateConditionType2Phase(conditionType)
+	if string(cluster.Status.Phase) != string(curvev1.ConditionDeleting) {
+		cluster.Status.Phase = phase
 		cluster.Status.Message = currentCondition.Message
-		cluster.Status.CurveVersion.Image = cluster.Spec.CurveVersion.Image
-		logger.Debugf("CurveCluster %q status: %q. %q", namespaceName.Namespace, cluster.Status.Phase, cluster.Status.Message)
+		logger.Debugf("CurveFsCluster %q status: %q. %q", cluster.GetName(), cluster.Status.Phase, cluster.Status.Message)
 	}
 
-	if err := UpdateStatus(c.Client, namespaceName, cluster); err != nil {
+	if err := client.Status().Update(context.TODO(), cluster); err != nil {
 		logger.Errorf("failed to update cluster condition to %+v. %v", *currentCondition, err)
-		return err
-	}
 
-	return nil
+	}
 }
 
-// UpdateClusterCondition function will export each condition into the cluster custom resource
-func UpdateClusterCondition(c *clusterd.Context, cluster *curvev1.CurveCluster, namespaceName types.NamespacedName, conditionType curvev1.ConditionType, status curvev1.ConditionStatus,
-	reason curvev1.ConditionReason, message string, preserveAllConditions bool) error {
-
+// UpdateBsClusterCondition function will export each condition into the cluster custom resource
+func UpdateBsClusterCondition(client client.Client, cluster *curvev1.CurveCluster, phase curvev1.ClusterPhase, newCondition curvev1.ClusterCondition) {
 	// Keep the conditions that already existed if they are in the list of long-term conditions,
 	// otherwise discard the temporary conditions
 	var currentCondition *curvev1.ClusterCondition
@@ -134,89 +97,46 @@ func UpdateClusterCondition(c *clusterd.Context, cluster *curvev1.CurveCluster, 
 	for _, condition := range cluster.Status.Conditions {
 		// Only keep conditions in the list if it's a persisted condition such as the cluster creation being completed.
 		// The transient conditions are not persisted. However, if the currently requested condition is not expected to
-		// reset the transient conditions, they are retained. For example, if the operator is checking for curve health
+		// reset the transient conditions, they are retained. For example, if the operator is checking for ceph health
 		// in the middle of the reconcile, the progress condition should not be reset by the status check update.
-		if preserveAllConditions ||
-			condition.Type == curvev1.ConditionTypeEtcdReady ||
-			condition.Type == curvev1.ConditionTypeMdsReady ||
-			condition.Type == curvev1.ConditionTypeFormatedReady ||
-			condition.Type == curvev1.ConditionTypeChunkServerReady ||
-			condition.Type == curvev1.ConditionTypeSnapShotCloneReady {
-			if conditionType != condition.Type {
-				conditions = append(conditions, condition)
+		if condition.Type == curvev1.ConditionClusterReady {
+			if newCondition.Type != condition.Type {
+				conditions = append(conditions, newCondition)
 				continue
 			}
-
 			// Update the existing condition with the new status
 			currentCondition = condition.DeepCopy()
-			if currentCondition.Status != status || currentCondition.Message != message {
+			if currentCondition.Status != newCondition.Status || currentCondition.Message != newCondition.Message {
 				// Update the last transition time since the status changed
 				currentCondition.LastTransitionTime = metav1.NewTime(time.Now())
 			}
-			currentCondition.Status = status
-			currentCondition.Reason = reason
-			currentCondition.Message = message
+			currentCondition.Status = newCondition.Status
+			currentCondition.Reason = newCondition.Reason
+			currentCondition.Message = newCondition.Message
 		}
 	}
-
-	// Create a new condition since not found in the existing conditions
 	if currentCondition == nil {
+		// Create a new condition since not found in the existing conditions
 		currentCondition = &curvev1.ClusterCondition{
-			Type:               conditionType,
-			Status:             status,
-			Reason:             reason,
-			Message:            message,
+			Type:               newCondition.Type,
+			Status:             newCondition.Status,
+			Reason:             newCondition.Reason,
+			Message:            newCondition.Message,
 			LastTransitionTime: metav1.NewTime(time.Now()),
 		}
 	}
-
 	conditions = append(conditions, *currentCondition)
 	cluster.Status.Conditions = conditions
 
 	// Once the cluster begins deleting, the phase should not revert back to any other phase
-	if cluster.Status.Phase != curvev1.ClusterPhaseDeleting {
-		cluster.Status.Phase = translateConditionType2Phase(conditionType)
+	if string(cluster.Status.Phase) != string(curvev1.ConditionDeleting) {
+		cluster.Status.Phase = phase
 		cluster.Status.Message = currentCondition.Message
-		cluster.Status.CurveVersion.Image = cluster.Spec.CurveVersion.Image
-		logger.Debugf("CurveCluster %q status: %q. %q", namespaceName.Namespace, cluster.Status.Phase, cluster.Status.Message)
+		logger.Debugf("CurveBsCluster %q status: %q. %q", cluster.GetName(), cluster.Status.Phase, cluster.Status.Message)
 	}
 
-	if err := UpdateStatus(c.Client, namespaceName, cluster); err != nil {
+	if err := client.Status().Update(context.TODO(), cluster); err != nil {
 		logger.Errorf("failed to update cluster condition to %+v. %v", *currentCondition, err)
-		return err
-	}
-	return nil
-}
 
-func translateConditionType2Phase(conditionType curvev1.ConditionType) curvev1.ConditionType {
-	if conditionType == curvev1.ConditionTypeEtcdReady ||
-		conditionType == curvev1.ConditionTypeMdsReady ||
-		conditionType == curvev1.ConditionTypeFormatedReady ||
-		conditionType == curvev1.ConditionTypeChunkServerReady ||
-		conditionType == curvev1.ConditionTypeSnapShotCloneReady {
-		return curvev1.ClusterPhasePending
 	}
-	return conditionType
-}
-
-// UpdateStatus updates an object with a given status. The object is updated with the latest version
-// from the server on a successful update.
-func UpdateStatus(client client.Client, namespaceName types.NamespacedName, obj runtime.Object) error {
-	nsName := types.NamespacedName{
-		Namespace: namespaceName.Namespace,
-		Name:      namespaceName.Name,
-	}
-
-	// Try to update the status
-	err := client.Status().Update(context.Background(), obj)
-	// If the object doesn't exist yet, we need to initialize it
-	if kerrors.IsNotFound(err) {
-		err = client.Update(context.Background(), obj)
-	}
-
-	if err != nil {
-		return errors.Wrapf(err, "failed to update object %q status", nsName.String())
-	}
-
-	return nil
 }
