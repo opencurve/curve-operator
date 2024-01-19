@@ -4,7 +4,7 @@ metadata:
   labels:
     control-plane: curve-operator
   name: curve-operator-metrics-service
-  namespace: curvebs
+  namespace: curve
 spec:
   ports:
   - name: https

@@ -12,7 +12,7 @@ func GetPodsByLabelSelector(clientset kubernetes.Interface, namespace string, se
 		LabelSelector: selector,
 	})
 	if err != nil {
-		return &v1.PodList{}, errors.Wrap(err, "failed to list pods by LabelSelector")
+		return &v1.PodList{}, errors.Wrapf(err, "failed to list pods by LabelSelector %s", selector)
 	}
 	return pods, nil
 }

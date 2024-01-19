@@ -9,8 +9,11 @@ metadata:
   name: curveclusters.operator.curve.io
 spec:
   additionalPrinterColumns:
-  - JSONPath: .spec.hostDataDir
-    name: HostDataDir
+  - JSONPath: .spec.dataDir
+    name: DataDir
+    type: string
+  - JSONPath: .spec.logDir
+    name: LogDir
     type: string
   - JSONPath: .spec.curveVersion.image
     name: Version
@@ -46,27 +49,29 @@ spec:
         spec:
           description: CurveClusterSpec defines the desired state of CurveCluster
           properties:
-            cleanupConfirm:
-              description: Indicates user intent when deleting a cluster; blocks orchestration
-                and should not be set if cluster deletion is not imminent.
-              nullable: true
-              type: string
+            chunkserver:
+              description: StorageScopeSpec is the spec of storage scope
+              properties:
+                config:
+                  additionalProperties:
+                    type: string
+                  type: object
+                instances:
+                  type: integer
+                port:
+                  type: integer
+              type: object
+            copysets:
+              type: integer
             curveVersion:
               description: CurveVersionSpec represents the settings for the Curve
                 version
               properties:
                 image:
                   type: string
-                imagePullPolicy:
-                  description: PullPolicy describes a policy for if/when to pull a
-                    container image
-                  enum:
-                  - IfNotPresent
-                  - Always
-                  - Never
-                  - ""
-                  type: string
               type: object
+            dataDir:
+              type: string
             etcd:
               description: EtcdSpec is the spec of etcd
               properties:
@@ -79,7 +84,7 @@ spec:
                 peerPort:
                   type: integer
               type: object
-            hostDataDir:
+            logDir:
               type: string
             mds:
               description: MdsSpec is the spec of mds
@@ -93,53 +98,17 @@ spec:
                 port:
                   type: integer
               type: object
-            monitor:
-              properties:
-                enable:
-                  type: boolean
-                grafana:
-                  properties:
-                    containerImage:
-                      type: string
-                    dataDir:
-                      type: string
-                    listenPort:
-                      type: integer
-                    passWord:
-                      type: string
-                    userName:
-                      type: string
-                  type: object
-                monitorHost:
-                  type: string
-                nodeExporter:
-                  properties:
-                    containerImage:
-                      type: string
-                    listenPort:
-                      type: integer
-                  type: object
-                prometheus:
-                  properties:
-                    containerImage:
-                      type: string
-                    dataDir:
-                      type: string
-                    listenPort:
-                      type: integer
-                    retentionSize:
-                      type: string
-                    retentionTime:
-                      type: string
-                  type: object
-              type: object
             nodes:
               items:
                 type: string
               type: array
-            snapShotClone:
+            snapshotclone:
               description: SnapShotCloneSpec is the spec of snapshot clone
               properties:
+                config:
+                  additionalProperties:
+                    type: string
+                  type: object
                 dummyPort:
                   type: integer
                 enable:
@@ -148,7 +117,7 @@ spec:
                   type: integer
                 proxyPort:
                   type: integer
-                s3Config:
+                s3:
                   description: S3ConfigSpec is the spec of s3 config
                   properties:
                     ak:
@@ -160,52 +129,6 @@ spec:
                     sk:
                       type: string
                   type: object
-              type: object
-            storage:
-              description: StorageScopeSpec is the spec of storage scope
-              properties:
-                copySets:
-                  type: integer
-                devices:
-                  items:
-                    description: DevicesSpec represents a disk to use in the cluster
-                    properties:
-                      mountPath:
-                        type: string
-                      name:
-                        type: string
-                      percentage:
-                        type: integer
-                    type: object
-                  type: array
-                nodes:
-                  items:
-                    type: string
-                  type: array
-                port:
-                  type: integer
-                selectedNodes:
-                  items:
-                    properties:
-                      devices:
-                        items:
-                          description: DevicesSpec represents a disk to use in the
-                            cluster
-                          properties:
-                            mountPath:
-                              type: string
-                            name:
-                              type: string
-                            percentage:
-                              type: integer
-                          type: object
-                        type: array
-                      node:
-                        type: string
-                    type: object
-                  type: array
-                useSelectedNodes:
-                  type: boolean
               type: object
           type: object
         status:
@@ -225,10 +148,6 @@ spec:
                     description: Message is a human readable message indicating details
                       about last transition.
                     type: string
-                  observedGeneration:
-                    description: ObservedGeneration
-                    format: int64
-                    type: integer
                   reason:
                     description: Reason is a unique, one-word, CamelCase reason for
                       the condition's last transition.

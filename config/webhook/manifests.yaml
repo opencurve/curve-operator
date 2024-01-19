@@ -1,0 +1,90 @@
+
+---
+apiVersion: admissionregistration.k8s.io/v1beta1
+kind: MutatingWebhookConfiguration
+metadata:
+  creationTimestamp: null
+  name: mutating-webhook-configuration
+webhooks:
+- clientConfig:
+    caBundle: Cg==
+    service:
+      name: webhook-service
+      namespace: system
+      path: /mutate-operator-curve-io-v1-curvecluster
+  failurePolicy: Fail
+  name: mcurvecluster.kb.io
+  rules:
+  - apiGroups:
+    - operator.curve.io
+    apiVersions:
+    - v1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - curveclusters
+- clientConfig:
+    caBundle: Cg==
+    service:
+      name: webhook-service
+      namespace: system
+      path: /mutate-operator-curve-io-v1-curvefs
+  failurePolicy: Fail
+  name: mcurvefs.kb.io
+  rules:
+  - apiGroups:
+    - operator.curve.io
+    apiVersions:
+    - v1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - curvefs
+
+---
+apiVersion: admissionregistration.k8s.io/v1beta1
+kind: ValidatingWebhookConfiguration
+metadata:
+  creationTimestamp: null
+  name: validating-webhook-configuration
+webhooks:
+- clientConfig:
+    caBundle: Cg==
+    service:
+      name: webhook-service
+      namespace: system
+      path: /validate-operator-curve-io-v1-curvecluster
+  failurePolicy: Fail
+  name: vcurvecluster.kb.io
+  rules:
+  - apiGroups:
+    - operator.curve.io
+    apiVersions:
+    - v1
+    operations:
+    - CREATE
+    - UPDATE
+    - DELETE
+    resources:
+    - curveclusters
+- clientConfig:
+    caBundle: Cg==
+    service:
+      name: webhook-service
+      namespace: system
+      path: /validate-operator-curve-io-v1-curvefs
+  failurePolicy: Fail
+  name: vcurvefs.kb.io
+  rules:
+  - apiGroups:
+    - operator.curve.io
+    apiVersions:
+    - v1
+    operations:
+    - CREATE
+    - UPDATE
+    - DELETE
+    resources:
+    - curvefs

@@ -67,9 +67,8 @@ func main() {
 
 	cmd := &cobra.Command{
 		Use: "curve-operator",
-		// TODO: Rewrite this long message.
 		Long: `The Curve-Operator is a daemon to deploy Curve and auto it on kubernetes. 
-		It support for Curve storage to natively integrate with cloud-native environments.`,
+		It supports Curve storage to natively integrate with cloud-native environments.`,
 		Run: func(cmd *cobra.Command, args []string) {
 			setupLog.Error(opts.Run(), "failed to run curve-operator")
 			os.Exit(1)
@@ -90,14 +89,8 @@ func (opts *CurveOptions) Run() error {
 	config := ctrl.GetConfigOrDie()
 	clientSet, err := kubernetes.NewForConfig(config)
 	if err != nil {
-		setupLog.Error(err, "create clientset failed")
+		setupLog.Error(err, "failed to create clientset")
 		os.Exit(1)
-	}
-
-	// Create clusterd context
-	context := clusterd.Context{
-		KubeConfig: config,
-		Clientset:  clientSet,
 	}
 
 	mgr, err := ctrl.NewManager(config, ctrl.Options{
@@ -110,6 +103,12 @@ func (opts *CurveOptions) Run() error {
 	if err != nil {
 		setupLog.Error(err, "unable to start manager")
 		os.Exit(1)
+	}
+
+	context := clusterd.Context{
+		KubeConfig: config,
+		Clientset:  clientSet,
+		Client:     mgr.GetClient(),
 	}
 
 	if err = (controllers.NewCurveClusterReconciler(
@@ -128,6 +127,14 @@ func (opts *CurveOptions) Run() error {
 		context,
 	)).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "CurvefsCluster")
+		os.Exit(1)
+	}
+	if err = (&operatorv1.CurveCluster{}).SetupWebhookWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create webhook", "webhook", "CurveCluster")
+		os.Exit(1)
+	}
+	if err = (&operatorv1.Curvefs{}).SetupWebhookWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create webhook", "webhook", "Curvefs")
 		os.Exit(1)
 	}
 	// +kubebuilder:scaffold:builder
