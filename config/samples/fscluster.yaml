@@ -14,9 +14,9 @@ spec:
   # - node2 -> etcd-b, mds-b, metaserver-b
   # - node3 -> etcd-c, mds-c, metaserver-c
   nodes:
-  - curve-operator-node1
-  - curve-operator-node2
-  - curve-operator-node3
+  - curve-worker
+  - curve-worker2
+  - curve-worker3
   # DataDirHostPath and LogDirHostPath where data files and log files will be persisted on host machine. Must be specified.
   # If you reinstall the cluster, make surce that you delete this directory from each host.
   dataDir: /curvefs
